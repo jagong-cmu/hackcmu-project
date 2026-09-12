@@ -7,7 +7,9 @@
     "server"
   ],
   "scripts": {
-    "dev": "echo \"Lane A: wire Vite + server. See TECHNICAL_PRD.md\""
+    "dev": "echo \"Lane A: wire Vite + server. See TECHNICAL_PRD.md\"",
+    "dev:lane-b": "npm run dev -w @karaoke/server & npm run dev -w @karaoke/web & wait",
+    "songs": "node apps/web/scripts/build-demo-tracks.mjs"
   },
   "engines": {
     "node": ">=22"
