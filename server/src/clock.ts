@@ -93,15 +93,17 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-const RankedDemoSongId = "viva-la-vida";
-const RankedDemoDurationSec = 30;
+const RankedDemoSongId = "beauty-and-a-beat";
+/** First lyric "Show you off" is at 15.81s; start 5s earlier so the drop is in the clip. */
+const RankedDemoStartSec = 10.81;
+const RankedDemoDurationSec = 25;
 
-/** Ranked: 30s of Viva La Vida for the demo. Duet: the whole track. */
+/** Ranked: 25s Beauty And A Beat from 5s before the first lyric. Duet: the whole track. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   if (kind === "duet") {
     return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
   }
-  return { startSec: 0, durationSec: RankedDemoDurationSec };
+  return { startSec: RankedDemoStartSec, durationSec: RankedDemoDurationSec };
 }
 
 function useTestSong(): boolean {
@@ -129,13 +131,13 @@ function resolvedMeta(song: SongMeta): SongMeta {
   return metaFromDisk(song.id) ?? song;
 }
 
-/** Ranked always plays a 30s Viva La Vida clip so a demo can finish. Duet/Chaos stay random. */
+/** Ranked always plays the Beauty And A Beat demo clip. Duet/Chaos stay random. */
 function pickSong(kind: "ranked" | "full" = "full"): SongMeta {
   const pool = songPool();
   if (pool.length === 0) return TEST_SONG;
   if (kind === "ranked") {
-    const viva = SONGS.find((s) => s.id === RankedDemoSongId);
-    if (viva) return resolvedMeta(viva);
+    const demo = SONGS.find((s) => s.id === RankedDemoSongId);
+    if (demo) return resolvedMeta(demo);
   }
   const song = pool[Math.floor(Math.random() * pool.length)];
   if (!song) return TEST_SONG;
