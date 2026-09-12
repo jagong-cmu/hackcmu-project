@@ -54,11 +54,18 @@ import { enrichScore, registerLaneBRoutes } from "./judge.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
 const PORT = Number(process.env.PORT ?? 8080);
-const WEB_DIST = path.resolve(here, "../../apps/web/dist");
+const ON_VERCEL = Boolean(process.env.VERCEL);
+const WEB_DIST = [
+  path.resolve(process.cwd(), "apps/web/dist"),
+  path.resolve(here, "../../apps/web/dist"),
+].find((dir) => existsSync(dir)) ?? path.resolve(here, "../../apps/web/dist");
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: true } });
+const io = new Server(httpServer, {
+  cors: { origin: true },
+  transports: ["websocket"],
+});
 
 app.use(cors());
 app.use(express.json({ limit: "256kb" }));
@@ -370,9 +377,8 @@ io.on("connection", (socket) => {
 
 ensurePermanentRooms();
 
-httpServer.listen(PORT, () => {
+function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
-  console.log(`[lane-a] http+socket.io on :${PORT}`);
   console.log(`[lane-a] livekit: ${lk}`);
   console.log(`[lane-a] demo room ${DemoRoomCode} and lounge ${PublicChaosCode} are live`);
   if (process.env.USE_TEST_SONG === "1") {
@@ -381,4 +387,16 @@ httpServer.listen(PORT, () => {
   if (!existsSync(WEB_DIST)) {
     console.log("[lane-a] no client build yet; run `npm run dev` and use Vite on :5173");
   }
-});
+}
+
+if (!ON_VERCEL) {
+  httpServer.listen(PORT, () => {
+    console.log(`[lane-a] http+socket.io on :${PORT}`);
+    logBoot();
+  });
+} else {
+  console.log("[lane-a] vercel function ready");
+  logBoot();
+}
+
+export default httpServer;

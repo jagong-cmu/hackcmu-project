@@ -8,3 +8,5 @@ server/dist/
 .gstack/
 *.wav
 .vscode/
+.vercel
+.vercel/.env*.local

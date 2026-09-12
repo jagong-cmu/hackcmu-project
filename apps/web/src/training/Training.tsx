@@ -2,11 +2,21 @@ import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { MelodyFile, ScoreCard, SongMeta } from "@karaoke/shared";
+import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { ResultsModal } from "../results/ResultsModal.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
+import {
+  cancelSpeaker,
+  createSpeakerCanceller,
+  ensurePlaybackTap,
+  isMusicOnly,
+  PITCH_FFT,
+} from "../scoring/cancelPlayback.ts";
+import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
+import { rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 
 export function Training() {
@@ -21,6 +31,7 @@ export function Training() {
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
   const [liveClarity, setLiveClarity] = useState(0);
+  const [liveRms, setLiveRms] = useState(0);
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -34,12 +45,21 @@ export function Training() {
   const endRef = useRef<(() => void) | null>(null);
   const previewRafRef = useRef<number>(0);
 
+  const crepeRef = useRef<LayersModel | null>(null);
+
   useEffect(() => {
     void loadCatalog().then((list) => {
       setSongs(list);
       const first = list.find((s) => s.ready);
       if (first) setSongId(first.id);
     });
+    void preloadCrepe()
+      .then((model) => {
+        crepeRef.current = model;
+      })
+      .catch(() => {
+        crepeRef.current = null;
+      });
   }, []);
 
   useEffect(() => {
@@ -109,12 +129,20 @@ export function Training() {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
         video: true,
       });
     } catch {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+        });
         setCamDenied(true);
       } catch {
         setStatus("Mic blocked. Chrome needs a mic for Training.");
@@ -127,38 +155,83 @@ export function Training() {
       await videoRef.current.play().catch(() => undefined);
     }
 
-    const ctx = new AudioContext();
-    const src = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    src.connect(analyser);
-    const buf = new Float32Array(analyser.fftSize);
-    const detector = PitchDetector.forFloat32Array(analyser.fftSize);
-
     const audio = audioRef.current;
     if (!audio) return;
     audio.src = audioUrl;
+    audio.volume = 0.8;
+    // Training plays the whole track, not just the ranked clip.
     audio.currentTime = 0;
+
+    const tap = ensurePlaybackTap(audio);
+    const ctx = tap?.ctx ?? new AudioContext();
+    await ctx.resume();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = PITCH_FFT;
+    analyser.smoothingTimeConstant = 0;
+    src.connect(analyser);
+    const buf = new Float32Array(PITCH_FFT);
+    const refBuf = new Float32Array(PITCH_FFT);
+    const clean = new Float32Array(PITCH_FFT);
+    const detector = PitchDetector.forFloat32Array(PITCH_FFT);
+    const canceller = createSpeakerCanceller();
+
     await audio.play();
 
     setRunning(true);
-    setStatus("Sing the gold line. Stop whenever — you'll still be scored.");
+    setStatus(
+      crepeRef.current
+        ? "CREPE is listening — sing the gold line. Stop whenever; you'll still be scored."
+        : "Sing the gold line. Stop whenever — you'll still be scored.",
+    );
+
+    let crepeSkip = 0;
+    let lastCrepe = { hz: null as number | null, confidence: 0 };
 
     const tick = () => {
       const t = audio.currentTime;
       setPlayhead(t);
       analyser.getFloatTimeDomainData(buf);
-      const [hz, clarity] = detector.findPitch(buf, ctx.sampleRate);
-      const voiced = clarity >= 0.6 && hz >= 70 && hz <= 1200;
-      framesRef.current.push({
-        timeSec: t,
-        hz: voiced ? hz : null,
-        clarity,
-      });
-      setLiveHz(voiced ? hz : null);
-      setLiveClarity(clarity);
+      if (tap) {
+        tap.analyser.getFloatTimeDomainData(refBuf);
+        cancelSpeaker(buf, refBuf, canceller, clean);
+      } else {
+        clean.set(buf);
+        refBuf.fill(0);
+      }
+      const musicOnly = isMusicOnly(buf, clean, refBuf);
+      const rms = rmsOf(clean);
+      if (musicOnly) {
+        framesRef.current.push({ timeSec: t, hz: null, clarity: 0 });
+        setLiveHz(null);
+        setLiveClarity(0);
+        setLiveRms(0);
+      } else {
+        const [yinHz, yinClarity] = detector.findPitch(clean, ctx.sampleRate);
+        const model = crepeRef.current;
+        if (model && crepeSkip++ % 2 === 0) {
+          try {
+            lastCrepe = crepeFromBuffer(model, clean, ctx.sampleRate);
+          } catch {
+            /* keep last CREPE frame */
+          }
+        }
+        const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
+        const hz = useCrepe ? lastCrepe.hz : yinHz;
+        const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
+        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.02;
+        framesRef.current.push({
+          timeSec: t,
+          hz: forScore ? hz : null,
+          clarity,
+        });
+        setLiveHz(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null);
+        setLiveClarity(clarity);
+        setLiveRms(rms);
+      }
       if (audio.ended) {
-        void finish(stream, ctx);
+        src.disconnect();
+        void finish(stream);
         return;
       }
       rafRef.current = requestAnimationFrame(tick);
@@ -168,24 +241,26 @@ export function Training() {
       cancelAnimationFrame(rafRef.current);
       audio.pause();
       stream.getTracks().forEach((tr) => tr.stop());
-      void ctx.close();
+      src.disconnect();
       setRunning(false);
       stopRef.current = null;
       endRef.current = null;
     };
     stopRef.current = stop;
     // Stopping a full song early should still score what was sung.
-    endRef.current = () => void finish(stream, ctx);
+    endRef.current = () => {
+      src.disconnect();
+      void finish(stream);
+    };
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  async function finish(stream: MediaStream, ctx: AudioContext) {
+  async function finish(stream: MediaStream) {
     stopRef.current = null;
     endRef.current = null;
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     stream.getTracks().forEach((tr) => tr.stop());
-    void ctx.close();
     setRunning(false);
     if (!meta || !melody) return;
 
@@ -260,7 +335,13 @@ export function Training() {
       {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
-      <PitchMeter melody={melody} playheadSec={playhead} liveHz={liveHz} liveClarity={liveClarity} />
+      <PitchMeter
+        melody={melody}
+        playheadSec={playhead}
+        liveHz={liveHz}
+        liveClarity={liveClarity}
+        liveRms={liveRms}
+      />
       <LyricsOverlay lrc={lrc} currentTime={playhead} />
 
       <div className="stage-self">

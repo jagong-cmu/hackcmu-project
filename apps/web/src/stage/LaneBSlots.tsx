@@ -2,11 +2,21 @@ import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MelodyFile } from "@karaoke/shared";
+import type { LayersModel } from "@tensorflow/tfjs";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { ResultsModal } from "../results/ResultsModal.tsx";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
+import {
+  cancelSpeaker,
+  createSpeakerCanceller,
+  ensurePlaybackTap,
+  isMusicOnly,
+  PITCH_FFT,
+} from "../scoring/cancelPlayback.ts";
+import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
+import { rmsOf } from "../scoring/pitchGuide.ts";
 import { postTurnScore } from "../scoring/postScore.ts";
 import { getClientId, getDisplayName } from "../home/identity.ts";
 import { useStage } from "./StageContext.tsx";
@@ -60,10 +70,22 @@ export function StagePitch() {
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
   const [liveClarity, setLiveClarity] = useState(0);
+  const [liveRms, setLiveRms] = useState(0);
   const lrcRef = useRef("");
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
   const postedRef = useRef(false);
+  const crepeRef = useRef<LayersModel | null>(null);
+
+  useEffect(() => {
+    void preloadCrepe()
+      .then((model) => {
+        crepeRef.current = model;
+      })
+      .catch(() => {
+        crepeRef.current = null;
+      });
+  }, []);
 
   useEffect(() => {
     const id = room?.songId;
@@ -81,31 +103,73 @@ export function StagePitch() {
 
   useEffect(() => {
     if (!micStream) return;
-    const ctx = new AudioContext();
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.8;
+    const tap = ensurePlaybackTap(audio);
+    const ctx = tap?.ctx ?? new AudioContext();
+    void ctx.resume();
     const src = ctx.createMediaStreamSource(micStream);
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = PITCH_FFT;
+    analyser.smoothingTimeConstant = 0;
     src.connect(analyser);
-    const buf = new Float32Array(analyser.fftSize);
-    const detector = PitchDetector.forFloat32Array(analyser.fftSize);
+    const buf = new Float32Array(PITCH_FFT);
+    const refBuf = new Float32Array(PITCH_FFT);
+    const clean = new Float32Array(PITCH_FFT);
+    const detector = PitchDetector.forFloat32Array(PITCH_FFT);
+    const canceller = createSpeakerCanceller();
     let raf = 0;
+    let crepeSkip = 0;
+    let lastCrepe = { hz: null as number | null, confidence: 0 };
     const tick = () => {
-      const t = audioRef.current?.currentTime ?? 0;
+      const t = audio.currentTime;
       setPlayhead(t);
       analyser.getFloatTimeDomainData(buf);
-      const [hz, clarity] = detector.findPitch(buf, ctx.sampleRate);
-      const voiced = clarity >= 0.6 && hz >= 70 && hz <= 1200;
-      if (singingRef.current) {
-        framesRef.current.push({ timeSec: t, hz: voiced ? hz : null, clarity });
+      if (tap) {
+        tap.analyser.getFloatTimeDomainData(refBuf);
+        cancelSpeaker(buf, refBuf, canceller, clean);
+      } else {
+        clean.set(buf);
+        refBuf.fill(0);
       }
-      setLiveHz(voiced ? hz : null);
-      setLiveClarity(clarity);
+      const musicOnly = isMusicOnly(buf, clean, refBuf);
+      const rms = rmsOf(clean);
+      if (musicOnly) {
+        if (singingRef.current) {
+          framesRef.current.push({ timeSec: t, hz: null, clarity: 0 });
+        }
+        setLiveHz(null);
+        setLiveClarity(0);
+        setLiveRms(0);
+      } else {
+        const [yinHz, yinClarity] = detector.findPitch(clean, ctx.sampleRate);
+        const model = crepeRef.current;
+        if (model && crepeSkip++ % 2 === 0) {
+          try {
+            lastCrepe = crepeFromBuffer(model, clean, ctx.sampleRate);
+          } catch {
+            /* keep last CREPE frame */
+          }
+        }
+        const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
+        const hz = useCrepe ? lastCrepe.hz : yinHz;
+        const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
+        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.02;
+        if (singingRef.current) {
+          framesRef.current.push({ timeSec: t, hz: forScore ? hz : null, clarity });
+        }
+        setLiveHz(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null);
+        setLiveClarity(clarity);
+        setLiveRms(rms);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
-      void ctx.close();
+      src.disconnect();
+      if (!tap) void ctx.close();
     };
   }, [micStream, audioRef]);
 
@@ -138,7 +202,13 @@ export function StagePitch() {
   }, [room, melody, clockPlay, myPlayerId]);
 
   return (
-    <PitchMeter melody={melody} playheadSec={playhead} liveHz={liveHz} liveClarity={liveClarity} />
+    <PitchMeter
+      melody={melody}
+      playheadSec={playhead}
+      liveHz={liveHz}
+      liveClarity={liveClarity}
+      liveRms={liveRms}
+    />
   );
 }
 
