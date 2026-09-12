@@ -171,13 +171,13 @@ export default function Stage() {
           {livekit.status === "error" && !livekit.unconfigured && (
             <p className="err">camera/mic: {livekit.error}</p>
           )}
-          {(blocked || (isChaos && clockPlay && !playing)) && (
+          {(blocked || livekit.audioBlocked || (isChaos && clockPlay && !playing)) && (
             <p className="warn">
               <button type="button" className="primary" onClick={() => {
                 unlock();
                 void livekit.startAudio();
               }}>
-                Tap to hear the track
+                {livekit.audioBlocked ? "Tap to hear your opponent" : "Tap to hear the track"}
               </button>
             </p>
           )}
@@ -260,7 +260,7 @@ export default function Stage() {
         )}
 
         <TurnOverlay room={room} myPlayerId={me?.id ?? null} clockPlay={clockPlay} />
-        <audio ref={audioRef} preload="auto" />
+        <audio ref={audioRef} className="instrumental" preload="auto" />
       </div>
     </StageContext.Provider>
   );

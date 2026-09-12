@@ -65,7 +65,9 @@ export function scoreContour(
     clarities.push(f.clarity);
   }
 
-  const silence = errors.length < 8 || (melodyVoiced > 0 && errors.length / melodyVoiced < 0.12);
+  // ~5 pitched frames is a real take. The old 12% coverage gate marked short
+  // or pitchy-sparse singing as silence ("We couldn't hear you.").
+  const silence = errors.length < 5 || (melodyVoiced > 0 && errors.length / melodyVoiced < 0.04);
   if (silence) {
     return {
       overall: 0,

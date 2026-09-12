@@ -11,18 +11,13 @@ import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
-import {
-  cancelSpeaker,
-  createSpeakerCanceller,
-  ensurePlaybackTap,
-  isMusicOnly,
-  PITCH_FFT,
-} from "../scoring/cancelPlayback.ts";
+import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { postTurnScore } from "../scoring/postScore.ts";
 import { getClientId, getDisplayName } from "../home/identity.ts";
+import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
 import { useStage } from "./StageContext.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import type { RoomState } from "@karaoke/shared";
@@ -225,19 +220,21 @@ export function StagePitch() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.volume = 0.8;
-    const tap = ensurePlaybackTap(audio);
-    const ctx = tap?.ctx ?? new AudioContext();
-    void ctx.resume();
-    const src = ctx.createMediaStreamSource(micStream);
+    const raw = micStream.getAudioTracks()[0];
+    if (!raw) return;
+    // Clone so WebRTC encoding cannot starve the pitch analyser.
+    const clone = raw.clone();
+    const dspStream = new MediaStream([clone]);
+    const ctx = sharedAudioContext();
+    void unlockSharedAudio();
+    const src = ctx.createMediaStreamSource(dspStream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = PITCH_FFT;
     analyser.smoothingTimeConstant = 0;
     src.connect(analyser);
     const buf = new Float32Array(PITCH_FFT);
-    const refBuf = new Float32Array(PITCH_FFT);
-    const clean = new Float32Array(PITCH_FFT);
+    const silentRef = new Float32Array(PITCH_FFT);
     const detector = PitchDetector.forFloat32Array(PITCH_FFT);
-    const canceller = createSpeakerCanceller();
     let raf = 0;
     let crepeSkip = 0;
     let lastCrepe = { hz: null as number | null, confidence: 0 };
@@ -253,15 +250,10 @@ export function StagePitch() {
     const tick = () => {
       const t = audio.currentTime;
       analyser.getFloatTimeDomainData(buf);
-      if (tap) {
-        tap.analyser.getFloatTimeDomainData(refBuf);
-        cancelSpeaker(buf, refBuf, canceller, clean);
-      } else {
-        clean.set(buf);
-        refBuf.fill(0);
-      }
-      const musicOnly = isMusicOnly(buf, clean, refBuf);
-      const rms = rmsOf(clean);
+      // LiveKit already runs AEC. A second speaker-cancel pass was eating
+      // vocals and posting "We couldn't hear you."
+      const musicOnly = isMusicOnly(buf, buf, silentRef);
+      const rms = rmsOf(buf);
       const tracking = scoringRef.current || singingRef.current;
       if (!tracking) {
         raf = requestAnimationFrame(tick);
@@ -273,11 +265,11 @@ export function StagePitch() {
         }
         if (meterRef.current) publish(null, 0, 0);
       } else {
-        const [yinHz, yinClarity] = detector.findPitch(clean, ctx.sampleRate);
+        const [yinHz, yinClarity] = detector.findPitch(buf, ctx.sampleRate);
         const model = crepeRef.current;
         if (model && crepeSkip++ % 2 === 0) {
           try {
-            lastCrepe = crepeFromBuffer(model, clean, ctx.sampleRate);
+            lastCrepe = crepeFromBuffer(model, buf, ctx.sampleRate);
           } catch {
             /* keep last CREPE frame */
           }
@@ -285,7 +277,7 @@ export function StagePitch() {
         const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
         const hz = useCrepe ? lastCrepe.hz : yinHz;
         const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
-        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.02;
+        const forScore = clarity >= 0.4 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.008;
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: forScore ? hz : null, clarity });
         }
@@ -299,7 +291,7 @@ export function StagePitch() {
     return () => {
       cancelAnimationFrame(raf);
       src.disconnect();
-      if (!tap) void ctx.close();
+      clone.stop();
     };
   }, [micStream, audioRef]);
 

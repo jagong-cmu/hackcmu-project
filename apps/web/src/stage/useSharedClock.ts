@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MaxDriftSec } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
+import { unlockSharedAudio } from "../media/audioContext.ts";
 
 /** Hand off from setTimeout to a rAF spin this long before the downbeat. */
 const SPIN_LEAD_MS = 80;
@@ -31,6 +32,7 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
 
   /** Prime the element on a real user gesture so later timed plays are allowed. */
   const unlock = useCallback(() => {
+    void unlockSharedAudio();
     const audio = audioRef.current;
     if (!audio) return;
     audio.muted = false;
