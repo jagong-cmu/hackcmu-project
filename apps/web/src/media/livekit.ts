@@ -53,10 +53,18 @@ export async function connectToStage(
   const { token, wsUrl } = await fetchToken(code, identity, displayName);
 
   const room = new Room({
+    // This capture is what the DSP pitch-tracks (StageContext.micStream), not
+    // just what gets published, so it is opened raw like Training's.
+    // autoGainControl moves the levels the RMS gates key off, and
+    // echoCancellation is tuned for speech: it attenuates a sustained sung
+    // note it mistakes for returning far-end audio.
+    //
+    // The trade is real. With AEC off, anyone on SPEAKERS re-broadcasts the
+    // backing track and the other singers to the room. Headphones are assumed.
     audioCaptureDefaults: {
-      echoCancellation: true,
+      echoCancellation: false,
       noiseSuppression: false,
-      autoGainControl: true,
+      autoGainControl: false,
       voiceIsolation: false,
     },
     publishDefaults: {

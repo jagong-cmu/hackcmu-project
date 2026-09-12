@@ -216,7 +216,8 @@ export function Training() {
         const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
         const hz = useCrepe ? lastCrepe.hz : yinHz;
         const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
-        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.012;
+        // Same gates the stage uses, so a take does not score differently here.
+        const forScore = clarity >= 0.4 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.008;
         framesRef.current.push({
           timeSec: t,
           hz: forScore ? hz : null,
