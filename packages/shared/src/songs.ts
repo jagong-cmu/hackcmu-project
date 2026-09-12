@@ -50,11 +50,10 @@ export const SONGS: SongMeta[] = [
     id: "from-the-start",
     title: "From The Start",
     artist: "Laufey",
-    // First lyric is at 4.6s, so the usual 5s lead would land before the file
-    // starts. Opens from the top instead.
-    clipStartSec: 0,
-    clipDurationSec: 15,
-    duetClipStartSec: 0,
+    // "That when I talk to you" through "from the start".
+    clipStartSec: 51.2,
+    clipDurationSec: 26.4,
+    duetClipStartSec: 51.2,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -62,9 +61,10 @@ export const SONGS: SongMeta[] = [
     id: "beauty-and-a-beat",
     title: "Beauty And A Beat",
     artist: "Justin Bieber",
-    clipStartSec: 10.8,
-    clipDurationSec: 15,
-    duetClipStartSec: 10.8,
+    // "'Cause all I need" through "Baby, do it like you do".
+    clipStartSec: 45.2,
+    clipDurationSec: 30.4,
+    duetClipStartSec: 45.2,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },

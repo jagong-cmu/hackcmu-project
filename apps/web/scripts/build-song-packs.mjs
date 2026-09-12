@@ -152,22 +152,34 @@ for (const p of PACKS) {
     });
   });
 
-  fs.writeFileSync(
-    path.join(dir, "melody.json"),
-    JSON.stringify({ sampleRateHz: MELODY_SR, startSec: 0, hz }),
-  );
+  // The authored phrases are a placeholder for a song that has no real melody
+  // yet. Once rebuild-melodies.mjs has extracted one from the isolated vocal,
+  // overwriting it here would silently throw that away -- this script gets
+  // re-run whenever lyric timing is retuned.
+  const melodyPath = path.join(dir, "melody.json");
+  const hadMelody = fs.existsSync(melodyPath);
+  if (!hadMelody) {
+    fs.writeFileSync(melodyPath, JSON.stringify({ sampleRateHz: MELODY_SR, startSec: 0, hz }));
+  }
   fs.writeFileSync(
     path.join(dir, "lyrics.lrc"),
     shifted.map((l) => `${lrcStamp(l.t)}${l.text}`).join("\n") + "\n",
   );
+  // Clip windows are hand-set per song (first chorus line -> last chorus line
+  // plus a hold), so they are kept if they already exist. The lyric-derived
+  // default below is only a starting point for a brand-new song.
+  const metaPath = path.join(dir, "meta.json");
+  const prevMeta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, "utf8")) : null;
   fs.writeFileSync(
-    path.join(dir, "meta.json"),
+    metaPath,
     JSON.stringify(
       {
         id: p.id, title: p.title, artist: p.artist,
-        clipStartSec, clipDurationSec: 15,
-        duetClipStartSec: clipStartSec, duetClipDurationSec: 45,
-        chaosDurationSec: 60,
+        clipStartSec: prevMeta?.clipStartSec ?? clipStartSec,
+        clipDurationSec: prevMeta?.clipDurationSec ?? 15,
+        duetClipStartSec: prevMeta?.duetClipStartSec ?? clipStartSec,
+        duetClipDurationSec: prevMeta?.duetClipDurationSec ?? 45,
+        chaosDurationSec: prevMeta?.chaosDurationSec ?? 60,
       },
       null, 2,
     ) + "\n",
@@ -178,6 +190,6 @@ for (const p of PACKS) {
     `${p.id.padEnd(18)} ${String(shifted.length).padStart(3)} lines  ` +
     `first ${shifted[0].t.toFixed(2)}s  last ${lastT.toFixed(2)}s  ` +
     `offset ${p.offsetSec >= 0 ? "+" : ""}${p.offsetSec}s lead ${lead}s  clipStart ${clipStartSec}s  ` +
-    `melody ${(hz.length / MELODY_SR).toFixed(0)}s (${((voiced / hz.length) * 100).toFixed(0)}% voiced)`,
+    `melody ${hadMelody ? "kept (extracted)" : `${(hz.length / MELODY_SR).toFixed(0)}s placeholder, ${((voiced / hz.length) * 100).toFixed(0)}% voiced`}`,
   );
 }
