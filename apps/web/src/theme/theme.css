@@ -350,15 +350,45 @@ select:focus {
   align-items: center;
   padding-bottom: 10px;
 }
+/*
+ * Sits off the right edge of the word and only on hover. Underneath the label
+ * it read as a permanent subtitle and competed with the mode names; beside it,
+ * it is an answer to "what is this one" asked by pointing at it.
+ */
 .mode-hint {
-  display: block;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 64px;
+  white-space: nowrap;
   font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
   line-height: 1.2;
-  color: var(--fg-dim);
-  margin-top: 2px;
+  color: var(--blue-200);
+  text-shadow: 0 0 18px rgba(79, 151, 245, 0.6);
+  opacity: 0;
+  /* Slides in from the word rather than appearing in place. */
+  transform: translate(-20px, -50%);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+.modes button.mode:hover .mode-hint,
+.modes button.mode:focus-visible .mode-hint {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-hint { transition: opacity 220ms ease; transform: translate(0, -50%); }
+}
+
+/* Narrow windows have no room beside the word, and a nowrap absolute box
+   there would push horizontal scroll. */
+@media (max-width: 900px) {
+  .mode-hint { display: none; }
 }
 
 /*
@@ -1107,4 +1137,35 @@ select:focus {
 @media (max-height: 680px) {
   .training .stage-self { display: none; }
   .training .lyrics { min-height: 2.8rem; }
+}
+
+/* ---------------------------------------------------------- hero rule --
+ * Replaces the "Sing head to head" pill under the wordmark: a lit line with a
+ * bead at its centre. The pill was a second piece of copy competing with the
+ * mode names directly under it.
+ */
+.hero-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 16px 0 26px;
+  width: min(30rem, 62vw);
+}
+.hero-rule-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(168, 208, 255, 0.55));
+  box-shadow: 0 0 10px rgba(79, 151, 245, 0.4);
+}
+/* Second line mirrors the first so the fade runs outward from the bead. */
+.hero-rule-line + .hero-rule-dot + .hero-rule-line {
+  background: linear-gradient(90deg, rgba(168, 208, 255, 0.55), transparent);
+}
+.hero-rule-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--blue-050);
+  box-shadow: 0 0 10px rgba(168, 208, 255, 0.95), 0 0 22px rgba(79, 151, 245, 0.7);
 }

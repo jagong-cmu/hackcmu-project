@@ -76,10 +76,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
     };
 
     // A wide, shallow envelope. At 3.6 the ribbon bunched into a bright knot
-    // across the middle third; this carries it out to the edges instead.
+    // across the middle third; at 0.55 it is nearly flat edge to edge, which is
+    // what keeps it background rather than subject.
     const envelope = (t: number) => {
       const d = (t - 0.5) * 2;
-      return Math.exp(-d * d * 1.35);
+      return Math.exp(-d * d * 0.55);
     };
 
     const stroke = (
@@ -134,11 +135,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
       ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
 
-      const amp = h * 0.12 * shown;
+      const amp = h * 0.085 * shown;
 
-      stroke(ctx, w, h, amp * 1.05, 1.15, 0, "rgba(70, 170, 255, 0.16)", Math.max(12, h * 0.042), 46);
-      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, "rgba(120, 210, 255, 0.26)", Math.max(4, h * 0.013), 34);
-      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, "rgba(160, 230, 255, 0.18)", Math.max(3, h * 0.009), 26);
+      stroke(ctx, w, h, amp * 1.05, 1.15, 0, "rgba(70, 170, 255, 0.09)", Math.max(16, h * 0.055), 72);
+      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, "rgba(120, 210, 255, 0.14)", Math.max(6, h * 0.018), 54);
+      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, "rgba(160, 230, 255, 0.10)", Math.max(4, h * 0.012), 42);
       stroke(
         ctx,
         w,
@@ -147,11 +148,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
         1.05,
         0.2,
         // Blue only — this stroke was pink, the one warm note in the palette.
-        `rgba(120, 190, 255, ${0.18 + shown * 0.26})`,
-        Math.max(2, h * 0.007),
-        30,
+        `rgba(120, 190, 255, ${0.10 + shown * 0.16})`,
+        Math.max(3, h * 0.009),
+        46,
       );
-      stroke(ctx, w, h, amp * 0.18, 0.9, 0, "rgba(242, 248, 255, 0.34)", Math.max(1.4, h * 0.005), 20);
+      stroke(ctx, w, h, amp * 0.18, 0.9, 0, "rgba(242, 248, 255, 0.17)", Math.max(2, h * 0.006), 34);
 
       ctx.globalCompositeOperation = "source-over";
       ctx.shadowBlur = 0;

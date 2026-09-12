@@ -28,9 +28,11 @@ export function Home() {
 
       <div className="home-hero">
         <h1 className="wordmark">Aria</h1>
-        <p className="eyebrow">
-          <span className="eyebrow-pill">Sing head to head</span>
-        </p>
+        <div className="hero-rule" aria-hidden="true">
+          <span className="hero-rule-line" />
+          <span className="hero-rule-dot" />
+          <span className="hero-rule-line" />
+        </div>
         <div className="modes">
           {MODES.map((mode) => (
             <ModeButton
