@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Bloom } from "../theme/Bloom.tsx";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getClientId, getDisplayName, setDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
@@ -41,9 +42,7 @@ export function Settings() {
 
   return (
     <main className="page bloom-page quiet">
-      <div className="bloom" aria-hidden="true">
-        <div className="bloom-core" />
-      </div>
+      <Bloom />
       <Link to="/" className="back">
         Home
       </Link>

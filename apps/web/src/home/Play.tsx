@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Bloom } from "../theme/Bloom.tsx";
 import { Link, useParams } from "react-router-dom";
 import { DemoRoomCode, type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
@@ -47,9 +48,7 @@ export function Play() {
 
   return (
     <main className="page bloom-page quiet play-page">
-      <div className="bloom" aria-hidden="true">
-        <div className="bloom-core" />
-      </div>
+      <Bloom />
       <Link
         to="/"
         className="back"

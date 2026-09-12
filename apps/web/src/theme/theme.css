@@ -88,7 +88,10 @@ body { background: var(--ink); }
   left: 50%;
   width: 190vw;
   aspect-ratio: 1;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translate(
+    calc(var(--bx, 0) * 42px),
+    calc(var(--by, 0) * 26px)
+  );
   border-radius: 50%;
   /* A bright, narrow edge over dark mid-tones. Raising the shoulder stops
      (0.10 / 0.16 here) is what washes the whole frame out — keep them low and
@@ -106,8 +109,14 @@ body { background: var(--ink); }
 }
 /* Upper arc, curving down into frame. */
 .bloom::before { bottom: 53%; }
-/* Lower arc, curving up. */
-.bloom::after { top: 53%; }
+/* Lower arc, curving up. Counter-drifts against the upper one. */
+.bloom::after {
+  top: 53%;
+  transform: translateX(-50%) translate(
+    calc(var(--bx, 0) * -38px),
+    calc(var(--by, 0) * -22px)
+  );
+}
 
 /* The hot band where the two arcs meet. */
 .bloom-core {
@@ -116,7 +125,10 @@ body { background: var(--ink); }
   top: 50%;
   width: 104vw;
   height: 20vh;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) translate(
+    calc(var(--bx, 0) * 58px),
+    calc(var(--by, 0) * 30px)
+  );
   background: radial-gradient(
     ellipse 50% 50% at 50% 50%,
     rgba(255, 255, 255, 0.98) 0%,
@@ -223,16 +235,25 @@ select:focus {
 /* ------------------------------------------------------------------ home -- */
 
 .wordmark {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+  margin: 0;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 20px;
-  letter-spacing: 0.16em;
+  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  letter-spacing: 0.3em;
+  /* Tracking adds a trailing gap; pull it back so the word sits truly centred. */
+  text-indent: 0.3em;
+  line-height: 1;
   color: var(--fg);
+  text-shadow: 0 0 40px rgba(121, 180, 255, 0.45);
 }
-/* The orb doubles as the logo mark at nav size. */
-.aria-orb.mark { --aria-size: 22px; }
+
+/* Three columns so the wordmark centres on the page, not between its siblings. */
+.home-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+.home-top .wordmark { grid-column: 2; justify-self: center; }
+.home-top nav { grid-column: 3; justify-self: end; }
 
 .home-top a { font-size: 13px; letter-spacing: 0.02em; }
 
@@ -258,13 +279,6 @@ select:focus {
   font-size: clamp(3rem, 7.5vw, 5.25rem);
   line-height: 1.02;
   transition: text-shadow 200ms ease, border-color 200ms ease;
-}
-
-.home-sub {
-  margin: 20px 0 0;
-  color: var(--fg-dim);
-  font-size: 0.9rem;
-  max-width: 30rem;
 }
 
 /*
@@ -302,3 +316,41 @@ select:focus {
 }
 .aria-orb.mark .aria-rim { box-shadow: none; }
 .aria-orb.mark.is-idle { opacity: 1; }
+
+/* ---------------------------------------------------------------- sparks --
+ * Hovering a mode throws light off its left and right edges. The spans are
+ * rendered once and animated by CSS; spawning nodes per hover churns the DOM
+ * for no gain.
+ */
+.modes button.mode { position: relative; }
+
+.sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sparks i {
+  position: absolute;
+  width: var(--ps, 3px);
+  height: var(--ps, 3px);
+  margin-left: calc(var(--ps, 3px) / -2);
+  border-radius: 50%;
+  background: var(--blue-050);
+  box-shadow: 0 0 10px rgba(168, 208, 255, 1), 0 0 22px rgba(79, 151, 245, 0.6);
+  opacity: 0;
+}
+.modes button.mode:hover .sparks i,
+.modes button.mode:focus-visible .sparks i {
+  animation: mode-spark 1.05s ease-out var(--pd, 0s) infinite;
+}
+
+@keyframes mode-spark {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  12%  { opacity: 1; transform: translate(calc(var(--dx) * 0.12), calc(var(--dy) * 0.12)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modes button.mode:hover .sparks i,
+  .modes button.mode:focus-visible .sparks i { animation: none; }
+}

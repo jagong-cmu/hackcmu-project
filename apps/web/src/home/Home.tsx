@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { AriaOrb } from "../theme/AriaOrb.tsx";
+import { Bloom } from "../theme/Bloom.tsx";
+import { ModeButton } from "./ModeButton.tsx";
 import { getDisplayName } from "./identity.ts";
 
 const MODES = [
@@ -15,15 +16,10 @@ export function Home() {
 
   return (
     <main className="home-simple bloom-page">
-      <div className="bloom" aria-hidden="true">
-        <div className="bloom-core" />
-      </div>
+      <Bloom />
 
       <header className="home-top">
-        <p className="wordmark">
-          <AriaOrb size={22} idle className="mark" />
-          Aria
-        </p>
+        <p className="wordmark">Aria</p>
         <nav>
           <Link to="/settings">Settings</Link>
           <Link to="/leaderboard">Board</Link>
@@ -36,18 +32,13 @@ export function Home() {
         </p>
         <div className="modes">
           {MODES.map((mode) => (
-            <button
+            <ModeButton
               key={mode.to}
-              type="button"
-              onClick={() => navigate(named ? mode.to : `/settings?next=${mode.to}`)}
-            >
-              {mode.label}
-            </button>
+              label={mode.label}
+              onSelect={() => navigate(named ? mode.to : `/settings?next=${mode.to}`)}
+            />
           ))}
         </div>
-        <p className="home-sub">
-          Your pitch is scored by DSP, not vibes. Headphones recommended.
-        </p>
       </div>
     </main>
   );

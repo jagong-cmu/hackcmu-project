@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Bloom } from "../theme/Bloom.tsx";
 import { Link } from "react-router-dom";
 import { songById } from "@karaoke/shared";
 
@@ -24,9 +25,7 @@ export function Leaderboard() {
 
   return (
     <main className="page bloom-page">
-      <div className="bloom" aria-hidden="true">
-        <div className="bloom-core" />
-      </div>
+      <Bloom />
       <header className="row-head">
         <Link to="/" className="back">
           Home
