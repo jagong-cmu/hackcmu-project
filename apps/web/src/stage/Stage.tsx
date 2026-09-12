@@ -113,8 +113,9 @@ export default function Stage() {
 
   useEffect(() => {
     if (livekit.status !== "connected") return;
+    if (!livekit.capture.mic) return;
     livekit.toggleMic(true);
-  }, [livekit.status, livekit.toggleMic]);
+  }, [livekit.status, livekit.capture.mic, livekit.toggleMic]);
 
   const copyCode = () => {
     void navigator.clipboard.writeText(code).then(() => {
@@ -170,6 +171,21 @@ export default function Stage() {
           )}
           {livekit.status === "error" && !livekit.unconfigured && (
             <p className="err">camera/mic: {livekit.error}</p>
+          )}
+          {livekit.status === "connected" && livekit.capture.error && (
+            <p className={livekit.capture.mic ? "warn" : "err"}>
+              {livekit.capture.error}{" "}
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  if (!livekit.capture.mic) livekit.toggleMic(true);
+                  if (!livekit.capture.camera) livekit.toggleCamera(true);
+                }}
+              >
+                try again
+              </button>
+            </p>
           )}
           {(blocked || livekit.audioBlocked || (isChaos && clockPlay && !playing)) && (
             <p className="warn">

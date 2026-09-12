@@ -11,6 +11,15 @@ import { sharedAudioContext } from "./audioContext.ts";
 export type StageConnection = {
   room: Room;
   wsUrl: string;
+  capture: CaptureState;
+};
+
+/** Which halves of the capture actually opened, and why one didn't. */
+export type CaptureState = {
+  mic: boolean;
+  camera: boolean;
+  /** Human-readable reason a half is missing. Null when both opened. */
+  error: string | null;
 };
 
 type TokenResponse = {
@@ -43,6 +52,65 @@ async function fetchToken(
   }
   if (!res.ok) throw new Error(`token request failed: ${res.status}`);
   return (await res.json()) as TokenResponse;
+}
+
+export function whyFailed(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  switch (err.name) {
+    case "NotAllowedError":
+      return "Chrome is blocking it — allow it in the address bar and reload.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "no device found.";
+    case "NotReadableError":
+    case "AbortError":
+      return "another app has it open (Zoom, Teams, Photo Booth, OBS).";
+    default:
+      return err.message;
+  }
+}
+
+/**
+ * Open mic and camera without letting one take the other down.
+ *
+ * enableCameraAndMicrophone() is a SINGLE getUserMedia for both sources, so a
+ * webcam that is missing or already held by another app rejects the whole call
+ * and leaves the singer with no mic at all — the game is unplayable for them
+ * while Training, which falls back to audio-only, works fine.
+ *
+ * Try the combined call first so healthy hardware still sees one permission
+ * prompt, then retry the halves separately. The mic goes first: karaoke with no
+ * face cam is still karaoke.
+ */
+async function openCapture(room: Room): Promise<CaptureState> {
+  try {
+    await room.localParticipant.enableCameraAndMicrophone();
+    return { mic: true, camera: true, error: null };
+  } catch {
+    // One of the two failed. Which one is not reported, so ask them apart.
+  }
+
+  let micError: unknown = null;
+  let mic = false;
+  let camera = false;
+
+  try {
+    await room.localParticipant.setMicrophoneEnabled(true);
+    mic = true;
+  } catch (err) {
+    micError = err;
+  }
+
+  try {
+    await room.localParticipant.setCameraEnabled(true);
+    camera = true;
+  } catch {
+    // Optional. VideoGrid already renders a "camera off" placeholder tile.
+  }
+
+  if (!mic) return { mic, camera, error: `Mic unavailable — ${whyFailed(micError)}` };
+  if (!camera) return { mic, camera, error: "Camera unavailable — you can still sing." };
+  return { mic, camera, error: null };
 }
 
 export async function connectToStage(
@@ -79,9 +147,9 @@ export async function connectToStage(
   });
 
   await room.connect(wsUrl, token);
-  await room.localParticipant.enableCameraAndMicrophone();
+  const capture = await openCapture(room);
 
-  return { room, wsUrl };
+  return { room, wsUrl, capture };
 }
 
 export async function setMicEnabled(room: Room, enabled: boolean): Promise<void> {

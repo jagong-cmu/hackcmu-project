@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   connectToStage,
+  type CaptureState,
   LiveKitUnconfiguredError,
   micStreamOf,
   Room,
@@ -14,6 +15,7 @@ import {
   setCameraEnabled,
   setMicEnabled,
   Track,
+  whyFailed,
 } from "./livekit.ts";
 import { unlockSharedAudio, sharedAudioContext } from "./audioContext.ts";
 import type { Participant } from "livekit-client";
@@ -26,6 +28,11 @@ export type LiveKitState = {
   error: string | null;
   /** True when the server has no LiveKit keys — Training still works (PRD §3). */
   unconfigured: boolean;
+  /**
+   * Which halves of the capture opened. A dead camera no longer implies a dead
+   * mic, so the stage has to be able to tell the two apart.
+   */
+  capture: CaptureState;
   /** Chrome is still blocking remote mic playback. */
   audioBlocked: boolean;
   toggleMic: (on: boolean) => void;
@@ -44,6 +51,11 @@ export function useLiveKit(
   const [unconfigured, setUnconfigured] = useState(false);
   const [tick, setTick] = useState(0);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [capture, setCapture] = useState<CaptureState>({
+    mic: false,
+    camera: false,
+    error: null,
+  });
 
   useEffect(() => {
     if (!code || !identity) return;
@@ -52,16 +64,20 @@ export function useLiveKit(
     let opened: Room | null = null;
     setStatus("connecting");
     setError(null);
+    setCapture({ mic: false, camera: false, error: null });
 
     connectToStage(code, identity, displayName)
-      .then(({ room: connected }) => {
+      .then(({ room: connected, capture: opening }) => {
         if (cancelled) {
           void connected.disconnect();
           return;
         }
         opened = connected;
         setRoom(connected);
+        // A half-open capture is still a usable stage. Only a failed connect
+        // is an error; a missing camera is a notice.
         setStatus("connected");
+        setCapture(opening);
         setAudioBlocked(!connected.canPlaybackAudio);
       })
       .catch((err: unknown) => {
@@ -80,6 +96,7 @@ export function useLiveKit(
       void opened?.disconnect();
       setRoom(null);
       setStatus("idle");
+      setCapture({ mic: false, camera: false, error: null });
     };
   }, [code, identity, displayName]);
 
@@ -125,12 +142,30 @@ export function useLiveKit(
     return micStreamOf(room);
   }, [room, micTrackId]);
 
+  // Turning a source on re-runs getUserMedia, so these double as the retry for
+  // a half that failed at connect: plug the mic back in, hit the button, sing.
+  // They must not throw — a rejected toggle used to surface as an unhandled
+  // rejection once a failed camera stopped aborting the whole connect.
   const toggleMic = useCallback((on: boolean) => {
-    if (room) void setMicEnabled(room, on);
+    if (!room) return;
+    setMicEnabled(room, on)
+      .then(() => setCapture((c) => ({ ...c, mic: on, error: on ? null : c.error })))
+      .catch((err: unknown) => {
+        setCapture((c) => ({ ...c, mic: false, error: `Mic unavailable — ${whyFailed(err)}` }));
+      });
   }, [room]);
 
   const toggleCamera = useCallback((on: boolean) => {
-    if (room) void setCameraEnabled(room, on);
+    if (!room) return;
+    setCameraEnabled(room, on)
+      .then(() => setCapture((c) => ({ ...c, camera: on, error: on ? null : c.error })))
+      .catch(() => {
+        setCapture((c) => ({
+          ...c,
+          camera: false,
+          error: c.mic ? "Camera unavailable — you can still sing." : c.error,
+        }));
+      });
   }, [room]);
 
   const startAudio = useCallback(async () => {
@@ -170,6 +205,7 @@ export function useLiveKit(
     status,
     error,
     unconfigured,
+    capture,
     audioBlocked,
     toggleMic,
     toggleCamera,

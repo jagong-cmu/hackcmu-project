@@ -450,3 +450,14 @@
 .slot-empty { color: var(--dim); font-size: 0.8rem; }
 .warn { color: #fbbf24; font-size: 0.85rem; }
 .err { color: #f87171; font-size: 0.85rem; }
+
+/* Retry affordance on the half-open capture notice (mic or camera missing). */
+.stage-alerts button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
