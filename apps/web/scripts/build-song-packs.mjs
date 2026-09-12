@@ -77,6 +77,22 @@ const PACKS = [
       [65, 65, 64, 62, 60], [67, 65, 64, 62, 60],
     ],
   },
+  {
+    id: "from-the-start", title: "From The Start", artist: "Laufey", offsetSec: -0.74, lyricLeadSec: 0,
+    phrases: [
+      [64, 64, 62, 60, 62], [62, 64, 65, 67, 65, 64],
+      [67, 67, 65, 64, 62, 60], [60, 62, 64, 65, 64, 62],
+    ],
+  },
+  {
+    // Karaoke is trimmed 10s, not the usual 5: this cover opens on a long
+    // synth intro the original does not have.
+    id: "beauty-and-a-beat", title: "Beauty And A Beat", artist: "Justin Bieber", offsetSec: 0.19, lyricLeadSec: 0,
+    phrases: [
+      [69, 69, 67, 64, 67], [67, 69, 71, 72, 71, 69],
+      [72, 72, 71, 69, 67], [64, 67, 69, 71, 69, 67],
+    ],
+  },
 ];
 
 const midiToHz = (m) => +(440 * 2 ** ((m - 69) / 12)).toFixed(2);
