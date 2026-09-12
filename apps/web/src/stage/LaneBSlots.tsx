@@ -102,7 +102,7 @@ export function StageLyrics() {
       lrc={lines}
       currentTime={t}
       duet={
-        duetOn
+        duetOn && room
           ? {
               seat: duetSeat(room.players, myPlayerId),
               nameA: room.players[0]?.displayName ?? "A",

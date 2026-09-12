@@ -216,7 +216,7 @@ export default function Stage() {
             <CameraPane
               participant={them}
               singing={themSinging}
-              waiting={Boolean(duetLive && !themSinging)}
+              waiting={Boolean(duetActive && !themSinging)}
               heard={!duetActive || themSinging}
               cue={themCue}
               isLocal={false}
@@ -238,7 +238,7 @@ export default function Stage() {
             <CameraPane
               participant={you}
               singing={youSinging}
-              waiting={Boolean(duetLive && !youSinging)}
+              waiting={Boolean(duetActive && !youSinging)}
               cue={youCue}
               isLocal
               emptyLabel="you"
