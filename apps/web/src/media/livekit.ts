@@ -52,16 +52,14 @@ export async function connectToStage(
   const { token, wsUrl } = await fetchToken(code, identity, displayName);
 
   const room = new Room({
-    adaptiveStream: true,
-    dynacast: true,
-    // Singing into an open laptop next to a speaker; keep the browser's echo
-    // cancellation on but leave the voice itself unprocessed enough to judge.
     audioCaptureDefaults: {
       echoCancellation: true,
       noiseSuppression: false,
       autoGainControl: false,
     },
     videoCaptureDefaults: { resolution: { width: 640, height: 480 } },
+    adaptiveStream: false,
+    dynacast: false,
   });
 
   await room.connect(wsUrl, token);

@@ -113,23 +113,8 @@ export default function Stage() {
 
   useEffect(() => {
     if (livekit.status !== "connected") return;
-    const status = room?.status ?? "lobby";
-    const mine = Boolean(me?.id && room?.activeSingerId === me.id);
-    if (!room || room.mode === "chaos") {
-      livekit.toggleMic(true);
-      return;
-    }
-    if (status === "lobby" || status === "countdown") {
-      livekit.toggleMic(true);
-      return;
-    }
-    if (room.mode === "duet") {
-      if (status === "live") livekit.toggleMic(youSinging);
-      else livekit.toggleMic(false);
-      return;
-    }
-    livekit.toggleMic((status === "turnA" || status === "turnB") && mine);
-  }, [livekit.status, room?.status, room?.mode, room?.activeSingerId, me?.id, youSinging]);
+    livekit.toggleMic(true);
+  }, [livekit.status, livekit.toggleMic]);
 
   const copyCode = () => {
     void navigator.clipboard.writeText(code).then(() => {
@@ -217,7 +202,6 @@ export default function Stage() {
               participant={them}
               singing={themSinging}
               waiting={Boolean(duetActive && !themSinging)}
-              heard={!duetActive || themSinging}
               cue={themCue}
               isLocal={false}
               emptyLabel="waiting…"

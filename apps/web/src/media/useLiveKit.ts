@@ -4,7 +4,7 @@
  * Connects on mount, tears down on unmount, and re-renders whenever the
  * participant set or their tracks change.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   connectToStage,
   LiveKitUnconfiguredError,
@@ -13,6 +13,7 @@ import {
   RoomEvent,
   setCameraEnabled,
   setMicEnabled,
+  Track,
 } from "./livekit.ts";
 import type { Participant } from "livekit-client";
 
@@ -93,7 +94,6 @@ export function useLiveKit(
       RoomEvent.TrackUnmuted,
       RoomEvent.LocalTrackPublished,
       RoomEvent.LocalTrackUnpublished,
-      RoomEvent.ActiveSpeakersChanged,
       RoomEvent.Disconnected,
     ];
     for (const event of events) room.on(event, bump);
@@ -101,6 +101,10 @@ export function useLiveKit(
       for (const event of events) room.off(event, bump);
     };
   }, [room]);
+
+  const micTrackId =
+    room?.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.id ??
+    null;
 
   const participants = useMemo<Participant[]>(() => {
     if (!room) return [];
@@ -110,9 +114,20 @@ export function useLiveKit(
 
   const micStream = useMemo(() => {
     if (!room) return null;
-    void tick;
     return micStreamOf(room);
-  }, [room, tick]);
+  }, [room, micTrackId]);
+
+  const toggleMic = useCallback((on: boolean) => {
+    if (room) void setMicEnabled(room, on);
+  }, [room]);
+
+  const toggleCamera = useCallback((on: boolean) => {
+    if (room) void setCameraEnabled(room, on);
+  }, [room]);
+
+  const startAudio = useCallback(async () => {
+    if (room) await room.startAudio().catch(() => undefined);
+  }, [room]);
 
   return {
     room,
@@ -121,14 +136,8 @@ export function useLiveKit(
     status,
     error,
     unconfigured,
-    toggleMic: (on) => {
-      if (room) void setMicEnabled(room, on);
-    },
-    toggleCamera: (on) => {
-      if (room) void setCameraEnabled(room, on);
-    },
-    startAudio: async () => {
-      if (room) await room.startAudio().catch(() => undefined);
-    },
+    toggleMic,
+    toggleCamera,
+    startAudio,
   };
 }
