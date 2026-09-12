@@ -59,7 +59,7 @@ type PendingTurn = {
   }>;
 };
 
-function clampCard(raw: ScoreCard): ScoreCard {
+export function clampCard(raw: ScoreCard): ScoreCard {
   const n = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
   const silence = Boolean(raw.silence);
   const pitch = silence ? 0 : n(raw.pitch);

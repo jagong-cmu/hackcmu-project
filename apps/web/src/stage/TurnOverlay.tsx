@@ -53,6 +53,7 @@ export default function TurnOverlay({
       return;
     }
     if (status === "live") {
+      if (room.mode === "duet") return;
       setBeat({ kind: "together" });
       return;
     }
@@ -88,14 +89,24 @@ export default function TurnOverlay({
     const swapping = room.status === "swap";
     return (
       <div className="callout hold" role="status">
-        <p className="callout-kicker">{swapping ? "SWITCH" : mine ? "You're up first" : "They sing first"}</p>
+        <p className="callout-kicker">
+          {swapping
+            ? "SWITCH"
+            : room.mode === "duet"
+              ? "Your lines light up"
+              : mine
+                ? "You're up first"
+                : "They sing first"}
+        </p>
         <p className="callout-count">{count}</p>
         <p className="callout-sub">
           {swapping
             ? mine
               ? "You're next"
               : `${singer?.displayName ?? "They"} are next`
-            : "Get ready"}
+            : room.mode === "duet"
+              ? "Jump in on together"
+              : "Get ready"}
         </p>
       </div>
     );

@@ -83,6 +83,17 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
 
       driftTimer = window.setInterval(() => {
         const want = expectedAt(serverNow());
+        const end = startSec + durationSec;
+        if (want >= end) {
+          audio.pause();
+          audio.currentTime = end;
+          setPlaying(false);
+          if (driftTimer) {
+            clearInterval(driftTimer);
+            driftTimer = undefined;
+          }
+          return;
+        }
         if (Math.abs(audio.currentTime - want) > MaxDriftSec) {
           audio.currentTime = want;
         }
@@ -91,7 +102,12 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
       const remainingMs = (startSec + durationSec - target) * 1000;
       stopTimer = window.setTimeout(() => {
         audio.pause();
+        audio.currentTime = startSec + durationSec;
         setPlaying(false);
+        if (driftTimer) {
+          clearInterval(driftTimer);
+          driftTimer = undefined;
+        }
       }, remainingMs);
     };
 

@@ -32,16 +32,20 @@ function Tile({
   participant,
   singing,
   isLocal,
+  waiting = false,
+  cue = null,
 }: {
   participant: Participant;
   singing: boolean;
   isLocal: boolean;
+  waiting?: boolean;
+  cue?: "you" | "them" | "together" | "wait" | null;
 }) {
   const videoRef = useAttachedTrack(participant, Track.Source.Camera);
   const cameraOn = participant.getTrackPublication(Track.Source.Camera)?.isMuted === false;
 
   return (
-    <div className={singing ? "tile singing" : "tile"}>
+    <div className={singing ? "tile singing" : waiting ? "tile waiting" : "tile"}>
       <video
         ref={videoRef}
         autoPlay
@@ -50,30 +54,41 @@ function Tile({
         style={isLocal ? { transform: "scaleX(-1)" } : undefined}
       />
       {!cameraOn && <div className="placeholder">camera off</div>}
+      {cue ? <div className={singing || cue === "together" ? "cam-cue on" : "cam-cue"}>{cue}</div> : null}
       <div className="name">
         {participant.name || participant.identity}
         {isLocal ? " (you)" : ""}
-        {singing ? " · singing" : ""}
       </div>
     </div>
   );
 }
 
-function RemoteAudio({ participant }: { participant: Participant }) {
+function RemoteAudio({ participant, volume = 1 }: { participant: Participant; volume?: number }) {
   const ref = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.volume = volume;
+  }, [volume]);
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     const track = participant.getTrackPublication(Track.Source.Microphone)?.track;
     if (!track) return;
+    element.volume = volume;
+    element.muted = false;
     track.attach(element);
+    void element.play().catch(() => {
+      /* Ready/unlock calls room.startAudio() to satisfy autoplay. */
+    });
     return () => {
       track.detach(element);
     };
   });
 
-  return <audio ref={ref} autoPlay />;
+  return <audio ref={ref} autoPlay playsInline />;
 }
 
 function EmptyTile({ label }: { label: string }) {
@@ -89,18 +104,30 @@ export function CameraPane({
   singing,
   isLocal,
   emptyLabel,
+  waiting = false,
+  heard = true,
+  cue = null,
 }: {
   participant: Participant | undefined;
   singing: boolean;
   isLocal: boolean;
   emptyLabel: string;
+  waiting?: boolean;
+  heard?: boolean;
+  cue?: "you" | "them" | "together" | "wait" | null;
 }) {
   return (
     <div className="stage-cam">
       {participant ? (
         <>
-          <Tile participant={participant} singing={singing} isLocal={isLocal} />
-          {!isLocal && <RemoteAudio participant={participant} />}
+          <Tile
+            participant={participant}
+            singing={singing}
+            isLocal={isLocal}
+            waiting={waiting}
+            cue={cue}
+          />
+          {!isLocal && <RemoteAudio participant={participant} volume={heard ? 1 : 0.06} />}
         </>
       ) : (
         <EmptyTile label={emptyLabel} />

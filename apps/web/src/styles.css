@@ -178,6 +178,34 @@
   text-wrap: balance;
   color: var(--cream, #f4efe6);
 }
+.lyrics-cue {
+  margin: 0 0 2px;
+  min-height: 1.15em;
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  letter-spacing: 0.04em;
+  color: var(--mute, #8a8278);
+}
+.lyrics-cue.you,
+.lyrics-cue.together { color: var(--gold, #c9a227); }
+.lyrics-cue.them { color: var(--cream, #f4efe6); }
+.lyrics-now.duet-you { color: var(--cream, #f4efe6); }
+.lyrics-now.duet-them { color: var(--mute, #8a8278); }
+.lyrics-now.duet-together { color: var(--gold, #c9a227); }
+.lyrics-next {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.lyrics-next .who {
+  color: var(--gold, #c9a227);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+}
+.lyrics-next.them .who,
+.lyrics-next.wait .who { color: var(--mute, #8a8278); }
+.lyrics-next .next-line { min-width: 0; }
 .stage-fit .lyrics-next {
   margin: 8px 0 0;
   font-size: clamp(1.15rem, 2.4vw, 1.85rem);
@@ -188,6 +216,38 @@
   min-height: 200px;
   margin: 0;
   flex-shrink: 0;
+}
+.pitch-stage {
+  position: relative;
+  flex-shrink: 0;
+}
+.hit-callout {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  margin: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 0.9;
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  text-shadow: 0 4px 18px rgb(0 0 0 / 0.65);
+  animation: hit-pop 0.72s ease forwards;
+}
+.hit-perfect { color: var(--gold, #c9a227); }
+.hit-great { color: var(--cream, #f4efe6); }
+.hit-good { color: #7eb8c9; }
+.hit-okay { color: var(--mute, #8a8278); }
+@keyframes hit-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+  18% { opacity: 1; transform: translateX(-50%) scale(1.12); }
+  70% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hit-callout { animation: none; opacity: 1; }
 }
 .timer-compact {
   font-size: 1.05rem;
@@ -249,7 +309,33 @@
   border-color: var(--gold, #c9a227);
   box-shadow: 0 0 0 3px rgb(201 162 39 / 0.55);
 }
-.tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile.waiting video {
+  opacity: 0.42;
+  filter: saturate(0.45);
+}
+.tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 80ms linear, filter 80ms linear;
+}
+.cam-cue {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.7rem;
+  z-index: 2;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: var(--mute, #8a8278);
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.8);
+}
+.cam-cue.on { color: var(--gold, #c9a227); }
+@media (prefers-reduced-motion: reduce) {
+  .tile video { transition: none; }
+}
 .tile .name {
   position: absolute;
   left: 0.7rem;
@@ -333,6 +419,7 @@
   border: 1px solid var(--line);
 }
 .badge.you { background: var(--hot); border-color: var(--hot); }
+.badge.together { background: var(--gold, #c9a227); border-color: var(--gold, #c9a227); color: #140f08; }
 .badge.them { background: var(--panel); color: var(--dim); }
 
 .timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }

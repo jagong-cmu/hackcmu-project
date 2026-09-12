@@ -9,6 +9,7 @@ export const ClientEvents = {
   roomLeave: "room:leave",
   roomReady: "room:ready",
   chaosJoin: "chaos:join",
+  pitchLive: "pitch:live",
 } as const;
 
 export const ServerEvents = {
@@ -19,6 +20,7 @@ export const ServerEvents = {
   clockPlay: "clock:play",
   scoreReady: "score:ready",
   matchOver: "match:over",
+  pitchLive: "pitch:live",
   error: "error",
 } as const;
 

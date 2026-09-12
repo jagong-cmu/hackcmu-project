@@ -1,10 +1,14 @@
 import { PitchDetector } from "pitchy";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MelodyFile } from "@karaoke/shared";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
+import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
+import { parseLrc } from "../lyrics/parseLrc.ts";
 import { ResultsModal } from "../results/ResultsModal.tsx";
+import { HitCallout } from "../scoring/HitCallout.tsx";
+import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
 import {
@@ -23,7 +27,7 @@ import { useStage } from "./StageContext.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import type { RoomState } from "@karaoke/shared";
 
-function isMyTurn(room: RoomState | null, myPlayerId: string | null): boolean {
+function isScoringClip(room: RoomState | null, myPlayerId: string | null): boolean {
   if (!room || !myPlayerId || room.mode === "chaos") return false;
   if (room.mode === "duet") return room.status === "live";
   return (
@@ -33,9 +37,17 @@ function isMyTurn(room: RoomState | null, myPlayerId: string | null): boolean {
 }
 
 export function StageLyrics() {
-  const { audioRef, room } = useStage();
+  const { audioRef, room, myPlayerId, reportDuetVoice } = useStage();
   const [lrc, setLrc] = useState("");
   const [t, setT] = useState(0);
+  const running =
+    room?.status === "countdown" ||
+    room?.status === "turnA" ||
+    room?.status === "turnB" ||
+    room?.status === "swap" ||
+    room?.status === "live";
+  const lines = useMemo(() => parseLrc(lrc), [lrc]);
+  const duetOn = room?.mode === "duet" && running;
 
   useEffect(() => {
     const id = room?.songId;
@@ -53,6 +65,7 @@ export function StageLyrics() {
   }, [room?.songId]);
 
   useEffect(() => {
+    if (!running) return;
     let raf = 0;
     const tick = () => {
       setT(audioRef.current?.currentTime ?? 0);
@@ -60,7 +73,15 @@ export function StageLyrics() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [audioRef]);
+  }, [audioRef, running]);
+
+  useEffect(() => {
+    if (!duetOn) {
+      reportDuetVoice(null);
+      return;
+    }
+    reportDuetVoice(cueAt(lines, t).voice);
+  }, [duetOn, lines, t, reportDuetVoice]);
 
   if (!room?.songId) {
     return (
@@ -76,12 +97,26 @@ export function StageLyrics() {
       </div>
     );
   }
-  return <LyricsOverlay lrc={lrc} currentTime={t} />;
+  return (
+    <LyricsOverlay
+      lrc={lines}
+      currentTime={t}
+      duet={
+        duetOn
+          ? {
+              seat: duetSeat(room.players, myPlayerId),
+              nameA: room.players[0]?.displayName ?? "A",
+              nameB: room.players[1]?.displayName ?? "B",
+            }
+          : null
+      }
+    />
+  );
 }
 
 export function StagePitch() {
-  const { audioRef, micStream, room, myPlayerId } = useStage();
-  const { clockPlay } = useRoom();
+  const { audioRef, micStream, room, myPlayerId, duetVoice } = useStage();
+  const { clockPlay, livePitch, emitPitchLive } = useRoom();
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
@@ -92,6 +127,52 @@ export function StagePitch() {
   const singingRef = useRef(false);
   const postedRef = useRef(false);
   const crepeRef = useRef<LayersModel | null>(null);
+  const scoringRef = useRef(false);
+  const meterRef = useRef(false);
+  const emitRef = useRef(emitPitchLive);
+  const lastEmitRef = useRef(0);
+  const clipWindowRef = useRef<{ startSec: number; durationSec: number } | null>(null);
+  const melodyRef = useRef(melody);
+  const roomRef = useRef(room);
+  const myPlayerIdRef = useRef(myPlayerId);
+  const seat = room ? duetSeat(room.players, myPlayerId) : null;
+  const scoring = isScoringClip(room, myPlayerId);
+  const mine =
+    room?.mode === "duet" ? singingNow(duetVoice, seat).me : scoring;
+  scoringRef.current = scoring;
+  meterRef.current = mine;
+  emitRef.current = emitPitchLive;
+  melodyRef.current = melody;
+  roomRef.current = room;
+  myPlayerIdRef.current = myPlayerId;
+  if (clockPlay) {
+    clipWindowRef.current = { startSec: clockPlay.startSec, durationSec: clockPlay.durationSec };
+  }
+
+  const flushScore = () => {
+    const r = roomRef.current;
+    const mel = melodyRef.current;
+    const clip = clipWindowRef.current;
+    if (!r || !mel || !clip || postedRef.current || !singingRef.current) return;
+    singingRef.current = false;
+    postedRef.current = true;
+    const duetSeatNow = duetSeat(r.players, myPlayerIdRef.current);
+    const windows =
+      r.mode === "duet" && duetSeatNow
+        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, clip)
+        : undefined;
+    const dsp = scoreContour(framesRef.current, mel, clip, windows);
+    void postTurnScore(r.code, {
+      clientId: getClientId(),
+      displayName: getDisplayName() || "Singer",
+      score: dsp,
+      mode: r.mode,
+      songId: r.songId ?? undefined,
+      lyrics: lrcRef.current.slice(0, 600),
+    });
+  };
+  const flushRef = useRef(flushScore);
+  flushRef.current = flushScore;
 
   useEffect(() => {
     void preloadCrepe()
@@ -118,6 +199,28 @@ export function StagePitch() {
   }, [room?.songId]);
 
   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    let raf = 0;
+    const tick = () => {
+      const t = audio.currentTime;
+      setPlayhead(t);
+      const clip = clipWindowRef.current;
+      if (
+        clip &&
+        singingRef.current &&
+        !postedRef.current &&
+        t >= clip.startSec + clip.durationSec - 0.05
+      ) {
+        flushRef.current();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [audioRef]);
+
+  useEffect(() => {
     if (!micStream) return;
     const audio = audioRef.current;
     if (!audio) return;
@@ -138,9 +241,17 @@ export function StagePitch() {
     let raf = 0;
     let crepeSkip = 0;
     let lastCrepe = { hz: null as number | null, confidence: 0 };
+    const publish = (hz: number | null, clarity: number, rms: number) => {
+      setLiveHz(hz);
+      setLiveClarity(clarity);
+      setLiveRms(rms);
+      const now = performance.now();
+      if (now - lastEmitRef.current < 50) return;
+      lastEmitRef.current = now;
+      emitRef.current({ hz, clarity, rms });
+    };
     const tick = () => {
       const t = audio.currentTime;
-      setPlayhead(t);
       analyser.getFloatTimeDomainData(buf);
       if (tap) {
         tap.analyser.getFloatTimeDomainData(refBuf);
@@ -151,13 +262,16 @@ export function StagePitch() {
       }
       const musicOnly = isMusicOnly(buf, clean, refBuf);
       const rms = rmsOf(clean);
+      const tracking = scoringRef.current || singingRef.current;
+      if (!tracking) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       if (musicOnly) {
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: null, clarity: 0 });
         }
-        setLiveHz(null);
-        setLiveClarity(0);
-        setLiveRms(0);
+        if (meterRef.current) publish(null, 0, 0);
       } else {
         const [yinHz, yinClarity] = detector.findPitch(clean, ctx.sampleRate);
         const model = crepeRef.current;
@@ -175,9 +289,9 @@ export function StagePitch() {
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: forScore ? hz : null, clarity });
         }
-        setLiveHz(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null);
-        setLiveClarity(clarity);
-        setLiveRms(rms);
+        if (meterRef.current) {
+          publish(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null, clarity, rms);
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -190,7 +304,7 @@ export function StagePitch() {
   }, [micStream, audioRef]);
 
   useEffect(() => {
-    if (isMyTurn(room, myPlayerId) && !singingRef.current) {
+    if (isScoringClip(room, myPlayerId) && !singingRef.current) {
       framesRef.current = [];
       postedRef.current = false;
       singingRef.current = true;
@@ -198,33 +312,29 @@ export function StagePitch() {
   }, [room, myPlayerId]);
 
   useEffect(() => {
-    if (!room || !melody || !clockPlay || !myPlayerId) return;
-    if (isMyTurn(room, myPlayerId)) return;
-    if (!singingRef.current || postedRef.current) return;
-    singingRef.current = false;
-    postedRef.current = true;
-    const dsp = scoreContour(framesRef.current, melody, {
-      startSec: clockPlay.startSec,
-      durationSec: clockPlay.durationSec,
-    });
-    void postTurnScore(room.code, {
-      clientId: getClientId(),
-      displayName: getDisplayName() || "Singer",
-      score: dsp,
-      mode: room.mode,
-      songId: room.songId ?? undefined,
-      lyrics: lrcRef.current.slice(0, 600),
-    });
-  }, [room, melody, clockPlay, myPlayerId]);
+    if (!room || !melody || !myPlayerId) return;
+    if (isScoringClip(room, myPlayerId)) return;
+    flushRef.current();
+  }, [room, melody, myPlayerId]);
+
+  const remote =
+    !mine && livePitch && livePitch.playerId !== myPlayerId ? livePitch : null;
+  const shownHz = mine ? liveHz : (remote?.hz ?? null);
+  const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
+  const shownRms = mine ? liveRms : (remote?.rms ?? 0);
+  const grade = gradeLive(melody, playhead, shownHz);
 
   return (
-    <PitchMeter
-      melody={melody}
-      playheadSec={playhead}
-      liveHz={liveHz}
-      liveClarity={liveClarity}
-      liveRms={liveRms}
-    />
+    <div className="pitch-stage">
+      <PitchMeter
+        melody={melody}
+        playheadSec={playhead}
+        liveHz={shownHz}
+        liveClarity={shownClarity}
+        liveRms={shownRms}
+      />
+      {mine ? <HitCallout grade={grade} /> : null}
+    </div>
   );
 }
 

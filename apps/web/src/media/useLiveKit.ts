@@ -26,6 +26,7 @@ export type LiveKitState = {
   unconfigured: boolean;
   toggleMic: (on: boolean) => void;
   toggleCamera: (on: boolean) => void;
+  startAudio: () => Promise<void>;
 };
 
 export function useLiveKit(
@@ -125,6 +126,9 @@ export function useLiveKit(
     },
     toggleCamera: (on) => {
       if (room) void setCameraEnabled(room, on);
+    },
+    startAudio: async () => {
+      if (room) await room.startAudio().catch(() => undefined);
     },
   };
 }

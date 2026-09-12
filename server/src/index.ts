@@ -51,7 +51,7 @@ import {
 import { dequeue, enqueue, isQueueMode, type Waiting } from "./matchmaking.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
-import { enrichScore, registerLaneBRoutes } from "./judge.ts";
+import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -167,12 +167,24 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
     return;
   }
 
-  const enriched = await enrichScore(
+  const card = clampCard(score as ScoreCard);
+  const settled = recordScore(io, room, player.id, card);
+  res.json({ ok: true, settled, score: card });
+  void enrichScore(
     score as ScoreCard,
     typeof lyrics === "string" ? lyrics : undefined,
-  );
-  const settled = recordScore(io, room, player.id, enriched);
-  res.json({ ok: true, settled, score: enriched });
+  )
+    .then((enriched) => {
+      if (enriched.verdict === card.verdict && enriched.source === card.source) return;
+      room.scores.set(player.id, enriched);
+      io.to(room.code).emit(ServerEvents.scoreReady, {
+        playerId: player.id,
+        score: enriched,
+      });
+    })
+    .catch(() => {
+      /* DSP scores already shown */
+    });
 });
 
 // Serve the built client from the same origin in production so there is one
@@ -433,6 +445,30 @@ io.on("connection", (socket) => {
 
     if (everyoneReady(room)) startMatch(io, room);
     else broadcastState(io, room);
+  });
+
+  socket.on(ClientEvents.pitchLive, (payload: unknown) => {
+    const session = sessionOf(socket.id);
+    const room = roomOfSession(session);
+    if (!session || !room) return;
+    const player = room.players.find((p) => p.id === session.playerId);
+    if (!player) return;
+    const singing =
+      room.mode === "duet"
+        ? room.status === "live"
+        : (room.status === "turnA" || room.status === "turnB") &&
+          room.activeSingerId === player.id;
+    if (!singing) return;
+    const body = (payload ?? {}) as { hz?: unknown; clarity?: unknown; rms?: unknown };
+    const hz = typeof body.hz === "number" && Number.isFinite(body.hz) ? body.hz : null;
+    const clarity = typeof body.clarity === "number" ? body.clarity : 0;
+    const rms = typeof body.rms === "number" ? body.rms : 0;
+    socket.to(room.code).emit(ServerEvents.pitchLive, {
+      playerId: player.id,
+      hz,
+      clarity,
+      rms,
+    });
   });
 
   socket.on("disconnect", () => {
