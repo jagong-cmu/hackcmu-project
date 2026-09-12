@@ -1,23 +1,20 @@
 /**
- * The Aria orb — a dark glass bead with a band of refracted light through it.
+ * The Aria orb — an eclipse. A black sphere with a brilliant blue-white rim
+ * of light escaping from behind it.
  *
- * Built from stacked blurred layers rather than canvas so it costs no frame
- * budget while the DSP is running: two spectrum arcs crossing near the middle,
- * a white bloom where they meet, a rim light, and an outer halo.
- *
- * `--aria-level` (0..1) is the audio drive. Park it at 0 and the orb idles.
+ * Stacked blurred layers rather than canvas, so it costs no frame budget while
+ * the DSP is running. `--aria-level` (0..1) is the audio drive: it brightens
+ * the corona and widens the bloom, so the orb breathes with the singer.
  */
 .aria-orb {
-  --aria-size: 260px;
+  --aria-size: 300px;
   --aria-level: 0;
   position: relative;
   width: var(--aria-size);
   height: var(--aria-size);
   border-radius: 50%;
-  isolation: isolate;
   flex: none;
-  /* Level widens the bloom and lifts the halo. */
-  --aria-bloom: calc(1 + var(--aria-level) * 0.35);
+  isolation: isolate;
 }
 
 .aria-orb span {
@@ -27,195 +24,69 @@
   pointer-events: none;
 }
 
-/* The bead. Everything refracted is clipped to it; only the halo escapes. */
-.aria-glass {
-  overflow: hidden;
-  isolation: isolate;
+/* The light behind the sphere. Sits proud of the body so only its edge shows. */
+.aria-corona {
+  inset: -3%;
+  background: radial-gradient(
+    circle,
+    transparent 62%,
+    rgba(79, 151, 245, calc(0.35 + var(--aria-level) * 0.3)) 70%,
+    rgba(168, 208, 255, calc(0.85 + var(--aria-level) * 0.15)) 75%,
+    rgba(242, 248, 255, 0.95) 77.5%,
+    rgba(121, 180, 255, 0.4) 82%,
+    transparent 92%
+  );
+  filter: blur(calc(6px + var(--aria-level) * 6px));
 }
 
-/* Halo, outside the glass. */
+/* Wide, soft spill into the page. */
 .aria-halo {
-  inset: -18%;
+  inset: -34%;
   background: radial-gradient(
-    circle at 50% 50%,
-    rgba(120, 180, 255, calc(0.16 + var(--aria-level) * 0.22)) 0%,
-    rgba(190, 120, 255, 0.08) 40%,
-    transparent 68%
-  );
-  filter: blur(14px);
-}
-
-/* The bead itself. */
-.aria-body {
-  background:
-    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.10) 0%, transparent 42%),
-    radial-gradient(circle at 50% 44%, #18181d 0%, #0a0a0d 58%, #030304 100%);
-  box-shadow:
-    inset 0 0 70px rgba(255, 255, 255, 0.05),
-    inset 0 -14px 40px rgba(0, 0, 0, 0.6);
-}
-
-/*
- * The two arcs. Each is a full spectrum sweep squashed into an ellipse and
- * tilted, so they cross just off-centre the way light splits through a lens.
- */
-.aria-band {
-  mix-blend-mode: screen;
-  filter: blur(11px) saturate(1.45);
-  will-change: transform;
-}
-
-.aria-band-warm {
-  background: linear-gradient(
-    91deg,
-    var(--sp-red) 2%,
-    var(--sp-orange) 22%,
-    var(--sp-yellow) 38%,
-    #ffffff 50%,
-    var(--sp-teal) 62%,
-    var(--sp-blue) 78%,
-    var(--sp-violet) 98%
-  );
-  -webkit-mask-image: radial-gradient(ellipse 62% 7% at 50% 47%, #000 0%, rgba(0, 0, 0, 0.70) 44%, transparent 80%);
-  mask-image: radial-gradient(ellipse 62% 7% at 50% 47%, #000 0%, rgba(0, 0, 0, 0.70) 44%, transparent 80%);
-  transform: rotate(-7deg);
-  animation: aria-drift-warm 19s ease-in-out infinite;
-}
-
-.aria-band-cool {
-  background: linear-gradient(
-    88deg,
-    var(--sp-violet) 2%,
-    var(--sp-blue) 16%,
-    var(--sp-teal) 30%,
-    #ffffff 45%,
-    var(--sp-green) 60%,
-    var(--sp-yellow) 76%,
-    var(--sp-red) 98%
-  );
-  -webkit-mask-image: radial-gradient(ellipse 63% 6.5% at 50% 53%, #000 0%, rgba(0, 0, 0, 0.68) 44%, transparent 82%);
-  mask-image: radial-gradient(ellipse 63% 6.5% at 50% 53%, #000 0%, rgba(0, 0, 0, 0.68) 44%, transparent 82%);
-  transform: rotate(6deg);
-  animation: aria-drift-cool 23s ease-in-out infinite;
-}
-
-/* Where the two arcs meet, blown out to white. */
-.aria-core {
-  background:
-    radial-gradient(ellipse 15% 2.6% at 51% 50%, #ffffff 0%, rgba(255, 255, 255, 0.8) 45%, transparent 80%),
-    radial-gradient(ellipse 34% 6% at 51% 50%, rgba(255, 255, 255, 0.55) 0%, transparent 78%);
-  mix-blend-mode: screen;
-  filter: blur(7px);
-  transform: scaleX(var(--aria-bloom));
-  animation: aria-pulse 6.5s ease-in-out infinite;
-}
-
-/* Glass edge: bright at the top-left, a thin catch along the bottom. */
-.aria-underglow {
-  background: radial-gradient(
-    ellipse 46% 26% at 50% 72%,
-    rgba(150, 190, 255, 0.10) 0%,
-    rgba(120, 160, 255, 0.04) 45%,
-    transparent 78%
-  );
-  mix-blend-mode: screen;
-  filter: blur(12px);
-}
-
-.aria-rim {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.11),
-    inset 3px 4px 22px rgba(255, 255, 255, 0.16),
-    inset -3px -8px 26px rgba(160, 190, 255, 0.13);
-}
-
-/* ---- Light mode: the bead becomes a pearl ---- */
-:root[data-theme="light"] .aria-body {
-  background:
-    radial-gradient(circle at 34% 26%, #ffffff 0%, transparent 46%),
-    radial-gradient(circle at 50% 44%, #ffffff 0%, #ecedf2 58%, #c9cbd6 100%);
-  box-shadow:
-    inset 0 0 50px rgba(255, 255, 255, 0.85),
-    inset 0 -18px 50px rgba(0, 0, 0, 0.14),
-    0 18px 50px rgba(0, 0, 0, 0.08);
-}
-
-:root[data-theme="light"] .aria-band {
-  mix-blend-mode: multiply;
-  filter: blur(10px) saturate(1.9) contrast(1.1);
-  opacity: 1;
-}
-
-:root[data-theme="light"] .aria-core {
-  mix-blend-mode: normal;
-  background: radial-gradient(
-    ellipse 26% 4% at 52% 51%,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(255, 255, 255, 0.5) 40%,
-    transparent 76%
-  );
-}
-
-:root[data-theme="light"] .aria-rim {
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.07),
-    inset 2px 3px 16px rgba(255, 255, 255, 0.95),
-    inset -2px -8px 24px rgba(0, 0, 0, 0.07);
-}
-
-:root[data-theme="light"] .aria-halo {
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(120, 140, 255, calc(0.10 + var(--aria-level) * 0.16)) 0%,
-    rgba(190, 120, 255, 0.06) 42%,
+    circle,
+    rgba(79, 151, 245, calc(0.20 + var(--aria-level) * 0.22)) 0%,
+    rgba(47, 116, 216, 0.10) 42%,
     transparent 70%
   );
+  filter: blur(34px);
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .aria-body {
-    background:
-      radial-gradient(circle at 34% 26%, #ffffff 0%, transparent 46%),
-      radial-gradient(circle at 50% 46%, #fdfdfe 0%, #e9e9ee 62%, #d3d4dc 100%);
-    box-shadow:
-      inset 0 0 60px rgba(255, 255, 255, 0.9),
-      inset 0 -16px 44px rgba(0, 0, 0, 0.10);
-  }
-  :root:not([data-theme="dark"]) .aria-band {
-    mix-blend-mode: multiply;
-    filter: blur(12px) saturate(1.15);
-    opacity: 0.85;
-  }
-  :root:not([data-theme="dark"]) .aria-core { mix-blend-mode: normal; }
-  :root:not([data-theme="dark"]) .aria-rim {
-    box-shadow:
-      inset 0 0 0 1px rgba(0, 0, 0, 0.07),
-      inset 2px 3px 16px rgba(255, 255, 255, 0.95),
-      inset -2px -8px 24px rgba(0, 0, 0, 0.07);
-  }
+/* The sphere. Near-black, with the faintest blue wash where the light wraps. */
+.aria-body {
+  background:
+    radial-gradient(circle at 50% 118%, rgba(121, 180, 255, 0.30) 0%, transparent 42%),
+    radial-gradient(circle at 50% -16%, rgba(79, 151, 245, 0.20) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, #050a14 0%, #02040a 70%, #010307 100%);
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
 }
 
-@keyframes aria-drift-warm {
-  0%, 100% { transform: rotate(-7deg) translate3d(-2%, 0, 0) scaleX(1); }
-  50%      { transform: rotate(-4deg) translate3d(3%, -1.5%, 0) scaleX(1.06); }
+/* A crescent catch along the lower-left, where the sphere is thinnest. */
+.aria-crescent {
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 68%,
+    rgba(168, 208, 255, 0.55) 76%,
+    transparent 88%
+  );
+  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 34% 86%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse 80% 55% at 34% 86%, #000 0%, transparent 72%);
+  filter: blur(3px);
+  animation: aria-sweep 14s ease-in-out infinite;
 }
 
-@keyframes aria-drift-cool {
-  0%, 100% { transform: rotate(6deg) translate3d(2%, 0, 0) scaleX(1); }
-  50%      { transform: rotate(3deg) translate3d(-3%, 1.5%, 0) scaleX(1.05); }
+/* Glass edge. */
+.aria-rim {
+  box-shadow: inset 0 0 0 1px rgba(168, 208, 255, 0.10);
 }
 
-@keyframes aria-pulse {
-  0%, 100% { opacity: 0.82; }
-  50%      { opacity: 1; }
-}
+.aria-orb.is-idle .aria-crescent { animation-play-state: paused; }
+.aria-orb.is-idle { opacity: 0.75; }
 
-/* An orb that is not listening sits still and dim. */
-.aria-orb.is-idle .aria-band,
-.aria-orb.is-idle .aria-core { animation-play-state: paused; }
-.aria-orb.is-idle { opacity: 0.72; }
+@keyframes aria-sweep {
+  0%, 100% { transform: rotate(-8deg); opacity: 0.85; }
+  50%      { transform: rotate(8deg); opacity: 1; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .aria-band,
-  .aria-core { animation: none; }
+  .aria-crescent { animation: none; }
 }

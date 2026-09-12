@@ -11,20 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <meta name="theme-color" content="#000000" />
-    <script>
-      // Pre-paint so a light-mode user never sees a black flash (and vice versa).
-      (function () {
-        try {
-          var saved = localStorage.getItem("aria.theme");
-          if (saved === "light" || saved === "dark") {
-            document.documentElement.setAttribute("data-theme", saved);
-          }
-        } catch (e) {
-          /* blocked storage: fall through to the OS preference */
-        }
-      })();
-    </script>
+    <meta name="theme-color" content="#04060c" />
   </head>
   <body>
     <div id="root"></div>
