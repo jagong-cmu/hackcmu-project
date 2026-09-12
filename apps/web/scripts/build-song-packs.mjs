@@ -33,7 +33,7 @@ const CLIP_LEAD_SEC = 5;
  * lyricLeadSec: correction applied to lyrics ONLY -- folding it into offsetSec
  *   would drag the melody off the audio with it.
  *
- *   +0.30 on every song, set by ear. All four read early by about the same
+ *   +0.50 on every song, set by ear. All four read early by about the same
  *   amount, which points at something systematic rather than per-song
  *   alignment: audio.currentTime runs ahead of what actually reaches the
  *   speakers by the output buffer, and paint adds a frame or two on top.
@@ -50,28 +50,28 @@ const PACKS = [
     // offsetSec values below are measured by chroma/DTW against each studio
     // original (scripts note in README); the figure is the median of inlier
     // per-line drifts, outliers being sparse intros and outros.
-    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95, lyricLeadSec: 0.3,
+    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95, lyricLeadSec: 0.5,
     phrases: [
       [68, 68, 67, 65, 63], [65, 65, 67, 68, 67, 65, 63],
       [63, 65, 67, 68, 70, 68, 67], [67, 67, 65, 63, 62, 63],
     ],
   },
   {
-    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: 0.3,
+    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: 0.5,
     phrases: [
       [59, 59, 59, 62, 59, 57], [59, 59, 62, 64, 62, 59],
       [64, 64, 62, 59, 57], [67, 66, 64, 62],
     ],
   },
   {
-    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0.3,
+    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0.5,
     phrases: [
       [63, 63, 65, 67, 65, 63], [63, 65, 67, 68, 67, 65],
       [65, 67, 65, 63], [68, 68, 70, 72, 70, 68],
     ],
   },
   {
-    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62, lyricLeadSec: 0.3,
+    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62, lyricLeadSec: 0.5,
     phrases: [
       [60, 60, 62, 64, 62, 60], [64, 64, 65, 64, 62, 60],
       [65, 65, 64, 62, 60], [67, 65, 64, 62, 60],
