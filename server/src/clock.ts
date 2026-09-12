@@ -30,10 +30,14 @@ import {
 } from "./rooms.ts";
 import { persistSeatedMatch } from "./judge.ts";
 
-const songsDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../apps/web/public/songs",
-);
+const songsDir =
+  [
+    path.resolve(process.cwd(), "apps/web/dist/songs"),
+    path.resolve(process.cwd(), "apps/web/public/songs"),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/dist/songs"),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs"),
+  ].find((dir) => existsSync(dir)) ??
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
 
 /** How long we wait for both DSP ScoreCards before falling back to stubs. */
 const SCORE_WAIT_MS = 12_000;
@@ -70,11 +74,12 @@ const useTestSong = (): boolean => process.env.USE_TEST_SONG === "1";
 
 function pickSong(): SongMeta {
   if (useTestSong()) return TEST_SONG;
-  const pool = SONGS.filter(
+  const onDisk = SONGS.filter(
     (s) =>
       existsSync(path.join(songsDir, s.id, "instrumental.mp3")) &&
       existsSync(path.join(songsDir, s.id, "melody.json")),
   );
+  const pool = onDisk.length > 0 ? onDisk : SONGS;
   const song = pool[Math.floor(Math.random() * pool.length)];
   return song ?? TEST_SONG;
 }

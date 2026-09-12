@@ -7,3 +7,6 @@ server/dist/
 *.log
 .gstack/
 *.wav
+.vercel
+.env.local
+.vercel/.env*.local

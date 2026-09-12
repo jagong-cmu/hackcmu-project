@@ -10,10 +10,9 @@ const CLIENT_ID_KEY = "karaoke.clientId";
 const DISPLAY_NAME_KEY = "karaoke.displayName";
 
 const url = import.meta.env.VITE_SOCKET_URL?.trim();
+const socketOpts = { transports: ["websocket"] as const };
 
-export const socket: Socket = url
-  ? io(url, { transports: ["websocket", "polling"] })
-  : io({ transports: ["websocket", "polling"] });
+export const socket: Socket = url ? io(url, socketOpts) : io(socketOpts);
 
 /** Stable per-browser identity. No accounts in v1 (PRD §4). */
 export function getClientId(): string {
