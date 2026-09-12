@@ -33,12 +33,10 @@ const CLIP_LEAD_SEC = 5;
  * lyricLeadSec: correction applied to lyrics ONLY -- folding it into offsetSec
  *   would drag the melody off the audio with it.
  *
- *   Set by ear, per song: +0.90 for viva-la-vida, creep and
- *   im-not-the-only-one; 0 for perfect, which sits right untouched. That three
- *   of four want the same figure suggests a systematic part -- audio
- *   currentTime runs ahead of what reaches the speakers by the output buffer,
- *   and paint adds a frame or two -- but perfect not needing it means the rest
- *   is per-song, so do not collapse these into one constant.
+ *   Set by ear, per song. Only viva-la-vida wants one (+0.90); the other
+ *   three sit right untouched. So this is a per-song property of how each
+ *   karaoke cover phrases its entry against the original the LRC was timed
+ *   to -- not playback latency, which would affect all four equally.
  *
  *   An earlier attempt measured voiced onsets in the isolated vocals and moved
  *   lyrics EARLIER by 0.25-0.36s. That was worse: an onset detector fires on
@@ -59,21 +57,21 @@ const PACKS = [
     ],
   },
   {
-    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: 0.9,
+    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: 0,
     phrases: [
       [59, 59, 59, 62, 59, 57], [59, 59, 62, 64, 62, 59],
       [64, 64, 62, 59, 57], [67, 66, 64, 62],
     ],
   },
   {
-    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0,   // sits right with no delay
+    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0,
     phrases: [
       [63, 63, 65, 67, 65, 63], [63, 65, 67, 68, 67, 65],
       [65, 67, 65, 63], [68, 68, 70, 72, 70, 68],
     ],
   },
   {
-    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62, lyricLeadSec: 0.9,
+    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62, lyricLeadSec: 0,
     phrases: [
       [60, 60, 62, 64, 62, 60], [64, 64, 65, 64, 62, 60],
       [65, 65, 64, 62, 60], [67, 65, 64, 62, 60],
