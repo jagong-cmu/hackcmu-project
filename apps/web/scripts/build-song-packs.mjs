@@ -22,6 +22,9 @@ const [SRC, LRC_DIR, ONLY] = process.argv.slice(2);
 if (!SRC || !LRC_DIR) throw new Error("usage: build-song-packs.mjs <mp3-dir> <lrclib-json-dir> [songId]");
 
 const MELODY_SR = 50;
+// Ranked/duet clips open slightly before the first lyric so GO does not land on
+// the downbeat the singer is meant to hit.
+const CLIP_LEAD_SEC = 3;
 
 /**
  * offsetSec: maps ORIGINAL time onto our karaoke track, measured by chroma/DTW
@@ -106,7 +109,7 @@ for (const p of PACKS) {
   const shifted = lines
     .map((l) => ({ ...l, t: +(l.t + p.offsetSec + lead).toFixed(2) }))
     .filter((l) => l.t >= 0);
-  const clipStartSec = Math.max(0, Math.floor(shifted[0].t));
+  const clipStartSec = +Math.max(0, shifted[0].t - CLIP_LEAD_SEC).toFixed(1);
   const lastT = shifted[shifted.length - 1].t;
   const hz = new Array(Math.round((lastT + 8) * MELODY_SR)).fill(null);
 

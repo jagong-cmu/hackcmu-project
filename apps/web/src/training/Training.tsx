@@ -368,6 +368,7 @@ export function Training() {
       {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
+      <LyricsOverlay lrc={lrc} currentTime={playhead + syncOffset} />
       <PitchMeter
         melody={melody}
         playheadSec={playhead}
@@ -375,7 +376,6 @@ export function Training() {
         liveClarity={liveClarity}
         liveRms={liveRms}
       />
-      <LyricsOverlay lrc={lrc} currentTime={playhead + syncOffset} />
 
       <div className="stage-self">
         {camDenied ? <div className="avatar-tile">camera off</div> : <video ref={videoRef} muted playsInline />}

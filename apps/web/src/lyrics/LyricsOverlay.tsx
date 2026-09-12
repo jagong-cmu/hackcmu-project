@@ -1,83 +1,66 @@
-import { useMemo } from "react";
-import { parseLrc, type LrcLine } from "./parseLrc.ts";
+import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
+import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
+
+export type DuetView = {
+  seat: DuetSeat | null;
+  nameA: string;
+  nameB: string;
+};
 
 type Props = {
   lrc: string | LrcLine[];
   currentTime: number;
+  duet?: DuetView | null;
 };
 
-/** A line stays lit for its own span, but never longer than this. */
-const MAX_LINE_SEC = 7;
-/** How early a countdown appears before the next line. */
-const COUNTDOWN_SEC = 4;
-
-type Window = { text: string; startSec: number; endSec: number };
-
-function windows(lines: LrcLine[]): Window[] {
-  return lines.map((l, i) => {
-    const next = lines[i + 1]?.timeSec ?? l.timeSec + MAX_LINE_SEC;
-    return {
-      text: l.text,
-      startSec: l.timeSec,
-      endSec: Math.min(next, l.timeSec + MAX_LINE_SEC),
-    };
-  });
-}
-
-export function LyricsOverlay({ lrc, currentTime }: Props) {
-  const wins = useMemo(() => windows(typeof lrc === "string" ? parseLrc(lrc) : lrc), [lrc]);
-
-  const { active, upcoming } = useMemo(() => {
-    let activeWin: Window | null = null;
-    let nextWin: Window | null = null;
-    for (const w of wins) {
-      if (currentTime >= w.startSec && currentTime < w.endSec) activeWin = w;
-      if (w.startSec > currentTime) {
-        nextWin = w;
-        break;
-      }
-    }
-    return { active: activeWin, upcoming: nextWin };
-  }, [wins, currentTime]);
-
-  if (active) {
+export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
+  const lines = typeof lrc === "string" ? parseLrc(lrc) : lrc;
+  if (duet) {
+    const cue = cueAt(lines, currentTime);
+    const now = cueLabel(cue.voice, duet.seat, duet.nameA, duet.nameB);
+    const shown = cue.waiting ? cue.next : cue.current;
+    const upcoming = cue.waiting ? null : cue.next;
+    const nextWho = upcoming
+      ? cueLabel(upcoming.voice, duet.seat, duet.nameA, duet.nameB)
+      : null;
     return (
-      <div className="lyrics">
-        <p className="lyrics-now">{active.text}</p>
-        <p className="lyrics-next">{upcoming?.text ?? ""}</p>
-      </div>
-    );
-  }
-
-  // Between lines: count the singer back in rather than leaving a dead screen.
-  if (upcoming) {
-    const wait = upcoming.startSec - currentTime;
-    if (wait <= COUNTDOWN_SEC) {
-      const beats = Math.ceil(wait);
-      return (
-        <div className="lyrics">
-          <p className="lyrics-cue">{upcoming.text}</p>
-          <p className="lyrics-count" aria-live="off">
-            {[4, 3, 2, 1].map((n) => (
-              <span key={n} className={n <= beats ? "dot" : "dot spent"} />
-            ))}
-            <span className="count-num">{beats}</span>
+      <div className="lyrics lyrics-duet">
+        <p className={`lyrics-cue ${now.kind}`}>{now.text}</p>
+        <p
+          className={[
+            "lyrics-now",
+            cue.waiting || now.kind === "wait" ? "lyrics-soon" : "",
+            now.kind === "you" ? "duet-you" : "",
+            now.kind === "them" ? "duet-them" : "",
+            now.kind === "together" ? "duet-together" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {shown?.text ?? "·"}
+        </p>
+        {upcoming ? (
+          <p className={`lyrics-next ${nextWho?.kind ?? ""}`}>
+            <span className="who">{nextWho?.text}</span>
+            <span className="next-line">{upcoming.text}</span>
           </p>
-        </div>
-      );
-    }
-    return (
-      <div className="lyrics">
-        <p className="lyrics-rest">♪</p>
-        <p className="lyrics-next">{upcoming.text}</p>
+        ) : cue.waiting ? (
+          <p className="lyrics-next">coming up</p>
+        ) : (
+          <p className="lyrics-next" />
+        )}
       </div>
     );
   }
 
+  const { current, next } = lineAt(lines, currentTime);
+  const waiting = !current && Boolean(next);
   return (
     <div className="lyrics">
-      <p className="lyrics-rest">♪</p>
-      <p className="lyrics-next" />
+      <p className={waiting ? "lyrics-now lyrics-soon" : "lyrics-now"}>
+        {current?.text ?? next?.text ?? "·"}
+      </p>
+      <p className="lyrics-next">{waiting ? "coming up" : (next?.text ?? "")}</p>
     </div>
   );
 }

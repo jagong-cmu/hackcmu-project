@@ -25,9 +25,19 @@ export function scoreContour(
   frames: PitchFrame[],
   melody: MelodyFile,
   clip: { startSec: number; durationSec: number },
+  /**
+   * Duet: only the seat's own lines count. Without this a singer is scored
+   * through their partner's lines too, where they are correctly silent.
+   */
+  windows?: Array<{ startSec: number; endSec: number }>,
 ): ScoreCard {
   const end = clip.startSec + clip.durationSec;
-  const windowed = frames.filter((f) => f.timeSec >= clip.startSec && f.timeSec <= end);
+  const inWindows = (t: number) =>
+    !windows || windows.length === 0 || windows.some((w) => t >= w.startSec && t <= w.endSec);
+
+  const windowed = frames.filter(
+    (f) => f.timeSec >= clip.startSec && f.timeSec <= end && inWindows(f.timeSec),
+  );
 
   const errors: number[] = [];
   const residuals: number[] = [];
@@ -38,6 +48,7 @@ export function scoreContour(
   for (let t = clip.startSec; t < end; t += step) {
     const target = melodyHzAt(melody, t);
     if (target == null) continue;
+    if (!inWindows(t)) continue;
     melodyVoiced += 1;
   }
 

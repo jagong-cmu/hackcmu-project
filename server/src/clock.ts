@@ -13,9 +13,11 @@ import {
   ClockLeadMs,
   CountdownMs,
   ForfeitSkipMs,
+  EloK,
   RankedClipMs,
   ServerEvents,
   SONGS,
+  StartingElo,
   SwapMs,
   songById,
   type ScoreCard,
@@ -29,6 +31,7 @@ import {
   type Room,
 } from "./rooms.ts";
 import { persistSeatedMatch } from "./judge.ts";
+import { eloDelta, outcomeFromScores } from "./elo.ts";
 
 const songsDir =
   [
@@ -39,8 +42,8 @@ const songsDir =
   ].find((dir) => existsSync(dir)) ??
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
 
-/** How long we wait for both DSP ScoreCards before falling back to stubs. */
-const SCORE_WAIT_MS = 12_000;
+/** Last-chance wait for an in-flight POST. Scores should already be in. */
+const SCORE_WAIT_MS = 250;
 
 /**
  * Used when Lane B's DSP has not landed yet, or a client never POSTs.
@@ -143,7 +146,7 @@ export function everyoneReady(room: Room): boolean {
 }
 
 /**
- * lobby → countdown 3s → turnA 15s → swap 2s → turnB 15s → results.
+ * lobby → countdown 5s → turnA 15s → swap 5s → turnB 15s → results.
  * Duet collapses the two turns into one shared `live` block (PRD §6.2).
  */
 export function startMatch(io: Server, room: Room): void {
@@ -191,14 +194,20 @@ function swapToTurnB(io: Server, room: Room): void {
   });
 }
 
-/**
- * Both clips are sung. Hold in `results` until both ScoreCards POST in, or the
- * wait expires and we fall back to stubs so the demo never hangs.
- */
+/** Both clips are sung. Settle as soon as both DSP ScoreCards are in. */
+function scoresAreIn(room: Room): boolean {
+  const expected = room.players.filter((p) => p.connected);
+  return expected.length > 0 && expected.every((p) => room.scores.has(p.id));
+}
+
 function awaitScores(io: Server, room: Room): void {
   room.status = "results";
   room.playAtUnixMs = null;
   broadcastState(io, room);
+  if (scoresAreIn(room)) {
+    void finishMatch(io, room);
+    return;
+  }
   later(room, SCORE_WAIT_MS, () => void finishMatch(io, room));
 }
 
@@ -212,9 +221,7 @@ export function recordScore(
   room.scores.set(playerId, score);
   io.to(room.code).emit(ServerEvents.scoreReady, { playerId, score });
 
-  const expected = room.players.filter((p) => p.connected);
-  const allIn = expected.every((p) => room.scores.has(p.id));
-  if (allIn && (room.status === "results" || room.status === "live")) {
+  if (scoresAreIn(room) && (room.status === "results" || room.status === "live")) {
     void finishMatch(io, room);
     return true;
   }
@@ -253,13 +260,28 @@ export async function finishMatch(
 
   const usedStub = room.players.some((p) => !room.scores.has(p.id));
   if (!forfeit && room.mode !== "chaos" && !usedStub) {
-    room.lastEloDelta = await persistSeatedMatch({
+    const [a, b] = room.players;
+    const sa = a ? scores[a.id]?.overall ?? 0 : 0;
+    const sb = b ? scores[b.id]?.overall ?? 0 : 0;
+    room.lastEloDelta = eloDelta(
+      StartingElo,
+      StartingElo,
+      outcomeFromScores(sa, sb),
+      EloK,
+    ).a;
+    void persistSeatedMatch({
       code: room.code,
       mode: room.mode,
       songId: room.songId,
       players: room.players,
       scores: room.scores,
-    });
+    })
+      .then((d) => {
+        room.lastEloDelta = d;
+      })
+      .catch(() => {
+        /* results already shown */
+      });
   }
 
   room.status = "results";

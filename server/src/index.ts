@@ -17,10 +17,9 @@ import express from "express";
 import { Server } from "socket.io";
 
 import {
-  ChaosLounges,
   ClientEvents,
   DemoRoomCode,
-  PublicChaosCode,
+  isPublicChaosCode,
   ServerEvents,
   StartingElo,
   type Mode,
@@ -32,6 +31,7 @@ import {
   disposeIfEmpty,
   ensurePermanentRooms,
   createRoom,
+  findOpenPublicChaosLounge,
   getRoom,
   isFull,
   removePlayer,
@@ -51,7 +51,7 @@ import {
 import { dequeue, enqueue, isQueueMode, type Waiting } from "./matchmaking.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
-import { enrichScore, registerLaneBRoutes } from "./judge.ts";
+import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -167,12 +167,24 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
     return;
   }
 
-  const enriched = await enrichScore(
+  const card = clampCard(score as ScoreCard);
+  const settled = recordScore(io, room, player.id, card);
+  res.json({ ok: true, settled, score: card });
+  void enrichScore(
     score as ScoreCard,
     typeof lyrics === "string" ? lyrics : undefined,
-  );
-  const settled = recordScore(io, room, player.id, enriched);
-  res.json({ ok: true, settled, score: enriched });
+  )
+    .then((enriched) => {
+      if (enriched.verdict === card.verdict && enriched.source === card.source) return;
+      room.scores.set(player.id, enriched);
+      io.to(room.code).emit(ServerEvents.scoreReady, {
+        playerId: player.id,
+        score: enriched,
+      });
+    })
+    .catch(() => {
+      /* DSP scores already shown */
+    });
 });
 
 // Serve the built client from the same origin in production so there is one
@@ -340,6 +352,10 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
+    if (mode !== "ranked" && mode !== "duet" && mode !== "chaos") {
+      return fail(socket, "BAD_MODE", "ranked, duet, or chaos");
+    }
+
     const room = createRoom(mode);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
@@ -370,11 +386,19 @@ io.on("connection", (socket) => {
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
     const raw = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
-    const code = raw || PublicChaosCode;
+    if (raw && !isPublicChaosCode(raw) && !/^\d{4}$/.test(raw)) {
+      return fail(socket, "BAD_CODE", "enter a 4-digit code");
+    }
 
-    const knownLounge = ChaosLounges.some((lounge) => lounge.code === code);
-    const room = getRoom(code) ?? createRoom("chaos", code, knownLounge);
-    if (room.mode !== "chaos") return fail(socket, "NOT_CHAOS", `${code} is not a lounge`);
+    let room = raw ? getRoom(raw) : findOpenPublicChaosLounge();
+    if (raw) {
+      if (room && room.mode !== "chaos") {
+        return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
+      }
+      room ??= createRoom("chaos", raw, false);
+    }
+
+    if (!room) return fail(socket, "ROOM_NOT_FOUND", "no open lounge");
 
     if (session.roomCode === room.code) {
       catchUpClock(io, room, socket.id);
@@ -385,7 +409,16 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
-    if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "lounge is full");
+    if (!seat(socket.id, room)) {
+      if (!raw) {
+        room = findOpenPublicChaosLounge();
+        if (seat(socket.id, room)) {
+          socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
+          return;
+        }
+      }
+      return fail(socket, "ROOM_FULL", "lounge is full");
+    }
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
   });
 
@@ -414,6 +447,30 @@ io.on("connection", (socket) => {
     else broadcastState(io, room);
   });
 
+  socket.on(ClientEvents.pitchLive, (payload: unknown) => {
+    const session = sessionOf(socket.id);
+    const room = roomOfSession(session);
+    if (!session || !room) return;
+    const player = room.players.find((p) => p.id === session.playerId);
+    if (!player) return;
+    const singing =
+      room.mode === "duet"
+        ? room.status === "live"
+        : (room.status === "turnA" || room.status === "turnB") &&
+          room.activeSingerId === player.id;
+    if (!singing) return;
+    const body = (payload ?? {}) as { hz?: unknown; clarity?: unknown; rms?: unknown };
+    const hz = typeof body.hz === "number" && Number.isFinite(body.hz) ? body.hz : null;
+    const clarity = typeof body.clarity === "number" ? body.clarity : 0;
+    const rms = typeof body.rms === "number" ? body.rms : 0;
+    socket.to(room.code).emit(ServerEvents.pitchLive, {
+      playerId: player.id,
+      hz,
+      clarity,
+      rms,
+    });
+  });
+
   socket.on("disconnect", () => {
     dequeue(socket.id);
     leaveCurrentRoom(socket.id);
@@ -426,7 +483,7 @@ ensurePermanentRooms();
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
   console.log(`[lane-a] livekit: ${lk}`);
-  console.log(`[lane-a] demo room ${DemoRoomCode} and lounges lounge-a / lounge-b are live`);
+  console.log(`[lane-a] demo room ${DemoRoomCode} is live; Chaos lounges spawn on join`);
   if (process.env.USE_TEST_SONG === "1") {
     console.log("[lane-a] USE_TEST_SONG=1 — serving /songs/_test click track");
   }

@@ -53,6 +53,7 @@ export default function TurnOverlay({
       return;
     }
     if (status === "live") {
+      if (room.mode === "duet") return;
       setBeat({ kind: "together" });
       return;
     }
@@ -63,7 +64,7 @@ export default function TurnOverlay({
 
   useEffect(() => {
     if (!beat) return;
-    const hold = beat.kind === "end" ? 750 : beat.kind === "time" ? 1100 : 1300;
+    const hold = beat.kind === "end" ? 1400 : beat.kind === "time" ? 1400 : 1600;
     const t = window.setTimeout(() => setBeat(null), hold);
     return () => clearTimeout(t);
   }, [beat]);
@@ -80,32 +81,32 @@ export default function TurnOverlay({
   const go =
     Boolean(clockPlay) &&
     msUntil <= 0 &&
-    msUntil > -650 &&
+    msUntil > -1100 &&
     (room.status === "countdown" || room.status === "swap");
-
-  if (beat?.kind === "end") {
-    return (
-      <div className="callout hold" role="status">
-        <p className="callout-kicker">End of turn</p>
-        <p className="callout-title">LOCKED IN</p>
-        <p className="callout-sub">Same chorus. Other singer.</p>
-      </div>
-    );
-  }
 
   if (countingDown) {
     const count = Math.max(1, Math.ceil(msUntil / 1000));
     const swapping = room.status === "swap";
     return (
       <div className="callout hold" role="status">
-        <p className="callout-kicker">{swapping ? "SWITCH" : mine ? "You're up first" : "They sing first"}</p>
+        <p className="callout-kicker">
+          {swapping
+            ? "SWITCH"
+            : room.mode === "duet"
+              ? "Your lines light up"
+              : mine
+                ? "You're up first"
+                : "They sing first"}
+        </p>
         <p className="callout-count">{count}</p>
         <p className="callout-sub">
           {swapping
             ? mine
               ? "You're next"
               : `${singer?.displayName ?? "They"} are next`
-            : "Get ready"}
+            : room.mode === "duet"
+              ? "Jump in on together"
+              : "Get ready"}
         </p>
       </div>
     );
@@ -133,6 +134,16 @@ export default function TurnOverlay({
       <div className="callout flash" role="status">
         <p className="callout-title">SING TOGETHER</p>
         <p className="callout-sub">Both mics are on</p>
+      </div>
+    );
+  }
+
+  if (beat?.kind === "end") {
+    return (
+      <div className="callout hold" role="status">
+        <p className="callout-kicker">End of turn</p>
+        <p className="callout-title">LOCKED IN</p>
+        <p className="callout-sub">Same chorus. Other singer.</p>
       </div>
     );
   }

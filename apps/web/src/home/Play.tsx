@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChaosLounges, DemoRoomCode } from "@karaoke/shared";
+import { DemoRoomCode, type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 const COPY: Record<string, { title: string; blurb: string }> = {
   ranked: { title: "Ranked", blurb: "Same 15s chorus. A then B. ELO." },
   duet: { title: "Duet", blurb: "Sing together. Shared score. No ELO." },
-  chaos: { title: "Chaos", blurb: "Two lounges. Cameras and lyrics. No score." },
+  chaos: { title: "Chaos", blurb: "Join a lounge. Cameras and lyrics. No score." },
 };
+
+function playModeOf(mode: string): Mode {
+  if (mode === "duet" || mode === "chaos") return mode;
+  return "ranked";
+}
 
 export function Play() {
   const { mode = "ranked" } = useParams();
@@ -27,8 +32,9 @@ export function Play() {
     error,
   } = useRoom();
 
-  const playMode = mode === "duet" ? "duet" : "ranked";
-  const inQueue = queuedMode === playMode;
+  const playMode = playModeOf(mode);
+  const isChaos = playMode === "chaos";
+  const inQueue = !isChaos && queuedMode === playMode;
 
   function parseCode(raw: string): string | null {
     const c = raw.replace(/\D/g, "").slice(0, 4);
@@ -64,30 +70,7 @@ export function Play() {
         </p>
       ) : null}
 
-      {mode === "chaos" ? (
-        <div className="play-choices">
-          <section className="play-choice">
-            <h2>Pick a lounge</h2>
-            <p>Two rooms are always on. Walk in, see faces, sing along. No score.</p>
-            <div className="lounge-pair">
-              {ChaosLounges.map((lounge) => (
-                <button
-                  key={lounge.code}
-                  type="button"
-                  className="btn gold"
-                  disabled={!named || !connected}
-                  onClick={() => {
-                    announce();
-                    chaosJoin(lounge.code);
-                  }}
-                >
-                  {lounge.name}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-      ) : inQueue ? (
+      {inQueue ? (
         <div className="play-choices">
           <section className="play-choice">
             <h2>In the random queue</h2>
@@ -103,24 +86,33 @@ export function Play() {
       ) : (
         <div className="play-choices">
           <section className="play-choice">
-            <h2>Random queue</h2>
-            <p>Get paired with the next player waiting in this mode.</p>
+            <h2>{isChaos ? "Public lounge" : "Random queue"}</h2>
+            <p>
+              {isChaos
+                ? "Jump in. You'll be seated automatically. When a lounge fills up, a new one opens."
+                : "Get paired with the next player waiting in this mode."}
+            </p>
             <button
               type="button"
               className="btn gold"
               disabled={!named || !connected}
               onClick={() => {
                 announce();
-                queueJoin(playMode);
+                if (isChaos) chaosJoin();
+                else queueJoin(playMode);
               }}
             >
-              Join random queue
+              {isChaos ? "Join queue" : "Join random queue"}
             </button>
           </section>
 
           <section className="play-choice">
             <h2>Private room</h2>
-            <p>Create a 4-digit code and send it to a friend, or join one they already made.</p>
+            <p>
+              {isChaos
+                ? "Create a 4-digit code and send it to a friend, or join one they already made. Same lounge rules, just not the public queue."
+                : "Create a 4-digit code and send it to a friend, or join one they already made."}
+            </p>
             <button
               type="button"
               className="btn gold"
@@ -138,7 +130,8 @@ export function Play() {
                 const c = parseCode(code);
                 if (!c) return;
                 announce();
-                roomJoin(c);
+                if (isChaos) chaosJoin(c);
+                else roomJoin(c);
               }}
             >
               <input

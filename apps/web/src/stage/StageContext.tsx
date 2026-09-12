@@ -10,12 +10,17 @@
 import { createContext, useContext } from "react";
 import type { RoomState } from "@karaoke/shared";
 
+export type DuetVoiceCue = "a" | "b" | "both" | "rest";
+
 export type StageContextValue = {
   audioRef: React.RefObject<HTMLAudioElement>;
   micStream: MediaStream | null;
   room: RoomState | null;
   /** The signed-in player's id, for "is it my turn" checks. */
   myPlayerId: string | null;
+  /** Current duet part from lyrics. Null outside duet. */
+  duetVoice: DuetVoiceCue | null;
+  reportDuetVoice: (voice: DuetVoiceCue | null) => void;
 };
 
 export const StageContext = createContext<StageContextValue | null>(null);

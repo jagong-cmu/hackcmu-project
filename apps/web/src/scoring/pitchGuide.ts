@@ -238,15 +238,38 @@ export function smoothLivePitch(
 export { TRAIL_SEC };
 
 export function melodyRange(runs: NoteRun[]): { min: number; max: number } {
-  if (runs.length === 0) return { min: 52, max: 76 };
+  if (runs.length === 0) return { min: 52, max: 62 };
   let min = Infinity;
   let max = -Infinity;
   for (const run of runs) {
     if (run.midi < min) min = run.midi;
     if (run.midi > max) max = run.midi;
   }
-  min = Math.floor(min) - 4;
-  max = Math.ceil(max) + 12;
-  if (max - min < 20) max = min + 20;
+  min = Math.floor(min) - 2;
+  max = Math.ceil(max) + 2;
+  if (max - min < 8) {
+    const mid = (min + max) / 2;
+    min = mid - 4;
+    max = mid + 4;
+  }
   return { min, max };
+}
+
+/** Zoom the staff to notes actually on screen instead of the whole song. */
+export function windowedMelodyRange(
+  runs: NoteRun[],
+  tNow: number,
+  lookbehind: number,
+  lookahead: number,
+  liveMidi?: number | null,
+): { min: number; max: number } {
+  const visible = runs.filter(
+    (run) => run.endSec >= tNow - lookbehind && run.startSec <= tNow + lookahead,
+  );
+  const base = melodyRange(visible.length ? visible : runs);
+  if (liveMidi == null || !Number.isFinite(liveMidi)) return base;
+  return {
+    min: Math.min(base.min, liveMidi - 1.5),
+    max: Math.max(base.max, liveMidi + 1.5),
+  };
 }

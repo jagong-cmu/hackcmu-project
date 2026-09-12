@@ -9,6 +9,7 @@ export const ClientEvents = {
   roomLeave: "room:leave",
   roomReady: "room:ready",
   chaosJoin: "chaos:join",
+  pitchLive: "pitch:live",
 } as const;
 
 export const ServerEvents = {
@@ -19,32 +20,38 @@ export const ServerEvents = {
   clockPlay: "clock:play",
   scoreReady: "score:ready",
   matchOver: "match:over",
+  pitchLive: "pitch:live",
   error: "error",
 } as const;
 
 export const ScorePostPath = "/api/turns/:roomId/score";
 export const DemoRoomCode = "0000";
 
-/** Two always-on Chaos lounges. Play offers these as the only Chaos entry. */
-export const ChaosLounges = [
-  { code: "lounge-a", name: "Lounge A" },
-  { code: "lounge-b", name: "Lounge B" },
-] as const;
+/** Public Chaos lounges are `chaos-1`, `chaos-2`, … — players never pick one. */
+export const PublicChaosPrefix = "chaos-";
 
-export const PublicChaosCode = ChaosLounges[0].code;
+export function isPublicChaosCode(code: string): boolean {
+  return /^chaos-\d+$/.test(code);
+}
+
+export function publicChaosIndex(code: string): number | null {
+  const match = /^chaos-(\d+)$/.exec(code);
+  return match ? Number(match[1]) : null;
+}
 
 export function chaosLoungeName(code: string): string | undefined {
-  return ChaosLounges.find((lounge) => lounge.code === code)?.name;
+  const index = publicChaosIndex(code);
+  return index == null ? undefined : `Lounge ${index}`;
 }
 
 export const StartingElo = 1000;
 export const EloK = 32;
 export const ForfeitEloK = 16;
 export const ForfeitSkipMs = 5000;
-export const CountdownMs = 3000;
+export const CountdownMs = 5000;
 export const RankedClipMs = 15000;
-export const SwapMs = 2000;
+export const SwapMs = 5000;
 export const ClockLeadMs = 400;
 export const MaxDriftSec = 0.15;
-export const ChaosCap = 8;
+export const ChaosCap = 100;
 export const RankedCap = 2;

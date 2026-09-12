@@ -117,76 +117,141 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr) 160px;
-  gap: 1rem;
-  align-items: center;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.55rem 0.7rem;
+  align-items: stretch;
+}
+.stage-arena > .stage-cam:first-of-type {
+  grid-column: 1;
+  grid-row: 1;
+}
+.stage-arena > .stage-board {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.stage-arena > .stage-cam:last-of-type {
+  grid-column: 2;
+  grid-row: 1;
 }
 .stage-cam {
   display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 .stage-cam .tile {
+  flex: 1;
   width: 100%;
-  max-width: 160px;
-  height: 120px;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
   aspect-ratio: auto;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 .stage-board {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 0;
   min-height: 0;
   height: auto;
   max-height: 100%;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 .stage-fit .lyrics {
-  min-height: 4.4rem;
+  min-height: 5.8rem;
   margin: 0;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 0.15rem 0.4rem;
 }
 .stage-fit .lyrics-now {
-  font-size: clamp(1.35rem, 2.8vw, 2.15rem);
-  line-height: 1.15;
+  font-size: clamp(2.4rem, 6.2vw, 4.8rem);
+  line-height: 1.02;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-wrap: balance;
+  color: var(--cream, #f4efe6);
 }
+.lyrics-cue {
+  margin: 0 0 2px;
+  min-height: 1.15em;
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  letter-spacing: 0.04em;
+  color: var(--mute, #8a8278);
+}
+.lyrics-cue.you,
+.lyrics-cue.together { color: var(--gold, #c9a227); }
+.lyrics-cue.them { color: var(--cream, #f4efe6); }
+.lyrics-now.duet-you { color: var(--cream, #f4efe6); }
+.lyrics-now.duet-them { color: var(--mute, #8a8278); }
+.lyrics-now.duet-together { color: var(--gold, #c9a227); }
+.lyrics-next {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.lyrics-next .who {
+  color: var(--gold, #c9a227);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+}
+.lyrics-next.them .who,
+.lyrics-next.wait .who { color: var(--mute, #8a8278); }
+.lyrics-next .next-line { min-width: 0; }
 .stage-fit .lyrics-next {
-  margin: 6px 0 0;
-  font-size: 0.95rem;
+  margin: 8px 0 0;
+  font-size: clamp(1.15rem, 2.4vw, 1.85rem);
+  line-height: 1.15;
 }
-/* Gap countdown, sized so the stage still fits one screen. */
+/* Duet speaker cue, sized so the stage still fits one screen. */
 .stage-fit .lyrics-cue {
   font-size: clamp(1.1rem, 2.2vw, 1.6rem);
 }
-.stage-fit .lyrics-rest {
-  font-size: clamp(1.35rem, 2.8vw, 2.15rem);
-}
-.stage-fit .lyrics-count {
-  gap: 6px;
-  margin: 6px 0 0;
-}
-.stage-fit .lyrics-count .dot {
-  width: 7px;
-  height: 7px;
-}
-.stage-fit .lyrics-count .count-num {
-  font-size: 1.05rem;
-  margin-left: 7px;
-}
 .stage-fit .pitch-guide {
-  height: 108px;
+  height: min(32vh, 280px);
+  min-height: 200px;
   margin: 0;
   flex-shrink: 0;
+}
+.pitch-stage {
+  position: relative;
+  flex-shrink: 0;
+}
+.hit-callout {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  margin: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 0.9;
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  text-shadow: 0 4px 18px rgb(0 0 0 / 0.65);
+  animation: hit-pop 0.72s ease forwards;
+}
+.hit-perfect { color: var(--gold, #c9a227); }
+.hit-great { color: var(--cream, #f4efe6); }
+.hit-good { color: #7eb8c9; }
+.hit-okay { color: var(--mute, #8a8278); }
+@keyframes hit-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+  18% { opacity: 1; transform: translateX(-50%) scale(1.12); }
+  70% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hit-callout { animation: none; opacity: 1; }
 }
 .timer-compact {
   font-size: 1.05rem;
@@ -202,13 +267,14 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 120px) 1fr;
-  gap: 0.45rem;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.5rem;
 }
 .stage-chaos .grid { min-height: 0; }
 .stage-chaos .tile {
-  aspect-ratio: 16 / 10;
-  max-height: 110px;
+  aspect-ratio: 4 / 3;
+  max-height: none;
+  height: 100%;
 }
 
 .stage-dock {
@@ -245,17 +311,43 @@
 }
 .tile.singing {
   border-color: var(--gold, #c9a227);
-  box-shadow: 0 0 0 2px rgb(201 162 39 / 0.35);
+  box-shadow: 0 0 0 3px rgb(201 162 39 / 0.55);
 }
-.tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile.waiting video {
+  opacity: 0.42;
+  filter: saturate(0.45);
+}
+.tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 80ms linear, filter 80ms linear;
+}
+.cam-cue {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.7rem;
+  z-index: 2;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: var(--mute, #8a8278);
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.8);
+}
+.cam-cue.on { color: var(--gold, #c9a227); }
+@media (prefers-reduced-motion: reduce) {
+  .tile video { transition: none; }
+}
 .tile .name {
   position: absolute;
-  left: 0.5rem;
-  bottom: 0.5rem;
-  padding: 0.2rem 0.55rem;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: rgb(0 0 0 / 0.6);
-  font-size: 0.72rem;
+  background: rgb(0 0 0 / 0.7);
+  font-size: 1rem;
 }
 .tile .placeholder {
   position: absolute;
@@ -319,9 +411,8 @@
 }
 
 @media (max-height: 700px) {
-  .stage-cam .tile { height: 104px; max-width: 140px; }
-  .stage-fit .pitch-guide { height: 88px; }
-  .stage-arena { grid-template-columns: 140px minmax(0, 1fr) 140px; }
+  .stage-fit .lyrics-now { font-size: clamp(1.9rem, 5vw, 3.2rem); }
+  .stage-fit .pitch-guide { height: min(28vh, 200px); min-height: 150px; }
 }
 
 .badge {
@@ -332,6 +423,7 @@
   border: 1px solid var(--line);
 }
 .badge.you { background: var(--hot); border-color: var(--hot); }
+.badge.together { background: var(--gold, #c9a227); border-color: var(--gold, #c9a227); color: #140f08; }
 .badge.them { background: var(--panel); color: var(--dim); }
 
 .timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }

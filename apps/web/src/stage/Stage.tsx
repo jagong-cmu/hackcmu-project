@@ -1,15 +1,15 @@
 /**
  * LANE A — the stage.
  *
- * One viewport: cameras on the sides, lyrics in the middle, turn callouts on top.
+ * One viewport: two large face cams on top, lyrics and pitch underneath.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { chaosLoungeName, DemoRoomCode, songById } from "@karaoke/shared";
+import { ChaosCap, chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { useLiveKit } from "../media/useLiveKit.ts";
 import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
-import { StageContext, type StageContextValue } from "./StageContext.tsx";
+import { StageContext, type DuetVoiceCue, type StageContextValue } from "./StageContext.tsx";
 import { Slot, useStageSlots } from "./slots.tsx";
 import { useSharedClock } from "./useSharedClock.ts";
 import TurnBadge from "./TurnBadge.tsx";
@@ -23,6 +23,10 @@ export default function Stage() {
   const slots = useStageSlots();
   const { audioRef, blocked, unlock, playing } = useSharedClock(clockPlay);
   const [copied, setCopied] = useState(false);
+  const [duetVoice, setDuetVoice] = useState<DuetVoiceCue | null>(null);
+  const reportDuetVoice = useCallback((voice: DuetVoiceCue | null) => {
+    setDuetVoice((prev) => (prev === voice ? prev : voice));
+  }, []);
 
   const identity = me?.clientId ?? null;
   const livekit = useLiveKit(code, identity, me?.displayName ?? "Singer");
@@ -40,7 +44,7 @@ export default function Stage() {
     }
     if (joinAttempt.current === code) return;
     joinAttempt.current = code;
-    if (chaosLoungeName(code)) chaosJoin(code);
+    if (isPublicChaosCode(code)) chaosJoin(code);
     else roomJoin(code);
   }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin]);
 
@@ -53,7 +57,7 @@ export default function Stage() {
     room?.status === "live";
   const loungeName = chaosLoungeName(code);
   const song = room?.songId ? songById(room.songId) : undefined;
-  const privateCode = !isChaos && /^\d{4}$/.test(code);
+  const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
 
   const them = livekit.participants.find((p) => p.identity !== identity);
   const you = livekit.participants.find((p) => p.identity === identity);
@@ -64,8 +68,10 @@ export default function Stage() {
       micStream: livekit.micStream,
       room,
       myPlayerId: me?.id ?? null,
+      duetVoice,
+      reportDuetVoice,
     }),
-    [audioRef, livekit.micStream, room, me?.id],
+    [audioRef, livekit.micStream, room, me?.id, duetVoice, reportDuetVoice],
   );
 
   const activeIdentity = useMemo(() => {
@@ -73,10 +79,57 @@ export default function Stage() {
     return room.players.find((p) => p.id === room.activeSingerId)?.clientId ?? null;
   }, [room]);
 
+  const mySeat =
+    me?.id && room?.players[0]?.id === me.id ? "a" : me?.id && room?.players[1]?.id === me.id ? "b" : null;
+  const duetLive = room?.mode === "duet" && (room.status === "live" || room.status === "countdown");
+  const duetActive = room?.mode === "duet" && room.status === "live";
+  const themSeat = mySeat === "a" ? "b" : mySeat === "b" ? "a" : null;
+  const youSinging = duetLive
+    ? Boolean(duetVoice && duetVoice !== "rest" && (duetVoice === "both" || duetVoice === mySeat))
+    : Boolean(you && you.identity === activeIdentity);
+  const themSinging = duetLive
+    ? Boolean(duetVoice && duetVoice !== "rest" && (duetVoice === "both" || duetVoice === themSeat))
+    : Boolean(them && them.identity === activeIdentity);
+  const youCue: "you" | "them" | "together" | "wait" | null = duetLive
+    ? duetVoice === "both"
+      ? "together"
+      : youSinging
+        ? "you"
+        : "wait"
+    : null;
+  const themCue: "you" | "them" | "together" | "wait" | null = duetLive
+    ? duetVoice === "both"
+      ? "together"
+      : themSinging
+        ? "them"
+        : "wait"
+    : null;
+
   const onReady = () => {
     unlock();
+    void livekit.startAudio();
     ready();
   };
+
+  useEffect(() => {
+    if (livekit.status !== "connected") return;
+    const status = room?.status ?? "lobby";
+    const mine = Boolean(me?.id && room?.activeSingerId === me.id);
+    if (!room || room.mode === "chaos") {
+      livekit.toggleMic(true);
+      return;
+    }
+    if (status === "lobby" || status === "countdown") {
+      livekit.toggleMic(true);
+      return;
+    }
+    if (room.mode === "duet") {
+      if (status === "live") livekit.toggleMic(youSinging);
+      else livekit.toggleMic(false);
+      return;
+    }
+    livekit.toggleMic((status === "turnA" || status === "turnB") && mine);
+  }, [livekit.status, room?.status, room?.mode, room?.activeSingerId, me?.id, youSinging]);
 
   const copyCode = () => {
     void navigator.clipboard.writeText(code).then(() => {
@@ -103,16 +156,20 @@ export default function Stage() {
           ) : (
             <span className="stage-song dim">{room?.mode ?? "…"}</span>
           )}
-          <TurnBadge room={room} myPlayerId={me?.id ?? null} />
+          <TurnBadge room={room} myPlayerId={me?.id ?? null} duetVoice={duetVoice} />
         </header>
 
-        {privateCode && inLobby ? (
+        {privateCode && (inLobby || isChaos) ? (
           <div className="room-code-bar">
             <span className="room-code-digits">{code}</span>
             <button type="button" onClick={copyCode}>
               {copied ? "Copied" : "Copy code"}
             </button>
-            <span>Send this to your friend, then both tap Ready.</span>
+            <span>
+              {isChaos
+                ? "Send this to a friend — they can walk in anytime."
+                : "Send this to your friend, then both tap Ready."}
+            </span>
           </div>
         ) : null}
 
@@ -131,7 +188,10 @@ export default function Stage() {
           )}
           {(blocked || (isChaos && clockPlay && !playing)) && (
             <p className="warn">
-              <button type="button" className="primary" onClick={unlock}>
+              <button type="button" className="primary" onClick={() => {
+                unlock();
+                void livekit.startAudio();
+              }}>
                 Tap to hear the track
               </button>
             </p>
@@ -155,7 +215,10 @@ export default function Stage() {
           <div className="stage-arena">
             <CameraPane
               participant={them}
-              singing={Boolean(them && them.identity === activeIdentity)}
+              singing={themSinging}
+              waiting={Boolean(duetLive && !themSinging)}
+              heard={!duetActive || themSinging}
+              cue={themCue}
               isLocal={false}
               emptyLabel="waiting…"
             />
@@ -174,7 +237,9 @@ export default function Stage() {
             </div>
             <CameraPane
               participant={you}
-              singing={Boolean(you && you.identity === activeIdentity)}
+              singing={youSinging}
+              waiting={Boolean(duetLive && !youSinging)}
+              cue={youCue}
               isLocal
               emptyLabel="you"
             />
@@ -200,7 +265,7 @@ export default function Stage() {
 
         {isChaos && (
           <p className="stage-dock dim">
-            {loungeName ?? "Chaos"} · {room?.players.length ?? 0}/8 · no scoring
+            {loungeName ?? "Chaos"} · {room?.players.length ?? 0}/{ChaosCap} · no scoring
           </p>
         )}
 

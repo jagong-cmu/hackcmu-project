@@ -7,8 +7,10 @@
  */
 import {
   ChaosCap,
-  ChaosLounges,
   DemoRoomCode,
+  isPublicChaosCode,
+  PublicChaosPrefix,
+  publicChaosIndex,
   RankedCap,
   StartingElo,
   type Mode,
@@ -33,7 +35,7 @@ export type Room = {
   activeSingerId: string | null;
   playAtUnixMs: number | null;
 
-  /** Permanent rooms (0000, chaos) survive going empty. */
+  /** Permanent rooms (0000) survive going empty. */
   persistent: boolean;
 
   /** Clip window currently scheduled, for late-join playhead math. */
@@ -106,12 +108,26 @@ export function generateCode(): string {
   throw new Error("room code space exhausted");
 }
 
-/** `0000` plus the two Chaos lounges survive going empty. */
+/** `0000` survives going empty. Public Chaos lounges are created on demand. */
 export function ensurePermanentRooms(): void {
   if (!rooms.has(DemoRoomCode)) createRoom("ranked", DemoRoomCode, true);
-  for (const lounge of ChaosLounges) {
-    if (!rooms.has(lounge.code)) createRoom("chaos", lounge.code, true);
-  }
+}
+
+/**
+ * Seat the next public Chaos joiner. Fill the lowest-index lounge that still
+ * has space; open `chaos-N+1` when the current one hits ChaosCap.
+ */
+export function findOpenPublicChaosLounge(): Room {
+  const lounges = allRooms()
+    .filter((room) => room.mode === "chaos" && isPublicChaosCode(room.code))
+    .sort((a, b) => (publicChaosIndex(a.code) ?? 0) - (publicChaosIndex(b.code) ?? 0));
+
+  const open = lounges.find((room) => !isFull(room));
+  if (open) return open;
+
+  let next = 1;
+  while (getRoom(`${PublicChaosPrefix}${next}`)) next += 1;
+  return createRoom("chaos", `${PublicChaosPrefix}${next}`, false);
 }
 
 export function addPlayer(
@@ -162,7 +178,7 @@ export function later(room: Room, ms: number, fn: () => void): NodeJS.Timeout {
   return timer;
 }
 
-/** Drop a room once the last player leaves, unless it is 0000 or a lounge. */
+/** Drop a room once the last player leaves, unless it is 0000. */
 export function disposeIfEmpty(room: Room): void {
   if (room.persistent || room.players.length > 0) return;
   clearTimers(room);
