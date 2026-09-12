@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+apps/web/dist/
+server/dist/
+.DS_Store
+*.log
+.gstack/

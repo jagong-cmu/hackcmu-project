@@ -1,0 +1,15 @@
+{
+  "name": "karaoke-arena",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "server"
+  ],
+  "scripts": {
+    "dev": "echo \"Lane A: wire Vite + server. See TECHNICAL_PRD.md\""
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
