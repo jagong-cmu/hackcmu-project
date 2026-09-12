@@ -4,7 +4,7 @@
     "web": {
       "root": "apps/web",
       "framework": "vite",
-      "installCommand": "cd ../.. && npm install --include=optional",
+      "installCommand": "cd ../.. && npm install --include=optional && npm install --no-save @rollup/rollup-linux-x64-gnu",
       "buildCommand": "cd ../.. && npm -w apps/web run build",
       "outputDirectory": "dist",
       "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
