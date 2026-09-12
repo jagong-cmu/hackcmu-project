@@ -1,14 +1,18 @@
 import type { SongMeta } from "./types.ts";
 
-/** Ranked/duet clips start ~5s before the first lyric so GO is not on the downbeat. */
+/**
+ * Ranked clips are the first chorus of each song (downbeat → last chorus line),
+ * not a global 15s cut. The clock adds a short preroll and holds the last line
+ * so a turn never dies mid-phrase. Duet starts at the same chorus and runs longer.
+ */
 export const SONGS: SongMeta[] = [
   {
     id: "viva-la-vida",
     title: "Viva La Vida",
     artist: "Coldplay",
-    clipStartSec: 4.0,
-    clipDurationSec: 15,
-    duetClipStartSec: 4.0,
+    clipStartSec: 65.2,
+    clipDurationSec: 30.0,
+    duetClipStartSec: 65.2,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -16,9 +20,9 @@ export const SONGS: SongMeta[] = [
     id: "creep",
     title: "Creep",
     artist: "Radiohead",
-    clipStartSec: 18.1,
-    clipDurationSec: 15,
-    duetClipStartSec: 18.1,
+    clipStartSec: 53.9,
+    clipDurationSec: 31.3,
+    duetClipStartSec: 53.9,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -26,9 +30,9 @@ export const SONGS: SongMeta[] = [
     id: "perfect",
     title: "Perfect",
     artist: "Ed Sheeran",
-    clipStartSec: 1.9,
-    clipDurationSec: 15,
-    duetClipStartSec: 1.9,
+    clipStartSec: 66.3,
+    clipDurationSec: 34.1,
+    duetClipStartSec: 66.3,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -36,9 +40,9 @@ export const SONGS: SongMeta[] = [
     id: "im-not-the-only-one",
     title: "I'm Not The Only One",
     artist: "Sam Smith",
-    clipStartSec: 15.3,
-    clipDurationSec: 15,
-    duetClipStartSec: 15.3,
+    clipStartSec: 64.9,
+    clipDurationSec: 23.9,
+    duetClipStartSec: 64.9,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },

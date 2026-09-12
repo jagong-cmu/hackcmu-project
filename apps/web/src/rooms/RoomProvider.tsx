@@ -92,6 +92,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   // Re-sent on every reconnect so a dropped socket re-establishes identity.
   const nameRef = useRef(getDisplayName());
+  const wantQueueRef = useRef<Mode | null>(null);
+  const roomRef = useRef<RoomState | null>(null);
+  const joinSentRef = useRef(false);
+  roomRef.current = room;
+
+  const flushQueueRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     void syncClock();
@@ -103,15 +109,39 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    const flushQueue = () => {
+      const mode = wantQueueRef.current;
+      if (!mode || roomRef.current || joinSentRef.current) return;
+      if (!socket.connected) return;
+      joinSentRef.current = true;
+      socket.emit(ClientEvents.queueJoin, { mode });
+    };
+    flushQueueRef.current = flushQueue;
+
+    const goToRoom = (code: string) => {
+      wantQueueRef.current = null;
+      joinSentRef.current = false;
+      setQueuedMode(null);
+      setError(null);
+      if (!window.location.pathname.startsWith(`/room/${code}`)) {
+        navigate(`/room/${code}`);
+      }
+    };
+
     const onConnect = () => {
       setConnected(true);
+      joinSentRef.current = false;
       sayHello();
     };
     const onDisconnect = () => {
       setConnected(false);
-      setQueuedMode(null);
+      // Keep queuedMode / wantQueue so a blip re-joins instead of dumping
+      // the player back on the Join button.
     };
-    const onPlayerOk = (p: { player: PlayerPublic }) => setMe(p.player);
+    const onPlayerOk = (p: { player: PlayerPublic }) => {
+      setMe(p.player);
+      flushQueue();
+    };
     const onRoomState = (state: RoomState) => {
       setRoom(state);
       setError(null);
@@ -125,13 +155,20 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         setClockPlay(null);
         setLivePitch(null);
       }
+      // match:found can be missed on a remount; room:state still means seated.
+      if (
+        state.code &&
+        state.players.length > 0 &&
+        window.location.pathname.startsWith("/play")
+      ) {
+        goToRoom(state.code);
+      }
     };
     const onMatchFound = ({ code }: { code: string }) => {
-      setError(null);
-      setQueuedMode(null);
-      navigate(`/room/${code}`);
+      goToRoom(code);
     };
     const onQueueWaiting = ({ mode }: { mode: Mode }) => {
+      joinSentRef.current = true;
       setQueuedMode(mode);
       setError(null);
     };
@@ -149,7 +186,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setLivePitch(null);
     };
     const onPitchLive = (payload: LivePitch) => setLivePitch(payload);
-    const onError = (payload: SocketError) => setError(payload);
+    const onError = (payload: SocketError) => {
+      setError(payload);
+      if (payload.code === "NO_SESSION") {
+        joinSentRef.current = false;
+        sayHello();
+      }
+    };
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
@@ -188,29 +231,40 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const queueJoin = useCallback((mode: Mode) => {
+    wantQueueRef.current = mode;
+    joinSentRef.current = false;
     setError(null);
     setQueuedMode(mode);
-    socket.emit(ClientEvents.queueJoin, { mode });
+    socket.emit(ClientEvents.playerHello, {
+      clientId: getClientId(),
+      displayName: nameRef.current || "Singer",
+    });
+    flushQueueRef.current();
   }, []);
 
   const queueLeave = useCallback(() => {
+    wantQueueRef.current = null;
+    joinSentRef.current = false;
     setQueuedMode(null);
     socket.emit(ClientEvents.queueLeave);
   }, []);
 
   const roomCreate = useCallback((mode: Mode) => {
+    wantQueueRef.current = null;
     setError(null);
     setQueuedMode(null);
     socket.emit(ClientEvents.roomCreate, { mode });
   }, []);
 
   const roomJoin = useCallback((code: string) => {
+    wantQueueRef.current = null;
     setError(null);
     setQueuedMode(null);
     socket.emit(ClientEvents.roomJoin, { code: code.trim() });
   }, []);
 
   const roomLeave = useCallback(() => {
+    wantQueueRef.current = null;
     setQueuedMode(null);
     setRoom(null);
     setClockPlay(null);
@@ -221,6 +275,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const chaosJoin = useCallback((code?: string) => {
+    wantQueueRef.current = null;
     setError(null);
     setQueuedMode(null);
     socket.emit(ClientEvents.chaosJoin, code ? { code: code.trim() } : {});

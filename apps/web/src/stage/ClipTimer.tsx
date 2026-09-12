@@ -1,5 +1,5 @@
 /**
- * LANE A — countdown and 15s clip timer.
+ * LANE A — countdown and per-song chorus clip timer.
  *
  * Reads the same `playAtUnixMs` the audio does, so the number on screen and the
  * music can never disagree.

@@ -72,39 +72,63 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-/** Seconds of instrumental before the first lyric. */
+/** Seconds of lead-in before the chorus downbeat so GO is not on the lyric. */
 const LyricPrerollSec = 5;
+/** Hold the last chorus line at least this long if the next line is farther. */
+const LyricTailSec = 6;
 
-function firstLyricSec(id: string): number | null {
+const LrcTimeRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/;
+
+function lyricTimes(id: string): number[] {
   const file = path.join(songsDir, id, "lyrics.lrc");
-  if (!existsSync(file)) return null;
+  if (!existsSync(file)) return [];
   try {
-    const src = readFileSync(file, "utf8");
-    let first: number | null = null;
-    const re = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/;
-    for (const raw of src.split(/\r?\n/)) {
-      const m = raw.match(re);
+    const times: number[] = [];
+    for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
+      const m = raw.match(LrcTimeRe);
       if (!m) continue;
       const min = Number(m[1]);
       const sec = Number(m[2]);
       const frac = m[3] ? Number(m[3].padEnd(3, "0").slice(0, 3)) / 1000 : 0;
-      const t = min * 60 + sec + frac;
-      if (first == null || t < first) first = t;
+      times.push(min * 60 + sec + frac);
     }
-    return first;
+    return times.sort((a, b) => a - b);
   } catch {
-    return null;
+    return [];
   }
+}
+
+function prerollStart(times: number[], chorusStart: number): number {
+  const preroll = Math.max(0, chorusStart - LyricPrerollSec);
+  const prev = [...times].reverse().find((t) => t < chorusStart - 0.05);
+  // If 5s before the chorus lands mid-phrase, start on that line instead.
+  if (prev != null && preroll > prev && preroll < chorusStart) return prev;
+  return preroll;
+}
+
+function lineEndSec(times: number[], lineStart: number): number {
+  const next = times.find((t) => t > lineStart + 0.05);
+  if (next == null) return lineStart + 4;
+  // Stop a breath before the following line so verse 2 never flashes.
+  return Math.min(next - 0.2, lineStart + LyricTailSec);
 }
 
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   const start0 = kind === "duet" ? song.duetClipStartSec : song.clipStartSec;
   const duration0 = kind === "duet" ? song.duetClipDurationSec : song.clipDurationSec;
-  const end = start0 + duration0;
-  const first = firstLyricSec(song.id);
-  if (first == null) return { startSec: start0, durationSec: duration0 };
-  const startSec = Math.max(0, first - LyricPrerollSec);
-  return { startSec, durationSec: Math.max(duration0, end - startSec) };
+  const end0 = start0 + duration0;
+  const times = lyricTimes(song.id);
+  if (times.length === 0) return { startSec: start0, durationSec: duration0 };
+
+  const chorusStart = times.find((t) => t >= start0 - 0.25) ?? start0;
+  const startSec = prerollStart(times, chorusStart);
+  const last = [...times].reverse().find((t) => t < end0 - 0.1 && t >= chorusStart - 0.05);
+  if (last == null) return { startSec, durationSec: Math.max(1, end0 - startSec) };
+  const sungEnd = lineEndSec(times, last);
+  const next = times.find((t) => t > last + 0.05);
+  const cap = next == null ? sungEnd : next - 0.2;
+  const endSec = Math.min(Math.max(end0, sungEnd), cap);
+  return { startSec, durationSec: Math.max(1, endSec - startSec) };
 }
 
 function useTestSong(): boolean {
@@ -182,7 +206,7 @@ export function everyoneReady(room: Room): boolean {
 }
 
 /**
- * lobby → countdown 5s → turnA 15s → swap 5s → turnB 15s → results.
+ * lobby → countdown 5s → turnA (full first chorus) → swap 5s → turnB (same) → results.
  * Duet collapses the two turns into one shared `live` block (PRD §6.2).
  */
 export function startMatch(io: Server, room: Room): void {

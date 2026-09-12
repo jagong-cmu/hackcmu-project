@@ -6,7 +6,7 @@ import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 const COPY: Record<string, { title: string; blurb: string }> = {
-  ranked: { title: "Ranked", blurb: "Same 15s chorus. A then B. ELO." },
+  ranked: { title: "Ranked", blurb: "Same chorus. A then B. ELO." },
   duet: { title: "Duet", blurb: "Sing together. Shared score. No ELO." },
   chaos: { title: "Chaos", blurb: "Join a lounge. Cameras and lyrics. No score." },
 };
@@ -77,8 +77,9 @@ export function Play() {
           <section className="play-choice">
             <h2>In the random queue</h2>
             <p>
-              Waiting for the next person who joins the {info.title.toLowerCase()} queue.
-              You will be paired automatically.
+              {connected
+                ? `Waiting for the next person who joins the ${info.title.toLowerCase()} queue. You will be paired as soon as they join.`
+                : "Reconnecting — you will be put back in the queue automatically."}
             </p>
             <button type="button" className="btn ghost" onClick={queueLeave}>
               Leave queue

@@ -48,7 +48,7 @@ import {
   startMatch,
   stopChaos,
 } from "./clock.ts";
-import { dequeue, enqueue, isQueueMode, type Waiting } from "./matchmaking.ts";
+import { dequeue, enqueue, isQueueMode, park, queueLength, type Waiting } from "./matchmaking.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
@@ -66,7 +66,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: true },
-  transports: ["websocket"],
+  transports: ["websocket", "polling"],
 });
 
 app.use(cors());
@@ -256,6 +256,35 @@ function leaveCurrentRoom(socketId: string): void {
   disposeIfEmpty(room);
 }
 
+function socketIsLive(socketId: string): boolean {
+  return Boolean(io.sockets.sockets.get(socketId)?.connected && sessionOf(socketId));
+}
+
+/** Seat both players and tell them. Returns false if either seat failed. */
+function announceQueueMatch(
+  mode: Extract<Mode, "ranked" | "duet">,
+  room: Room,
+  pair: [Waiting, Waiting],
+): boolean {
+  const seated: Waiting[] = [];
+  for (const person of pair) {
+    if (seat(person.socketId, room)) seated.push(person);
+  }
+  if (seated.length < 2) {
+    for (const person of seated) leaveCurrentRoom(person.socketId);
+    disposeIfEmpty(room);
+    return false;
+  }
+  for (const person of pair) {
+    io.to(person.socketId).emit(ServerEvents.matchFound, {
+      code: room.code,
+      mode,
+    });
+  }
+  broadcastState(io, room);
+  return true;
+}
+
 io.on("connection", (socket) => {
   socket.on(ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId, displayName } = (payload ?? {}) as Record<string, unknown>;
@@ -283,11 +312,27 @@ io.on("connection", (socket) => {
           };
     sessions.set(socket.id, session);
 
+    const emitOk = () =>
+      socket.emit(ServerEvents.playerOk, {
+        player: {
+          id: session.playerId,
+          clientId: session.clientId,
+          displayName: session.displayName,
+          elo: session.elo,
+        },
+      });
+
+    // Ack identity before Atlas so queue:join is never blocked on Mongo.
+    emitOk();
+
     try {
       const db = await getDb();
       if (db) {
         const player = await upsertPlayer(db, clientId, name);
-        session.elo = player.elo;
+        if (session.elo !== player.elo) {
+          session.elo = player.elo;
+          emitOk();
+        }
       }
     } catch {
       /* Atlas down: keep current elo */
@@ -302,15 +347,6 @@ io.on("connection", (socket) => {
         broadcastState(io, room);
       }
     }
-
-    socket.emit(ServerEvents.playerOk, {
-      player: {
-        id: session.playerId,
-        clientId: session.clientId,
-        displayName: session.displayName,
-        elo: session.elo,
-      },
-    });
   });
 
   socket.on(ClientEvents.queueJoin, (payload: unknown) => {
@@ -328,20 +364,33 @@ io.on("connection", (socket) => {
       displayName: session.displayName,
       elo: session.elo,
     };
-    const match = enqueue(mode, waiting);
+    const match = enqueue(mode, waiting, socketIsLive);
     if (!match) {
-      socket.emit(ServerEvents.queueWaiting, { mode });
+      socket.emit(ServerEvents.queueWaiting, { mode, waiting: queueLength(mode) });
       return;
     }
+    if (announceQueueMatch(mode, match.room, match.pair)) return;
 
+    // A socket dropped between dequeue and seat. Put whoever is still here
+    // back in line so the next joiner is not stuck behind a ghost.
     for (const person of match.pair) {
-      if (!seat(person.socketId, match.room)) continue;
-      io.to(person.socketId).emit(ServerEvents.matchFound, {
-        code: match.room.code,
-        mode,
-      });
+      if (!socketIsLive(person.socketId)) continue;
+      const retry = enqueue(mode, person, socketIsLive);
+      if (!retry) {
+        io.to(person.socketId).emit(ServerEvents.queueWaiting, {
+          mode,
+          waiting: queueLength(mode),
+        });
+        continue;
+      }
+      if (!announceQueueMatch(mode, retry.room, retry.pair)) {
+        park(mode, person);
+        io.to(person.socketId).emit(ServerEvents.queueWaiting, {
+          mode,
+          waiting: queueLength(mode),
+        });
+      }
     }
-    broadcastState(io, match.room);
   });
 
   socket.on(ClientEvents.roomCreate, (payload: unknown) => {
