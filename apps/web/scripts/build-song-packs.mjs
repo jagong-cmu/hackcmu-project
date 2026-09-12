@@ -24,8 +24,13 @@ if (!SRC || !LRC_DIR) throw new Error("usage: build-song-packs.mjs <mp3-dir> <lr
 const MELODY_SR = 50;
 
 /**
- * offsetSec: seconds to add to every LRCLIB timestamp to land on our track.
- *   Measure it in /sync: tap the first line, then offsetSec = tapped - firstLrc.
+ * offsetSec: maps ORIGINAL time onto our karaoke track, measured by chroma/DTW
+ *   between the two recordings. This is a property of the audio and is what
+ *   melody extraction uses.
+ * lyricLeadSec: LRCLIB's timestamps are hand-timed and tend to sit slightly
+ *   after the real vocal onset. Measured per song by finding voiced onsets in
+ *   the isolated vocal and comparing. Applied to lyrics ONLY -- folding it into
+ *   offsetSec would drag the melody off the audio with it.
  * phrases: authored note shapes, cycled across lyric lines. midi or null, with
  *   relative weights; each phrase is stretched to the real line duration.
  */
@@ -34,28 +39,28 @@ const PACKS = [
     // offsetSec values below are measured by chroma/DTW against each studio
     // original (scripts note in README); the figure is the median of inlier
     // per-line drifts, outliers being sparse intros and outros.
-    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95,
+    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95, lyricLeadSec: -0.25,
     phrases: [
       [68, 68, 67, 65, 63], [65, 65, 67, 68, 67, 65, 63],
       [63, 65, 67, 68, 70, 68, 67], [67, 67, 65, 63, 62, 63],
     ],
   },
   {
-    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9,
+    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: -0.36,
     phrases: [
       [59, 59, 59, 62, 59, 57], [59, 59, 62, 64, 62, 59],
       [64, 64, 62, 59, 57], [67, 66, 64, 62],
     ],
   },
   {
-    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88,
+    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0,
     phrases: [
       [63, 63, 65, 67, 65, 63], [63, 65, 67, 68, 67, 65],
       [65, 67, 65, 63], [68, 68, 70, 72, 70, 68],
     ],
   },
   {
-    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62,
+    id: "im-not-the-only-one", title: "I'm Not The Only One", artist: "Sam Smith", offsetSec: -4.62, lyricLeadSec: 0,
     phrases: [
       [60, 60, 62, 64, 62, 60], [64, 64, 65, 64, 62, 60],
       [65, 65, 64, 62, 60], [67, 65, 64, 62, 60],
@@ -97,7 +102,10 @@ for (const p of PACKS) {
   const lines = parseSynced(raw.syncedLyrics || "");
   if (!lines.length) throw new Error(`no synced lyrics for ${p.id}`);
 
-  const shifted = lines.map((l) => ({ ...l, t: +(l.t + p.offsetSec).toFixed(2) })).filter((l) => l.t >= 0);
+  const lead = p.lyricLeadSec ?? 0;
+  const shifted = lines
+    .map((l) => ({ ...l, t: +(l.t + p.offsetSec + lead).toFixed(2) }))
+    .filter((l) => l.t >= 0);
   const clipStartSec = Math.max(0, Math.floor(shifted[0].t));
   const lastT = shifted[shifted.length - 1].t;
   const hz = new Array(Math.round((lastT + 8) * MELODY_SR)).fill(null);
@@ -142,7 +150,7 @@ for (const p of PACKS) {
   console.log(
     `${p.id.padEnd(18)} ${String(shifted.length).padStart(3)} lines  ` +
     `first ${shifted[0].t.toFixed(2)}s  last ${lastT.toFixed(2)}s  ` +
-    `offset ${p.offsetSec >= 0 ? "+" : ""}${p.offsetSec}s  clipStart ${clipStartSec}s  ` +
+    `offset ${p.offsetSec >= 0 ? "+" : ""}${p.offsetSec}s lead ${lead}s  clipStart ${clipStartSec}s  ` +
     `melody ${(hz.length / MELODY_SR).toFixed(0)}s (${((voiced / hz.length) * 100).toFixed(0)}% voiced)`,
   );
 }
