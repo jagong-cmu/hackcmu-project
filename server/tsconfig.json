@@ -1,15 +1,9 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
-    "esModuleInterop": true,
-    "verbatimModuleSyntax": false,
-    "types": ["node"]
+    "types": ["node"],
+    "noUncheckedIndexedAccess": false,
+    "verbatimModuleSyntax": false
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts", "../packages/shared/src/**/*.ts"]
 }

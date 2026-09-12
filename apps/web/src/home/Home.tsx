@@ -32,23 +32,3 @@ export function Home() {
     </main>
   );
 }
-
-export function WaitingForLaneA() {
-  const q = new URLSearchParams(window.location.hash.split("?")[1] || "");
-  return (
-    <main className="page quiet">
-      <Link to="/" className="back">
-        Home
-      </Link>
-      <h1>Lobby next</h1>
-      <p>
-        Mode <strong>{q.get("mode") || "?"}</strong>
-        {q.get("code") ? <> · code {q.get("code")}</> : null}
-        {q.get("action") ? <> · {q.get("action")}</> : null}
-      </p>
-      <p className="dim">
-        Lane A owns LiveKit and matchmaking. Training does not wait on that.
-      </p>
-    </main>
-  );
-}

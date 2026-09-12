@@ -59,8 +59,6 @@ type PendingTurn = {
   }>;
 };
 
-const pending = new Map<string, PendingTurn>();
-
 function clampCard(raw: ScoreCard): ScoreCard {
   const n = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
   const silence = Boolean(raw.silence);
@@ -209,6 +207,37 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
   };
 }
 
+export async function enrichScore(raw: ScoreCard, lyrics?: string): Promise<ScoreCard> {
+  return attachVerdict(clampCard(raw), lyrics);
+}
+
+/** Persist a completed Ranked/Duet room. Returns ELO delta for the first-seated player. */
+export async function persistSeatedMatch(input: {
+  code: string;
+  mode: Mode;
+  songId: string | null;
+  players: Array<{ id: string; clientId: string; displayName: string }>;
+  scores: Map<string, ScoreCard>;
+}): Promise<number> {
+  if (input.mode === "chaos" || input.players.length < 2) return 0;
+  const [a, b] = input.players;
+  const sa = a ? input.scores.get(a.id) : undefined;
+  const sb = b ? input.scores.get(b.id) : undefined;
+  if (!a || !b || !sa || !sb) return 0;
+  const over = await finishRankedOrDuet({
+    roomId: input.code,
+    mode: input.mode,
+    songId: input.songId || "unknown",
+    startedAt: Date.now(),
+    entries: [
+      { clientId: a.clientId, displayName: a.displayName, score: sa },
+      { clientId: b.clientId, displayName: b.displayName, score: sb },
+    ],
+  });
+  const delta = over.eloDelta as { a?: number; b?: number } | null;
+  return delta?.a ?? 0;
+}
+
 export function registerLaneBRoutes(app: Express): void {
   app.post("/api/player/hello", async (req: Request, res: Response) => {
     const clientId = String(req.body?.clientId || "");
@@ -228,77 +257,6 @@ export function registerLaneBRoutes(app: Express): void {
     }
     const player = await upsertPlayer(db, clientId, displayName);
     res.json({ ok: true, mongo: true, player });
-  });
-
-  app.post("/api/turns/:roomId/score", async (req: Request, res: Response) => {
-    const roomId = String(req.params.roomId || "");
-    const body = req.body as PostedScore;
-    if (!roomId || !body?.clientId || !body?.score) {
-      res.status(400).json({ ok: false, error: "clientId and score required" });
-      return;
-    }
-    const mode: Mode = body.mode || "ranked";
-    const songId = body.songId || "unknown";
-    let score = clampCard(body.score);
-    score = await attachVerdict(score, body.lyrics);
-
-    if (mode === "training" || mode === "chaos") {
-      const db = await getDb();
-      if (db) await upsertPlayer(db, body.clientId, body.displayName || "Singer");
-      res.json({ ok: true, complete: true, score, mongo: Boolean(db) });
-      return;
-    }
-
-    if (body.forfeit && body.opponentClientId) {
-      const db = await getDb();
-      const elapsed = Number(body.elapsedMs || 0);
-      if (elapsed < 5000) {
-        res.json({ ok: true, complete: true, forfeit: true, skippedElo: true, score });
-        return;
-      }
-      if (db) {
-        const a = await upsertPlayer(db, body.clientId, body.displayName || "Singer");
-        const b = await upsertPlayer(db, body.opponentClientId, body.opponentName || "Rival");
-        const delta = eloDelta(a.elo, b.elo, 1, kForMatch({ forfeit: true }));
-        await applyEloAndBump(db, a.clientId, b.clientId, delta.a, delta.b);
-        await matches(db).insertOne({
-          roomId,
-          mode: "ranked",
-          songId,
-          a: { clientId: a.clientId, displayName: a.displayName, score, elo: a.elo },
-          b: { clientId: b.clientId, displayName: b.displayName, score: null, elo: b.elo },
-          winnerId: a.clientId,
-          eloDelta: delta,
-          forfeit: true,
-          createdAt: new Date(),
-        });
-        res.json({ ok: true, complete: true, forfeit: true, winnerId: a.clientId, eloDelta: delta, score });
-        return;
-      }
-      res.json({ ok: true, complete: true, forfeit: true, score, mongo: false });
-      return;
-    }
-
-    let turn = pending.get(roomId);
-    if (!turn) {
-      turn = { roomId, mode, songId, startedAt: Date.now(), entries: [] };
-      pending.set(roomId, turn);
-    }
-    turn.entries = turn.entries.filter((e) => e.clientId !== body.clientId);
-    turn.entries.push({
-      clientId: body.clientId,
-      displayName: (body.displayName || "Singer").slice(0, 16),
-      score,
-    });
-
-    const need = 2;
-    if (turn.entries.length < need) {
-      res.json({ ok: true, complete: false, locked: true, score });
-      return;
-    }
-    pending.delete(roomId);
-    const over = await finishRankedOrDuet(turn);
-    res.json({ ok: true, score, ...over });
   });
 
   app.post("/api/training/score", async (req: Request, res: Response) => {
@@ -354,17 +312,6 @@ export function registerLaneBRoutes(app: Express): void {
         names: d.names,
         score: d.score,
       })),
-    });
-  });
-
-  app.get("/api/health", async (_req: Request, res: Response) => {
-    const db = await getDb();
-    res.json({
-      ok: true,
-      mongo: Boolean(db),
-      mongoConfigured: mongoConfigured(),
-      gemini: Boolean(process.env.GEMINI_API_KEY?.trim()),
-      model: GEMINI_MODEL,
     });
   });
 }

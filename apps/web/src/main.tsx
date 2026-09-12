@@ -1,9 +1,21 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App.tsx";
+import App from "./App.tsx";
+import { registerStageSlots } from "./stage/slots.tsx";
+import { StageLyrics, StagePitch, StageResults } from "./stage/LaneBSlots.tsx";
 import "./index.css";
+import "./styles.css";
 
-createRoot(document.getElementById("root")!).render(
+registerStageSlots({
+  LyricsOverlay: StageLyrics,
+  PitchMeter: StagePitch,
+  ResultsModal: StageResults,
+});
+
+const host = document.getElementById("root");
+if (!host) throw new Error("#root missing from index.html");
+
+createRoot(host).render(
   <StrictMode>
     <App />
   </StrictMode>,

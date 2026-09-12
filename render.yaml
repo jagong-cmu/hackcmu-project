@@ -1,0 +1,38 @@
+# LANE A — Render Free deploy.
+#
+# One service: it builds the Vite client and then serves both the static bundle
+# and Socket.IO from the same origin, so there is a single HTTPS URL (required
+# for getUserMedia off localhost).
+#
+# Free plan only. If Render asks for a card, fall back to:
+#   npm run build && npm start
+#   cloudflared tunnel --url http://localhost:8080
+#
+# Free instances sleep. Hit /api/health ~2 minutes before judging; rooms are
+# in-memory and do not survive a sleep.
+services:
+  - type: web
+    name: karaoke-arena
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Set these in the Render dashboard, not here.
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: LIVEKIT_WS_URL
+        sync: false
+      # LANE B owns these; left declared so their handlers boot on the same box.
+      - key: MONGODB_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite

@@ -1,24 +1,24 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 
-const root = path.dirname(fileURLToPath(import.meta.url));
+const SERVER_ORIGIN = "http://127.0.0.1:8080";
 
 export default defineConfig({
-  appType: "mpa",
   plugins: [react()],
   resolve: {
     alias: {
-      "@karaoke/shared": path.resolve(root, "../../packages/shared/src/index.ts"),
+      "@karaoke/shared": fileURLToPath(
+        new URL("../../packages/shared/src/index.ts", import.meta.url),
+      ),
     },
   },
   server: {
-    host: "127.0.0.1",
-    port: 5177,
-    strictPort: true,
+    port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:8080",
+      "/api": SERVER_ORIGIN,
+      "/socket.io": { target: SERVER_ORIGIN, ws: true },
     },
   },
+  build: { outDir: "dist", emptyOutDir: true },
 });

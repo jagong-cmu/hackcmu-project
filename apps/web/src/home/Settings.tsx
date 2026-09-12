@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getClientId, getDisplayName, setDisplayName, validName } from "./identity.ts";
+import { useRoom } from "../rooms/RoomProvider.tsx";
 
 export function Settings() {
   const navigate = useNavigate();
+  const { hello } = useRoom();
   const [params] = useSearchParams();
   const next = params.get("next") || "/";
   const [name, setName] = useState(getDisplayName());
@@ -24,6 +26,7 @@ export function Settings() {
       return;
     }
     const saved = setDisplayName(name);
+    hello(saved);
     try {
       await fetch("/api/player/hello", {
         method: "POST",
