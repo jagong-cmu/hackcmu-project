@@ -284,7 +284,7 @@ io.on("connection", (socket) => {
     if (session.roomCode) {
       const room = getRoom(session.roomCode);
       const seated = room?.players.find((p) => p.id === session.playerId);
-      if (seated) {
+      if (room && seated) {
         seated.displayName = session.displayName;
         seated.elo = session.elo;
         broadcastState(io, room);
