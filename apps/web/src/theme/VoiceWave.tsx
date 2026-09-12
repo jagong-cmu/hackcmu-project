@@ -10,7 +10,7 @@ type Props = {
 };
 
 /**
- * Futuristic Siri-style ribbon: a few luminous blue waves with a pink core,
+ * Futuristic Siri-style ribbon: a few luminous blue waves with a bright core,
  * fat in the middle, thin at the edges. Idle pages breathe; a live mic or
  * `level` makes the bulge follow volume.
  */
@@ -31,7 +31,9 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
     let source: MediaStreamAudioSourceNode | null = null;
     let analyser: AnalyserNode | null = null;
     let clone: MediaStreamTrack | null = null;
-    let buf: Float32Array | null = null;
+    // Pin the buffer type: getFloatTimeDomainData wants Float32Array<ArrayBuffer>,
+    // and a bare Float32Array widens to ArrayBufferLike, which fails strict tsc.
+    let buf: Float32Array<ArrayBuffer> | null = null;
     let micLevel = 0;
     let shown = 0.16;
     let phase = 0;
@@ -142,7 +144,8 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
         amp * (0.28 + shown * 0.22),
         1.05,
         0.2,
-        `rgba(255, 110, 190, ${0.35 + shown * 0.45})`,
+        // Blue only — this stroke was pink, the one warm note in the palette.
+        `rgba(120, 190, 255, ${0.4 + shown * 0.5})`,
         Math.max(1.5, h * 0.0055),
         16,
       );

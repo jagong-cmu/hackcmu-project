@@ -22,11 +22,14 @@ export function PageShell({ title, tag, wide, children, className, onHome, strea
     <main className={["page bloom-page shell", className ?? ""].filter(Boolean).join(" ")}>
       <Bloom />
       <VoiceWave stream={stream} level={level} className={quietWave ? "quiet" : undefined} />
-      <Link to="/" className="back" onClick={onHome}>
-        Home
-      </Link>
-      <div className={wide ? "shell-inner wide" : "shell-inner"}>
+      {/* Title upper-left, the way back under it. */}
+      <header className="page-head">
         <h1>{title}</h1>
+        <Link to="/" className="back" onClick={onHome}>
+          Home
+        </Link>
+      </header>
+      <div className={wide ? "shell-inner wide" : "shell-inner"}>
         {tag ? <p className="tag">{tag}</p> : null}
         {children}
       </div>

@@ -20,7 +20,7 @@ export function palette(): Palette {
     css.getPropertyValue(name).trim() || fallback;
   cached = {
     // Translucent on purpose: the canvas paints this over whatever is behind
-    // the element, so the wavefield shows through the meter.
+    // the element, so the voice wave shows through the meter.
     bg: read("--meter-bg", "rgba(9, 14, 24, 0.55)"),
     fg: read("--fg", "#ffffff"),
     ink: (alpha: number) => `rgba(206,224,255,${alpha})`,
