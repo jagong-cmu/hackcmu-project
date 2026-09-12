@@ -18,15 +18,14 @@ export function Home() {
     <main className="home-simple bloom-page">
       <Bloom />
 
-      <header className="home-top">
-        <p className="wordmark">Aria</p>
-        <nav>
-          <Link to="/settings">Settings</Link>
-          <Link to="/leaderboard">Board</Link>
-        </nav>
-      </header>
+      {/* Out of the hero column so the title can centre on the page itself. */}
+      <nav className="home-nav">
+        <Link to="/settings">Settings</Link>
+        <Link to="/leaderboard">Board</Link>
+      </nav>
 
       <div className="home-hero">
+        <h1 className="wordmark">Aria</h1>
         <p className="eyebrow">
           <span className="eyebrow-pill">Sing head to head</span>
         </p>
