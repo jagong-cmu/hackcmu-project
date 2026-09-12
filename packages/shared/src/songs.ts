@@ -1,8 +1,8 @@
 import type { SongMeta } from "./types.ts";
 
 /**
- * Ranked/duet clips always start at 0:00 and run through the first chorus
- * so a turn begins on the intro and ends on a complete lyric phrase.
+ * Ranked clips start at 0:00 and run through the first chorus.
+ * Duet clips start at 0:00 and run the whole instrumental.
  */
 export const SONGS: SongMeta[] = [
   {
@@ -12,7 +12,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 95.2,
     duetClipStartSec: 0,
-    duetClipDurationSec: 95.2,
+    duetClipDurationSec: 255.1,
     chaosDurationSec: 60,
   },
   {
@@ -22,7 +22,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 85.2,
     duetClipStartSec: 0,
-    duetClipDurationSec: 85.2,
+    duetClipDurationSec: 252.9,
     chaosDurationSec: 60,
   },
   {
@@ -32,7 +32,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 100.4,
     duetClipStartSec: 0,
-    duetClipDurationSec: 100.4,
+    duetClipDurationSec: 290.6,
     chaosDurationSec: 60,
   },
   {
@@ -42,7 +42,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 88.8,
     duetClipStartSec: 0,
-    duetClipDurationSec: 88.8,
+    duetClipDurationSec: 244.2,
     chaosDurationSec: 60,
   },
   {
@@ -52,7 +52,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 77.6,
     duetClipStartSec: 0,
-    duetClipDurationSec: 77.6,
+    duetClipDurationSec: 179.4,
     chaosDurationSec: 60,
   },
   {
@@ -75,7 +75,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 75.6,
     duetClipStartSec: 0,
-    duetClipDurationSec: 75.6,
+    duetClipDurationSec: 238.7,
     chaosDurationSec: 60,
   },
 ];

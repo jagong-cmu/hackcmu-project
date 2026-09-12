@@ -103,10 +103,13 @@ function lineEndSec(times: number[], lineStart: number): number {
   return Math.min(next - 0.2, lineStart + LyricTailSec);
 }
 
-/** Always from 0:00 through the authored chorus end, never a mid-track jump. */
+/** Ranked: 0:00 through the first chorus. Duet: the whole track. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
-  const start0 = kind === "duet" ? song.duetClipStartSec : song.clipStartSec;
-  const duration0 = kind === "duet" ? song.duetClipDurationSec : song.clipDurationSec;
+  if (kind === "duet") {
+    return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
+  }
+  const start0 = song.clipStartSec;
+  const duration0 = song.clipDurationSec;
   const end0 = start0 + duration0;
   const times = lyricTimes(song.id);
   if (times.length === 0) return { startSec: 0, durationSec: Math.max(1, end0) };
@@ -215,7 +218,7 @@ export function everyoneReady(room: Room): boolean {
 
 /**
  * lobby → countdown 5s → turnA (0:00 through first chorus) → swap 5s → turnB (same) → results.
- * Duet collapses the two turns into one shared `live` block (PRD §6.2).
+ * Duet collapses the two turns into one shared `live` block for the whole track.
  */
 export function startMatch(io: Server, room: Room): void {
   if (room.players.length !== 2) return;

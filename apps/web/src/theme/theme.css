@@ -37,6 +37,7 @@
   --positive: var(--blue-200);
   --warning: #f0c674;
   --danger: #ff8a8a;
+  --score-good: #3ee08a;
 
   /* The pitch meter's canvas fill. Alpha is what lets the voice wave through. */
   --meter-bg: rgba(9, 14, 24, 0.55);
@@ -952,6 +953,74 @@ select:focus {
 .training .lyrics,
 .training .pitch-guide { width: 100%; }
 .training .pitch-guide { margin: 12px 0 8px; }
+
+/* Score breakdown — live HUD and results. Green / yellow / red fill. */
+.score-break .who {
+  margin: 0 0 2px;
+  color: var(--fg-dim);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.score-break .overall {
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+  color: var(--fg);
+}
+.score-break.band-good .overall { color: var(--score-good); }
+.score-break.band-mid .overall { color: var(--warning); }
+.score-break.band-bad .overall { color: var(--danger); }
+.score-break.pending .overall { color: var(--fg-faint); }
+.score-meter { margin: 6px 0 0; }
+.score-meter-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 3px;
+}
+.score-meter-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+.score-meter-track {
+  height: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  overflow: hidden;
+}
+.score-meter-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--score-fill, var(--accent));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--score-fill, var(--accent)) 55%, transparent);
+  transition: width 180ms ease;
+}
+.score-meter.band-good { --score-fill: var(--score-good); }
+.score-meter.band-mid { --score-fill: var(--warning); }
+.score-meter.band-bad { --score-fill: var(--danger); }
+
+.live-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-top: 10px;
+  width: 100%;
+}
+.live-scores .score-break .overall { font-size: 1.65rem; margin-bottom: 4px; }
+.live-scores .score-meter-track { height: 6px; }
+
+.results { max-width: 560px; }
+.results .score-break .overall { font-size: 3.6rem; }
+.results .score-row { margin-bottom: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .score-meter-track span { transition: none; }
+}
 
 @media (max-width: 760px) {
   .play-choices { grid-template-columns: 1fr; }

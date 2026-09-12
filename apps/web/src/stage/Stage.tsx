@@ -188,15 +188,13 @@ export default function Stage() {
         <div className="stage-alerts">
           {!connected && <p className="warn">reconnecting…</p>}
           {error && (
-            <p className="err">
-              {error.code}: {error.message}
-            </p>
+            <p className="err">{error.message}</p>
           )}
           {livekit.unconfigured && (
-            <p className="warn">Cameras off — LiveKit keys missing. Lyrics still work.</p>
+            <p className="warn">Cameras are off. Lyrics still work.</p>
           )}
           {livekit.status === "error" && !livekit.unconfigured && (
-            <p className="err">camera/mic: {livekit.error}</p>
+            <p className="err">{livekit.error}</p>
           )}
           {livekit.status === "connected" && livekit.capture.error && (
             <p className={livekit.capture.mic ? "warn" : "err"}>

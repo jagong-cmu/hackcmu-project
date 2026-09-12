@@ -7,6 +7,7 @@ import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts
 import { parseLrc } from "../lyrics/parseLrc.ts";
 import { ResultsModal } from "../results/ResultsModal.tsx";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
+import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
 import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
@@ -107,12 +108,13 @@ export function StageLyrics() {
 
 export function StagePitch() {
   const { audioRef, micStream, room, myPlayerId, duetVoice } = useStage();
-  const { clockPlay, livePitch, emitPitchLive } = useRoom();
+  const { clockPlay, livePitch, livePitches, emitPitchLive, scores } = useRoom();
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
+  const [mineLive, setMineLive] = useState<ScoreBits | null>(null);
   const lrcRef = useRef("");
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
@@ -121,6 +123,8 @@ export function StagePitch() {
   const meterRef = useRef(false);
   const emitRef = useRef(emitPitchLive);
   const lastEmitRef = useRef(0);
+  const lastScoreAtRef = useRef(0);
+  const runningRef = useRef<ScoreBits | null>(null);
   const clipWindowRef = useRef<{ startSec: number; durationSec: number } | null>(null);
   const melodyRef = useRef(melody);
   const roomRef = useRef(room);
@@ -139,6 +143,35 @@ export function StagePitch() {
     clipWindowRef.current = { startSec: clockPlay.startSec, durationSec: clockPlay.durationSec };
   }
 
+  const refreshRunning = (t: number) => {
+    if (!singingRef.current || postedRef.current) return;
+    if (t - lastScoreAtRef.current < 0.2) return;
+    lastScoreAtRef.current = t;
+    const mel = melodyRef.current;
+    const clip = clipWindowRef.current;
+    const r = roomRef.current;
+    if (!mel || !clip || !r) return;
+    const elapsed = Math.max(0.25, t - clip.startSec);
+    const duetSeatNow = duetSeat(r.players, myPlayerIdRef.current);
+    const windows =
+      r.mode === "duet" && duetSeatNow
+        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, {
+            startSec: clip.startSec,
+            durationSec: elapsed,
+          })
+        : undefined;
+    const dsp = scoreContour(
+      framesRef.current,
+      mel,
+      { startSec: clip.startSec, durationSec: elapsed },
+      windows,
+    );
+    if (dsp.silence) return;
+    const next = { pitch: dsp.pitch, tone: dsp.tone, overall: dsp.overall };
+    runningRef.current = next;
+    setMineLive(next);
+  };
+
   const flushScore = () => {
     const r = roomRef.current;
     const mel = melodyRef.current;
@@ -152,6 +185,11 @@ export function StagePitch() {
         ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, clip)
         : undefined;
     const dsp = scoreContour(framesRef.current, mel, clip, windows);
+    if (!dsp.silence) {
+      const next = { pitch: dsp.pitch, tone: dsp.tone, overall: dsp.overall };
+      runningRef.current = next;
+      setMineLive(next);
+    }
     void postTurnScore(r.code, {
       clientId: getClientId(),
       displayName: getDisplayName() || "Singer",
@@ -163,6 +201,8 @@ export function StagePitch() {
   };
   const flushRef = useRef(flushScore);
   flushRef.current = flushScore;
+  const refreshRef = useRef(refreshRunning);
+  refreshRef.current = refreshRunning;
 
   useEffect(() => {
     const id = room?.songId;
@@ -228,7 +268,7 @@ export function StagePitch() {
       const now = performance.now();
       if (now - lastEmitRef.current < 50) return;
       lastEmitRef.current = now;
-      emitRef.current({ hz, clarity, rms });
+      emitRef.current({ hz, clarity, rms, ...runningRef.current });
     };
     const tick = () => {
       const t = audio.currentTime;
@@ -246,6 +286,7 @@ export function StagePitch() {
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: null, clarity: 0 });
         }
+        refreshRef.current(t);
         if (meterRef.current) publish(null, 0, 0);
       } else {
         const [yinHz, yinClarity] = detector.findPitch(buf, ctx.sampleRate);
@@ -255,6 +296,7 @@ export function StagePitch() {
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: forScore ? hz : null, clarity });
         }
+        refreshRef.current(t);
         if (meterRef.current) {
           publish(hz, clarity, rms);
         }
@@ -274,6 +316,9 @@ export function StagePitch() {
       framesRef.current = [];
       postedRef.current = false;
       singingRef.current = true;
+      lastScoreAtRef.current = 0;
+      runningRef.current = null;
+      setMineLive(null);
     }
   }, [room, myPlayerId]);
 
@@ -288,6 +333,26 @@ export function StagePitch() {
   const shownHz = mine ? liveHz : (remote?.hz ?? null);
   const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
   const shownRms = mine ? liveRms : (remote?.rms ?? 0);
+  const opponent = room?.players.find((p) => p.id !== myPlayerId);
+  const themLive = opponent ? livePitches[opponent.id] : undefined;
+  const youCard: ScoreBits | null =
+    (myPlayerId ? scores[myPlayerId] : undefined) ?? mineLive;
+  const themCard: ScoreBits | null =
+    (opponent ? scores[opponent.id] : undefined) ??
+    (themLive && themLive.overall != null
+      ? {
+          pitch: themLive.pitch ?? 0,
+          tone: themLive.tone ?? 0,
+          overall: themLive.overall,
+        }
+      : null);
+  const showHud =
+    room?.mode === "ranked" || room?.mode === "duet"
+      ? room.status === "turnA" ||
+        room.status === "turnB" ||
+        room.status === "swap" ||
+        room.status === "live"
+      : false;
 
   return (
     <div className="pitch-stage">
@@ -298,6 +363,12 @@ export function StagePitch() {
         liveClarity={shownClarity}
         liveRms={shownRms}
       />
+      {showHud ? (
+        <LiveScoreHud
+          left={{ name: opponent?.displayName ?? "Them", card: themCard }}
+          right={{ name: "You", card: youCard }}
+        />
+      ) : null}
     </div>
   );
 }

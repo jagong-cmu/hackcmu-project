@@ -14,7 +14,7 @@ const COPY: Record<string, { title: string; blurb: string; match: string; matchB
   },
   duet: {
     title: "Duet",
-    blurb: "Sing from the top through the first chorus together. One shared score. No ELO.",
+    blurb: "Sing the whole song together. One shared score. No ELO.",
     match: "We’ll pair you with the next singer waiting for a duet.",
     matchBtn: "Find a partner",
   },
@@ -77,9 +77,7 @@ export function Play() {
       ) : null}
       {!connected ? <p className="dim">Connecting…</p> : null}
       {error ? (
-        <p className="err">
-          {error.code}: {error.message}
-        </p>
+        <p className="err">{error.message}</p>
       ) : null}
 
       {inQueue ? (

@@ -608,15 +608,27 @@ io.on("connection", (socket) => {
         : (room.status === "turnA" || room.status === "turnB") &&
           room.activeSingerId === player.id;
     if (!singing) return;
-    const body = (payload ?? {}) as { hz?: unknown; clarity?: unknown; rms?: unknown };
+    const body = (payload ?? {}) as {
+      hz?: unknown;
+      clarity?: unknown;
+      rms?: unknown;
+      pitch?: unknown;
+      tone?: unknown;
+      overall?: unknown;
+    };
     const hz = typeof body.hz === "number" && Number.isFinite(body.hz) ? body.hz : null;
     const clarity = typeof body.clarity === "number" ? body.clarity : 0;
     const rms = typeof body.rms === "number" ? body.rms : 0;
+    const scoreNum = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : undefined;
     socket.to(room.code).emit(ServerEvents.pitchLive, {
       playerId: player.id,
       hz,
       clarity,
       rms,
+      pitch: scoreNum(body.pitch),
+      tone: scoreNum(body.tone),
+      overall: scoreNum(body.overall),
     });
   });
 

@@ -26,7 +26,7 @@ export function Training() {
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [lrc, setLrc] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
-  const [status, setStatus] = useState("Pick a complete song, then Start.");
+  const [status, setStatus] = useState("Pick a song, then Start.");
   const [running, setRunning] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
@@ -185,11 +185,7 @@ export function Training() {
     await audio.play();
 
     setRunning(true);
-    setStatus(
-      crepeRef.current
-        ? "CREPE is listening — sing the gold line. Stop whenever; you'll still be scored."
-        : "Sing the gold line. Stop whenever — you'll still be scored.",
-    );
+    setStatus("Follow the melody. Stop whenever — you'll still be scored.");
 
     let crepeSkip = 0;
     let lastCrepe = { hz: null as number | null, confidence: 0 };
@@ -297,7 +293,7 @@ export function Training() {
     } catch {
       setCard(dsp);
     }
-    setStatus("Clip over.");
+    setStatus("Done.");
   }
 
   const readySongs = songs.filter((s) => s.ready);

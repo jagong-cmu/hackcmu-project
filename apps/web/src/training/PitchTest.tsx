@@ -49,9 +49,9 @@ export function PitchTest() {
     void preloadCrepe()
       .then((m) => {
         crepeRef.current = m;
-        setStatus("CREPE loaded. Press Start, then sing a slow low-to-high glide.");
+        setStatus("Press Start, then sing a slow low-to-high glide.");
       })
-      .catch(() => setStatus("CREPE unavailable — YIN only. Press Start."));
+      .catch(() => setStatus("Press Start, then sing a slow low-to-high glide."));
     return () => stopRef.current?.();
   }, []);
 

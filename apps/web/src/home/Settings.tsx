@@ -60,10 +60,10 @@ export function Settings() {
       </form>
       <p className="dim">
         {mongo == null
-          ? "Checking Atlas…"
+          ? "Checking connection…"
           : mongo
-            ? "Atlas connected"
-            : "Atlas is off until the database password is in server/.env"}
+            ? "Ready."
+            : "Can't reach the server right now."}
       </p>
     </PageShell>
   );

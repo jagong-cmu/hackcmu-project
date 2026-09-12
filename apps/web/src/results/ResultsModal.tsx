@@ -1,4 +1,5 @@
 import type { ScoreCard } from "@karaoke/shared";
+import { ScoreBreakdown } from "../scoring/ScoreBars.tsx";
 
 type Props = {
   you: ScoreCard;
@@ -50,16 +51,12 @@ export function ResultsModal({
       <div className="results" role="dialog" aria-labelledby="results-title">
         <h2 id="results-title">{title}</h2>
         <div className={`score-row ${opponent ? "split" : ""}`}>
-          <ScoreColumn name={youName} card={you} />
+          <ScoreBreakdown name={youName} card={you} />
           {opponent ? (
             locked ? (
-              <div className="score-col locked">
-                <p className="who">{opponentName}</p>
-                <p className="overall">--</p>
-                <p className="subs">locked in</p>
-              </div>
+              <ScoreBreakdown name={opponentName} card={null} pending />
             ) : (
-              <ScoreColumn name={opponentName} card={opponent} />
+              <ScoreBreakdown name={opponentName} card={opponent} />
             )
           ) : null}
         </div>
@@ -86,18 +83,6 @@ export function ResultsModal({
           ) : null}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ScoreColumn({ name, card }: { name: string; card: ScoreCard }) {
-  return (
-    <div className="score-col">
-      <p className="who">{name}</p>
-      <p className="overall">{card.overall}</p>
-      <p className="subs">
-        pitch {card.pitch} · tone {card.tone}
-      </p>
     </div>
   );
 }

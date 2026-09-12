@@ -48,6 +48,18 @@ export type LivePitch = {
   hz: number | null;
   clarity: number;
   rms: number;
+  pitch?: number;
+  tone?: number;
+  overall?: number;
+};
+
+export type PitchLiveSample = {
+  hz: number | null;
+  clarity: number;
+  rms: number;
+  pitch?: number;
+  tone?: number;
+  overall?: number;
 };
 
 type RoomContextValue = {
@@ -56,6 +68,7 @@ type RoomContextValue = {
   room: RoomState | null;
   clockPlay: ClockPlay | null;
   livePitch: LivePitch | null;
+  livePitches: Record<string, LivePitch>;
   scores: Record<string, ScoreCard>;
   matchOver: MatchOver | null;
   error: SocketError | null;
@@ -68,7 +81,7 @@ type RoomContextValue = {
   roomLeave: () => void;
   chaosJoin: (code?: string) => void;
   ready: () => void;
-  emitPitchLive: (sample: { hz: number | null; clarity: number; rms: number }) => void;
+  emitPitchLive: (sample: PitchLiveSample) => void;
 };
 
 const RoomContext = createContext<RoomContextValue | null>(null);
@@ -111,6 +124,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [clockPlay, setClockPlay] = useState<ClockPlay | null>(null);
   const [livePitch, setLivePitch] = useState<LivePitch | null>(null);
+  const [livePitches, setLivePitches] = useState<Record<string, LivePitch>>({});
   const [scores, setScores] = useState<Record<string, ScoreCard>>({});
   const [matchOver, setMatchOver] = useState<MatchOver | null>(null);
   const [error, setError] = useState<SocketError | null>(null);
@@ -175,10 +189,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         setScores({});
         setClockPlay(null);
         setLivePitch(null);
+        setLivePitches({});
       }
       if (state.status === "results") {
         setClockPlay(null);
         setLivePitch(null);
+        setLivePitches({});
       }
       // match:found can be missed on a remount; room:state still means seated.
       if (
@@ -208,8 +224,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setScores(payload.scores);
       setClockPlay(null);
       setLivePitch(null);
+      setLivePitches({});
     };
-    const onPitchLive = (payload: LivePitch) => setLivePitch(payload);
+    const onPitchLive = (payload: LivePitch) => {
+      setLivePitch(payload);
+      setLivePitches((prev) => ({ ...prev, [payload.playerId]: payload }));
+    };
     const onError = (payload: SocketError) => {
       setError(payload);
       if (payload.code === "NO_SESSION") {
@@ -348,6 +368,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setRoom(null);
     setClockPlay(null);
     setLivePitch(null);
+    setLivePitches({});
     setMatchOver(null);
     setScores({});
     socket.emit(ClientEvents.roomLeave);
@@ -363,10 +384,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const ready = useCallback(() => {
     setMatchOver(null);
     setLivePitch(null);
+    setLivePitches({});
     socket.emit(ClientEvents.roomReady);
   }, []);
 
-  const emitPitchLive = useCallback((sample: { hz: number | null; clarity: number; rms: number }) => {
+  const emitPitchLive = useCallback((sample: PitchLiveSample) => {
     socket.emit(ClientEvents.pitchLive, sample);
   }, []);
 
@@ -377,6 +399,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       room,
       clockPlay,
       livePitch,
+      livePitches,
       scores,
       matchOver,
       error,
@@ -392,7 +415,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       emitPitchLive,
     }),
     [
-      connected, me, room, clockPlay, livePitch, scores, matchOver, error, queuedMode,
+      connected, me, room, clockPlay, livePitch, livePitches, scores, matchOver, error, queuedMode,
       hello, queueJoin, queueLeave, roomCreate, roomJoin, roomLeave, chaosJoin, ready,
       emitPitchLive,
     ],
