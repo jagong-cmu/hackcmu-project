@@ -94,7 +94,10 @@ const PACKS = [
     ],
   },
   {
-    id: "cupid", title: "Cupid (Twin Ver.)", artist: "FIFTY FIFTY", offsetSec: -5.02, lyricLeadSec: 0,
+    // Staged WITHOUT the usual 5s trim -- this cover opens straight on the song,
+    // so trimming cut the first "La, la, la" line. It carries 3s of prepended
+    // silence instead, which is the count-in, and offsetSec is that silence.
+    id: "cupid", title: "Cupid (Twin Ver.)", artist: "FIFTY FIFTY", offsetSec: 2.97, lyricLeadSec: 0,
     phrases: [
       [71, 71, 69, 67, 69], [69, 71, 72, 74, 72, 71],
       [74, 74, 72, 71, 69], [67, 69, 71, 72, 71, 69],

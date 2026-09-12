@@ -64,7 +64,7 @@ const JOBS = [
   {
     // Stem is ~10s shorter than the original with a 6.5s IQR: genuinely edited,
     // so DTW rather than a fixed offset.
-    id: "cupid", offsetSec: -5.02, vocalSec: null,
+    id: "cupid", offsetSec: 2.97, vocalSec: null,
     original: "FIFTY FIFTY - Cupid (Twin Version) (Lyrics).mp3",
     vocals: "Cupid (Twin Ver.) - Vocals Only (Acapella)  FIFTY FIFTY.mp3",
   },

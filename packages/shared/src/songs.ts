@@ -59,11 +59,13 @@ export const SONGS: SongMeta[] = [
     id: "cupid",
     title: "Cupid (Twin Ver.)",
     artist: "FIFTY FIFTY",
+    // The instrumental carries 3s of prepended silence as a count-in: this cover
+    // opens straight on the vocal, with no intro to breathe in.
     // 0:00 through the first chorus, ending on "Cupid is so dumb" plus the hold.
     clipStartSec: 0,
-    clipDurationSec: 53.7,
+    clipDurationSec: 61.7,
     duetClipStartSec: 0,
-    duetClipDurationSec: 53.7,
+    duetClipDurationSec: 61.7,
     chaosDurationSec: 60,
   },
   {
