@@ -41,8 +41,8 @@ const songsDir =
   ].find((dir) => existsSync(dir)) ??
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
 
-/** Last-chance wait for an in-flight POST. Scores should already be in. */
-const SCORE_WAIT_MS = 250;
+/** Last-chance wait for an in-flight POST. Vercel round-trips need more than 250ms. */
+const SCORE_WAIT_MS = 8000;
 
 /**
  * Used when Lane B's DSP has not landed yet, or a client never POSTs.

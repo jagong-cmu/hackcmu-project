@@ -72,11 +72,19 @@
   position: relative;
   isolation: isolate;
 }
-.stage.stage-fit audio {
+.stage.stage-fit audio.instrumental {
   position: absolute;
   width: 0;
   height: 0;
   opacity: 0;
+  pointer-events: none;
+}
+.stage.stage-fit audio.remote-mic {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  left: 0;
+  bottom: 0;
   pointer-events: none;
 }
 .stage.stage-fit header.stage-top,

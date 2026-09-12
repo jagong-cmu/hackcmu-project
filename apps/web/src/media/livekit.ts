@@ -6,6 +6,7 @@
  * through WebRTC would re-encode it and desync the two sides.
  */
 import { Room, RoomEvent, Track } from "livekit-client";
+import { sharedAudioContext } from "./audioContext.ts";
 
 export type StageConnection = {
   room: Room;
@@ -55,11 +56,18 @@ export async function connectToStage(
     audioCaptureDefaults: {
       echoCancellation: true,
       noiseSuppression: false,
-      autoGainControl: false,
+      autoGainControl: true,
+      voiceIsolation: false,
+    },
+    publishDefaults: {
+      dtx: false,
     },
     videoCaptureDefaults: { resolution: { width: 640, height: 480 } },
     adaptiveStream: false,
     dynacast: false,
+    // Mix remote mics in Web Audio so Chrome autoplay does not pin them to a
+    // 0×0 <audio> that never received the Ready gesture.
+    webAudioMix: { audioContext: sharedAudioContext() },
   });
 
   await room.connect(wsUrl, token);
@@ -82,8 +90,10 @@ export async function setCameraEnabled(room: Room, enabled: boolean): Promise<vo
  */
 export function micStreamOf(room: Room): MediaStream | null {
   const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-  const track = pub?.track?.mediaStreamTrack;
-  return track ? new MediaStream([track]) : null;
+  if (!pub || pub.isMuted) return null;
+  const track = pub.track?.mediaStreamTrack;
+  if (!track || track.readyState === "ended") return null;
+  return new MediaStream([track]);
 }
 
 export { Room, RoomEvent, Track };

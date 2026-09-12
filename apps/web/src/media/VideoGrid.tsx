@@ -28,11 +28,9 @@ function useAttachedMedia<T extends HTMLMediaElement>(
     track.attach(element);
     const unlock = () => {
       if (!(element instanceof HTMLAudioElement)) return;
-      element.muted = false;
-      element.volume = 1;
-      void element.play().catch(() => {
-        /* Ready/unlock calls room.startAudio() to satisfy autoplay. */
-      });
+      // webAudioMix keeps this element muted on purpose; room.startAudio()
+      // resumes the shared AudioContext that actually plays the opponent.
+      void element.play().catch(() => undefined);
     };
     unlock();
     window.addEventListener("pointerdown", unlock);
@@ -83,7 +81,7 @@ function Tile({
 
 function RemoteAudio({ participant }: { participant: Participant }) {
   const ref = useAttachedMedia<HTMLAudioElement>(participant, Track.Source.Microphone);
-  return <audio ref={ref} autoPlay playsInline />;
+  return <audio ref={ref} className="remote-mic" autoPlay playsInline />;
 }
 
 function EmptyTile({ label }: { label: string }) {

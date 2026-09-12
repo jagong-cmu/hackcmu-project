@@ -136,14 +136,17 @@ export function cancelSpeaker(
 
 /** True when leftover energy is just the bed, not a voice. */
 export function isMusicOnly(mic: Float32Array, clean: Float32Array, ref: Float32Array): boolean {
-  const cleanRms = rmsOf(clean);
-  if (cleanRms < VOICE_RMS) return true;
   const micRms = rmsOf(mic);
+  const cleanRms = rmsOf(clean);
   const refRms = rmsOf(ref);
-  if (refRms < 0.01) return false;
-  // Only call it music when cancellation removed nearly everything. At 0.32 a
-  // canceller that ate part of the voice took real singing with it.
-  return micRms > 0.02 && cleanRms < micRms * 0.18;
+  // A live mic with no playback reference (headphones, or LiveKit AEC already
+  // on) is never "just the bed".
+  if (refRms < 0.01) return micRms < VOICE_RMS;
+  if (cleanRms >= VOICE_RMS) return false;
+  // The adaptive filter sometimes subtracts the singer. If the raw mic still
+  // has voice energy, keep the frame — false music-only is "We couldn't hear you."
+  if (micRms >= VOICE_RMS) return false;
+  return true;
 }
 
 export { FFT as PITCH_FFT, VOICE_RMS };

@@ -15,6 +15,7 @@ import {
   setMicEnabled,
   Track,
 } from "./livekit.ts";
+import { unlockSharedAudio, sharedAudioContext } from "./audioContext.ts";
 import type { Participant } from "livekit-client";
 
 export type LiveKitState = {
@@ -25,6 +26,8 @@ export type LiveKitState = {
   error: string | null;
   /** True when the server has no LiveKit keys — Training still works (PRD §3). */
   unconfigured: boolean;
+  /** Chrome is still blocking remote mic playback. */
+  audioBlocked: boolean;
   toggleMic: (on: boolean) => void;
   toggleCamera: (on: boolean) => void;
   startAudio: () => Promise<void>;
@@ -40,6 +43,7 @@ export function useLiveKit(
   const [error, setError] = useState<string | null>(null);
   const [unconfigured, setUnconfigured] = useState(false);
   const [tick, setTick] = useState(0);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   useEffect(() => {
     if (!code || !identity) return;
@@ -58,6 +62,7 @@ export function useLiveKit(
         opened = connected;
         setRoom(connected);
         setStatus("connected");
+        setAudioBlocked(!connected.canPlaybackAudio);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -97,8 +102,11 @@ export function useLiveKit(
       RoomEvent.Disconnected,
     ];
     for (const event of events) room.on(event, bump);
+    const onPlayback = (allowed: boolean) => setAudioBlocked(!allowed);
+    room.on(RoomEvent.AudioPlaybackStatusChanged, onPlayback);
     return () => {
       for (const event of events) room.off(event, bump);
+      room.off(RoomEvent.AudioPlaybackStatusChanged, onPlayback);
     };
   }, [room]);
 
@@ -126,8 +134,34 @@ export function useLiveKit(
   }, [room]);
 
   const startAudio = useCallback(async () => {
-    if (room) await room.startAudio().catch(() => undefined);
+    await unlockSharedAudio();
+    if (!room) return;
+    try {
+      await room.startAudio();
+      setAudioBlocked(!room.canPlaybackAudio);
+    } catch {
+      setAudioBlocked(true);
+    }
   }, [room]);
+
+  useEffect(() => {
+    if (status !== "connected") return;
+    void startAudio();
+  }, [status, startAudio]);
+
+  useEffect(() => {
+    if (!room) return;
+    const onGesture = () => {
+      if (room.canPlaybackAudio && sharedAudioContext().state === "running") return;
+      void startAudio();
+    };
+    window.addEventListener("pointerdown", onGesture);
+    window.addEventListener("keydown", onGesture);
+    return () => {
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("keydown", onGesture);
+    };
+  }, [room, startAudio]);
 
   return {
     room,
@@ -136,6 +170,7 @@ export function useLiveKit(
     status,
     error,
     unconfigured,
+    audioBlocked,
     toggleMic,
     toggleCamera,
     startAudio,
