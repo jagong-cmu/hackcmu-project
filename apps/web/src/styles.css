@@ -1,15 +1,4 @@
-:root {
-  color-scheme: dark;
-  --bg: #0b0b12;
-  --panel: #15151f;
-  --line: #272736;
-  --text: #f2f2f7;
-  --dim: #9a9aae;
-  --hot: #ff2d78;
-  --cool: #38bdf8;
-  --ok: #34d399;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-}
+/* Palette and theming live in theme/theme.css. */
 
 * { box-sizing: border-box; }
 
@@ -36,7 +25,7 @@
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: #0f0f18;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -248,7 +237,7 @@
 }
 .hit-perfect { color: var(--gold, #c9a227); }
 .hit-great { color: var(--cream, #f4efe6); }
-.hit-good { color: #7eb8c9; }
+.hit-good { color: var(--sp-teal); }
 .hit-okay { color: var(--mute, #8a8278); }
 @keyframes hit-pop {
   0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
@@ -310,14 +299,14 @@
 .tile {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: #000;
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
 }
 .tile.singing {
   border-color: var(--gold, #c9a227);
-  box-shadow: 0 0 0 3px rgb(201 162 39 / 0.55);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .tile.waiting::after {
   content: "";
@@ -380,9 +369,9 @@
   text-align: center;
   pointer-events: none;
 }
-.callout.hold { background: rgb(7, 7, 7); }
+.callout.hold { background: var(--ink); }
 .callout.flash {
-  background: linear-gradient(180deg, rgba(7, 7, 7, 0.55) 0%, transparent 42%, transparent 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ink) 55%, transparent) 0%, transparent 42%, transparent 100%);
   justify-content: flex-start;
   padding-top: 4.5rem;
   animation: callout-flash 1.4s ease forwards;
@@ -429,8 +418,8 @@
   font-size: 0.9rem;
   border: 1px solid var(--line);
 }
-.badge.you { background: var(--hot); border-color: var(--hot); }
-.badge.together { background: var(--gold, #c9a227); border-color: var(--gold, #c9a227); color: #140f08; }
+.badge.you { background: var(--hot); border-color: var(--hot); color: var(--ink); }
+.badge.together { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 .badge.them { background: var(--panel); color: var(--dim); }
 
 .timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }
@@ -448,8 +437,8 @@
 .stage.stage-fit .badge { font-size: 0.75rem; padding: 0.2rem 0.65rem; white-space: nowrap; }
 
 .slot-empty { color: var(--dim); font-size: 0.8rem; }
-.warn { color: #fbbf24; font-size: 0.85rem; }
-.err { color: #f87171; font-size: 0.85rem; }
+.warn { color: var(--warning); font-size: 0.85rem; }
+.err { color: var(--danger); font-size: 0.85rem; }
 
 /* Retry affordance on the half-open capture notice (mic or camera missing). */
 .stage-alerts button.link {

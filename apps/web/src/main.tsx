@@ -5,6 +5,8 @@ import { registerStageSlots } from "./stage/slots.tsx";
 import { StageLyrics, StagePitch, StageResults } from "./stage/LaneBSlots.tsx";
 import "./index.css";
 import "./styles.css";
+// Last: the palette and the spectrum accents override both legacy sheets.
+import "./theme/theme.css";
 
 registerStageSlots({
   LyricsOverlay: StageLyrics,

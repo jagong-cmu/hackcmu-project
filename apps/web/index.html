@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Karaoke Arena</title>
+    <title>Aria</title>
     <!-- hobby-deploy 2026-09-12T14:41Z -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,6 +11,20 @@
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <meta name="theme-color" content="#000000" />
+    <script>
+      // Pre-paint so a light-mode user never sees a black flash (and vice versa).
+      (function () {
+        try {
+          var saved = localStorage.getItem("aria.theme");
+          if (saved === "light" || saved === "dark") {
+            document.documentElement.setAttribute("data-theme", saved);
+          }
+        } catch (e) {
+          /* blocked storage: fall through to the OS preference */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

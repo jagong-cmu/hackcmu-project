@@ -15,6 +15,7 @@ import {
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
+import { ThemeToggle } from "../theme/ThemeToggle.tsx";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -307,6 +308,7 @@ export function Training() {
           Home
         </Link>
         <h1>Training</h1>
+        <ThemeToggle />
       </header>
 
       <label className="song-pick">

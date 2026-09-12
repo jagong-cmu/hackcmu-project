@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { DemoRoomCode, type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
+import { ThemeToggle } from "../theme/ThemeToggle.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 const COPY: Record<string, { title: string; blurb: string }> = {
@@ -56,6 +57,7 @@ export function Play() {
       >
         Home
       </Link>
+      <ThemeToggle />
       <h1>{info.title}</h1>
       <p className="tag">{info.blurb}</p>
       {!named ? (

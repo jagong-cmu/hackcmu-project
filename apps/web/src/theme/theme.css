@@ -1,0 +1,230 @@
+/**
+ * Aria — one palette, two skins.
+ *
+ * The neutrals are pure black and pure white; every bit of colour in the app
+ * comes from the spectrum ramp below, the same refraction that runs through
+ * the orb. Anything that used to be gold, hot pink or cyan now pulls from here.
+ *
+ * Theme resolution: `data-theme` on <html> wins (set pre-paint by the inline
+ * script in index.html), otherwise the OS preference decides.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Neutrals */
+  --ink: #000000;
+  --surface: #0a0a0c;
+  --surface-2: #141418;
+  --edge: rgba(255, 255, 255, 0.14);
+  --edge-soft: rgba(255, 255, 255, 0.07);
+  --fg: #ffffff;
+  --fg-dim: rgba(255, 255, 255, 0.56);
+  --fg-faint: rgba(255, 255, 255, 0.28);
+
+  /* Spectrum — the only colour in the product. */
+  --sp-red: #ff375f;
+  --sp-orange: #ff9f0a;
+  --sp-yellow: #ffd60a;
+  --sp-green: #30d158;
+  --sp-teal: #40cbe0;
+  --sp-blue: #0a84ff;
+  --sp-violet: #bf5af0;
+
+  --spectrum: linear-gradient(
+    90deg,
+    var(--sp-red) 0%,
+    var(--sp-orange) 15%,
+    var(--sp-yellow) 29%,
+    var(--sp-green) 45%,
+    var(--sp-teal) 60%,
+    var(--sp-blue) 76%,
+    var(--sp-violet) 100%
+  );
+  /* Wraps to red so it can be scrolled forever without a seam. */
+  --spectrum-loop: linear-gradient(
+    90deg,
+    var(--sp-red), var(--sp-orange), var(--sp-yellow), var(--sp-green),
+    var(--sp-teal), var(--sp-blue), var(--sp-violet), var(--sp-red)
+  );
+
+  /* Single-hue pulls for states that must stay legible, not decorative. */
+  --accent: var(--sp-teal);
+  --positive: var(--sp-green);
+  --warning: var(--sp-yellow);
+  --danger: var(--sp-red);
+
+  --glow: 0 0 60px rgba(120, 170, 255, 0.14);
+
+  font-family: Outfit, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--ink);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ink: #ffffff;
+  --surface: #f6f6f7;
+  --surface-2: #ffffff;
+  --edge: rgba(0, 0, 0, 0.16);
+  --edge-soft: rgba(0, 0, 0, 0.08);
+  --fg: #000000;
+  --fg-dim: rgba(0, 0, 0, 0.55);
+  --fg-faint: rgba(0, 0, 0, 0.26);
+
+  /* Deepened so the ramp still reads against white. */
+  --sp-red: #e11d48;
+  --sp-orange: #ea7a00;
+  --sp-yellow: #c99700;
+  --sp-green: #12a150;
+  --sp-teal: #0e8fa8;
+  --sp-blue: #0063e6;
+  --sp-violet: #8b3dd6;
+
+  --glow: 0 0 60px rgba(0, 0, 0, 0.08);
+}
+
+/* No explicit choice: follow the OS. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+
+    --ink: #ffffff;
+    --surface: #f6f6f7;
+    --surface-2: #ffffff;
+    --edge: rgba(0, 0, 0, 0.16);
+    --edge-soft: rgba(0, 0, 0, 0.08);
+    --fg: #000000;
+    --fg-dim: rgba(0, 0, 0, 0.55);
+    --fg-faint: rgba(0, 0, 0, 0.26);
+
+    --sp-red: #e11d48;
+    --sp-orange: #ea7a00;
+    --sp-yellow: #c99700;
+    --sp-green: #12a150;
+    --sp-teal: #0e8fa8;
+    --sp-blue: #0063e6;
+    --sp-violet: #8b3dd6;
+
+    --glow: 0 0 60px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/*
+ * Legacy aliases. index.css and styles.css were written against two different
+ * palettes (black/gold, and navy/pink/cyan); both now resolve here so the whole
+ * app themes from one place instead of being restyled rule by rule.
+ */
+:root {
+  --stage: var(--ink);
+  --cream: var(--fg);
+  --mute: var(--fg-dim);
+  --gold: var(--accent);
+  --line: var(--edge-soft);
+  --bg: var(--ink);
+  --panel: var(--surface-2);
+  --text: var(--fg);
+  --dim: var(--fg-dim);
+  --hot: var(--sp-violet);
+  --cool: var(--sp-blue);
+  --ok: var(--positive);
+}
+
+/* Emphasis underlines ride the spectrum instead of a single accent. */
+.modes button:hover,
+.modes button:focus-visible,
+.text-btn:hover,
+.text-btn:focus-visible,
+.btn:hover,
+.btn:focus-visible,
+.btn.gold:hover,
+.tabs button.on,
+.demo-code:hover,
+.demo-code:focus-visible {
+  border-bottom-color: transparent;
+  border-image: var(--spectrum) 1;
+}
+
+input:focus,
+select:focus {
+  border-bottom-color: transparent;
+  border-image: var(--spectrum) 1;
+}
+
+/* Text that should read as "lit", used sparingly. */
+.spectrum-text {
+  background: var(--spectrum);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Theme switch ---- */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--edge-soft);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--fg-dim);
+  line-height: 1;
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  color: var(--fg);
+  border-color: transparent;
+  outline: none;
+  /* The spectrum ring, drawn in the padding box behind the button. */
+  box-shadow: 0 0 0 1px var(--sp-teal), 0 0 14px rgba(64, 203, 224, 0.35);
+}
+.theme-toggle-glyph { font-size: 14px; }
+
+/* The toggle sits top-right on every page regardless of that page's header. */
+.page { position: relative; }
+.page > .theme-toggle {
+  position: absolute;
+  top: 26px;
+  right: 40px;
+}
+.row-head .theme-toggle { margin-left: auto; }
+.home-top nav { align-items: center; }
+
+/* ---- Home: orb beside the mode list ---- */
+.home-hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  min-height: 0;
+}
+.home-hero .modes { flex: 0 1 auto; }
+.home-orb { flex: none; margin-right: 4vw; }
+
+/* One column when there isn't room for the orb to sit alongside. */
+@media (max-width: 860px) {
+  .home-hero {
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+  }
+  .home-orb { --aria-size: 200px; margin-right: 0; }
+}
+
+/* The wordmark is the one place the spectrum gets to be type. */
+.wordmark {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  background: var(--spectrum);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

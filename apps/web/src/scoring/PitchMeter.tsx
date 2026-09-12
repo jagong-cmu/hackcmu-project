@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { palette, pitchColor } from "../theme/palette.ts";
 import type { MelodyFile } from "@karaoke/shared";
 import { midiFromHz } from "./cents.ts";
 import { melodyHzAt } from "./scoreClip.ts";
@@ -87,7 +88,8 @@ function paint(
   const h = cssH;
 
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#0c0c0c";
+  const pal = palette();
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, w, h);
 
   const tNow = props.playheadSec;
@@ -117,12 +119,12 @@ function paint(
   const xOf = (sec: number) => fieldX + ((sec - (tNow - LOOKBEHIND_SEC)) / windowSec) * fieldW;
   const nowX = xOf(tNow);
 
-  ctx.fillStyle = "rgba(244,239,230,0.04)";
+  ctx.fillStyle = pal.ink(0.04);
   ctx.fillRect(0, 0, RAIL, h);
 
   for (let m = Math.ceil(min); m <= Math.floor(max); m++) {
     const y = yOf(m);
-    ctx.strokeStyle = m % 12 === 0 ? "rgba(244,239,230,0.16)" : "rgba(244,239,230,0.06)";
+    ctx.strokeStyle = m % 12 === 0 ? pal.ink(0.16) : pal.ink(0.06);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(RAIL, y);
@@ -145,14 +147,14 @@ function paint(
     const active = tNow >= run.startSec && tNow <= run.endSec;
     const upcoming = run.startSec > tNow;
     ctx.fillStyle = active
-      ? "rgba(201,162,39,0.9)"
+      ? pitchColor(run.midi, 0.92)
       : upcoming
-        ? "rgba(244,239,230,0.78)"
-        : "rgba(244,239,230,0.28)";
+        ? pal.ink(0.78)
+        : pal.ink(0.28);
     roundRect(ctx, x1, y - rh / 2, rw, rh, Math.min(8, rh / 2));
     ctx.fill();
     if (rw > 44) {
-      ctx.fillStyle = "#070707";
+      ctx.fillStyle = active || upcoming ? pal.bg : pal.ink(0.55);
       ctx.font = `700 ${Math.max(13, Math.round(rh * 0.42))}px Outfit, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -180,7 +182,8 @@ function paint(
   if (smooth.trail.length > 1) {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.shadowColor = "rgba(201,162,39,0.75)";
+    const voiceHue = pitchColor(Math.round(live.midi), 0.95);
+    ctx.shadowColor = pitchColor(Math.round(live.midi), 0.7);
     ctx.shadowBlur = 26;
     // Rolling average over the trail, then a quadratic through the midpoints.
     // Straight segments between per-frame samples read as a jagged sawtooth
@@ -223,7 +226,7 @@ function paint(
       const last = pts[pts.length - 1]!;
       ctx.lineTo(last.x, last.y);
     }
-    ctx.strokeStyle = "rgba(201,162,39,0.95)";
+    ctx.strokeStyle = voiceHue;
     ctx.lineWidth = voiceW;
     ctx.stroke();
     ctx.shadowBlur = 0;
@@ -236,8 +239,8 @@ function paint(
       const age = (tNow - p.t) / LOOKBEHIND_SEC;
       const alpha = Math.max(0, 1 - age);
       ctx.fillStyle = p.inTune
-        ? `rgba(201,162,39,${0.25 + 0.7 * alpha})`
-        : `rgba(244,239,230,${0.16 + 0.45 * alpha})`;
+        ? pitchColor(Math.round(p.midi), 0.25 + 0.7 * alpha)
+        : pal.ink(0.16 + 0.45 * alpha);
       ctx.beginPath();
       ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
       ctx.fill();
@@ -246,7 +249,7 @@ function paint(
 
   ctx.restore();
 
-  ctx.strokeStyle = "rgba(201,162,39,0.95)";
+  ctx.strokeStyle = pal.ink(0.5);
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(nowX, 8);
@@ -257,20 +260,21 @@ function paint(
   const pillH = Math.max(28, Math.round(laneH * 0.85));
   ctx.save();
   ctx.globalAlpha = live.tracking ? 1 : 0.72;
-  ctx.shadowColor = live.inTune ? "rgba(201,162,39,0.9)" : "rgba(244,239,230,0.35)";
+  const headHue = pitchColor(Math.round(live.midi), 1);
+  ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.35);
   ctx.shadowBlur = live.inTune ? 22 : live.tracking ? 8 : 4;
-  ctx.fillStyle = live.inTune ? "#c9a227" : "#f4efe6";
+  ctx.fillStyle = live.inTune ? headHue : pal.fg;
   roundRect(ctx, 8, y - pillH / 2, RAIL - 16, pillH, 6);
   ctx.fill();
   ctx.restore();
 
-  ctx.fillStyle = live.inTune ? "rgba(201,162,39,0.95)" : "rgba(244,239,230,0.8)";
+  ctx.fillStyle = live.inTune ? headHue : pal.ink(0.8);
   ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
 
   // The indicator is octave-folded onto the tune, so label the note actually
   // sung. Otherwise a bass reads "G4" while singing G2.
   if (live.tracking && live.rawMidi != null) {
-    ctx.fillStyle = "#070707";
+    ctx.fillStyle = pal.bg;
     ctx.font = "700 14px Outfit, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -278,15 +282,15 @@ function paint(
   }
 
   ctx.save();
-  ctx.shadowColor = live.inTune ? "rgba(201,162,39,0.9)" : "rgba(244,239,230,0.45)";
+  ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.45);
   ctx.shadowBlur = live.inTune ? 22 : 10;
-  ctx.fillStyle = live.inTune ? "#c9a227" : "#f4efe6";
+  ctx.fillStyle = live.inTune ? headHue : pal.fg;
   ctx.beginPath();
   ctx.arc(nowX, y, headR, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  ctx.fillStyle = "rgba(138,130,120,0.95)";
+  ctx.fillStyle = pal.ink(0.5);
   ctx.font = "12px Outfit, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";

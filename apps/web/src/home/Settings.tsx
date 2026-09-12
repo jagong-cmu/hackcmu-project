@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getClientId, getDisplayName, setDisplayName, validName } from "./identity.ts";
+import { ThemeToggle } from "../theme/ThemeToggle.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 export function Settings() {
@@ -44,6 +45,7 @@ export function Settings() {
       <Link to="/" className="back">
         Home
       </Link>
+      <ThemeToggle />
       <h1>Settings</h1>
       <form className="settings-form" onSubmit={(e) => void save(e)}>
         <label>

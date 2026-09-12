@@ -29,7 +29,7 @@ export default function DevLanding() {
 
   return (
     <div className="landing">
-      <h1>Karaoke Arena</h1>
+      <h1>Aria</h1>
       <p className="note">
         Lane A dev landing. Real Home is Lane B's (<code>apps/web/src/home/</code>).
         Point the <code>/</code> route at it when it lands.

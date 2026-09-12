@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ThemeToggle } from "../theme/ThemeToggle.tsx";
 import { songById } from "@karaoke/shared";
 
 type RankedRow = { rank: number; displayName: string; elo: number; matchesPlayed: number };
@@ -29,6 +30,7 @@ export function Leaderboard() {
           Home
         </Link>
         <h1>Leaderboard</h1>
+        <ThemeToggle />
       </header>
       {!mongo ? <p className="dim">Atlas is off, so the ladder is empty.</p> : null}
       <div className="tabs">

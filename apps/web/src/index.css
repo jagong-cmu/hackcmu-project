@@ -1,20 +1,10 @@
-:root {
-  --stage: #070707;
-  --gold: #c9a227;
-  --cream: #f4efe6;
-  --mute: #8a8278;
-  --line: #2a2a2a;
-  color: var(--cream);
-  background: var(--stage);
-  font-family: Outfit, system-ui, sans-serif;
-  line-height: 1.45;
-}
+/* Palette and theming live in theme/theme.css. This file is layout and type. */
 
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; margin: 0; }
 body { background: var(--stage); }
 
-a { color: var(--cream); }
+a { color: var(--fg); }
 button, input, select { font: inherit; }
 
 .page {
@@ -209,7 +199,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
 
 .ok { color: var(--gold); }
 .dim { color: var(--mute); }
-.err { color: #ffb4a8; }
+.err { color: var(--danger); }
 
 .row-head { margin-bottom: 8px; }
 .row-head h1 { margin: 0; }
@@ -218,8 +208,8 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
   width: 100%;
   height: 280px;
   margin: 24px 0;
-  border: 1px solid var(--line);
-  background: #0c0c0c;
+  border: 1px solid var(--edge-soft);
+  background: var(--surface);
 }
 .pitch-meter {
   display: block;
@@ -252,7 +242,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
   border-radius: 50%;
   background: var(--gold);
 }
-.lyrics-count .dot.spent { background: rgba(244, 239, 230, 0.18); }
+.lyrics-count .dot.spent { background: var(--fg-faint); }
 .lyrics-count .count-num {
   margin-left: 10px;
   font-size: 1.4rem;
@@ -273,7 +263,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
   width: 180px;
   height: 120px;
   object-fit: cover;
-  background: #111;
+  background: var(--surface-2);
   border: 1px solid var(--line);
 }
 .avatar-tile { display: grid; place-items: center; color: var(--mute); }
@@ -285,7 +275,8 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
 .modal-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  backdrop-filter: blur(10px);
   display: grid;
   place-items: center;
   padding: 20px;
