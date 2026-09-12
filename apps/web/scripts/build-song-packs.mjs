@@ -30,10 +30,12 @@ const CLIP_LEAD_SEC = 3;
  * offsetSec: maps ORIGINAL time onto our karaoke track, measured by chroma/DTW
  *   between the two recordings. This is a property of the audio and is what
  *   melody extraction uses.
- * lyricLeadSec: LRCLIB's timestamps are hand-timed and tend to sit slightly
- *   after the real vocal onset. Measured per song by finding voiced onsets in
- *   the isolated vocal and comparing. Applied to lyrics ONLY -- folding it into
- *   offsetSec would drag the melody off the audio with it.
+ * lyricLeadSec: correction applied to lyrics ONLY -- folding it into offsetSec
+ *   would drag the melody off the audio with it. Left at 0 for every song.
+ *   Measuring voiced onsets in the isolated vocals suggested LRCLIB's stamps
+ *   run late (-0.25s here, -0.36s for creep), but applying that was worse by
+ *   ear and was reverted. The onset measurement evidently catches breath and
+ *   consonants ahead of the pitched note a singer actually cues from.
  * phrases: authored note shapes, cycled across lyric lines. midi or null, with
  *   relative weights; each phrase is stretched to the real line duration.
  */
@@ -42,14 +44,14 @@ const PACKS = [
     // offsetSec values below are measured by chroma/DTW against each studio
     // original (scripts note in README); the figure is the median of inlier
     // per-line drifts, outliers being sparse intros and outros.
-    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95, lyricLeadSec: -0.25,
+    id: "viva-la-vida", title: "Viva La Vida", artist: "Coldplay", offsetSec: -4.95, lyricLeadSec: 0,
     phrases: [
       [68, 68, 67, 65, 63], [65, 65, 67, 68, 67, 65, 63],
       [63, 65, 67, 68, 70, 68, 67], [67, 67, 65, 63, 62, 63],
     ],
   },
   {
-    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: -0.36,
+    id: "creep", title: "Creep", artist: "Radiohead", offsetSec: 3.9, lyricLeadSec: 0,
     phrases: [
       [59, 59, 59, 62, 59, 57], [59, 59, 62, 64, 62, 59],
       [64, 64, 62, 59, 57], [67, 66, 64, 62],
