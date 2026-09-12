@@ -40,13 +40,6 @@ export function Training() {
   // low-frequency energy, which is most of a low voice; AGC moves the levels the
   // RMS gates depend on. This is the same path /pitchtest uses.
   const [headphones, setHeadphones] = useState(true);
-  // Live nudge for lyric/note timing. Positive shows them earlier. Persisted so
-  // a value dialled in by ear survives a reload and can be read back off-screen.
-  const [syncOffset, setSyncOffset] = useState(() => {
-    const raw = localStorage.getItem("karaoke.syncOffset");
-    const n = raw == null ? 0 : Number(raw);
-    return Number.isFinite(n) ? n : 0;
-  });
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -368,7 +361,7 @@ export function Training() {
       {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
-      <LyricsOverlay lrc={lrc} currentTime={playhead + syncOffset} />
+      <LyricsOverlay lrc={lrc} currentTime={playhead} />
       <PitchMeter
         melody={melody}
         playheadSec={playhead}
