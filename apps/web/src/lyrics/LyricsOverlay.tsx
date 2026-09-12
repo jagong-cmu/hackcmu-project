@@ -1,4 +1,5 @@
 import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
+import { LyricSparks } from "./LyricSparks.tsx";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
 
 export type DuetView = {
@@ -27,8 +28,10 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
     const nextWho = upcoming
       ? cueLabel(upcoming.voice, duet.seat, duet.nameA, duet.nameB)
       : null;
+    const singing = !cue.waiting && now.kind !== "wait";
     return (
       <div className="lyrics lyrics-duet">
+        {singing && cue.current ? <LyricSparks key={cue.current.timeSec} /> : null}
         <p className={`lyrics-cue ${now.kind}`}>{now.text}</p>
         <p
           className={[
@@ -91,6 +94,7 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
 
   return (
     <div className="lyrics">
+      {current ? <LyricSparks key={current.timeSec} /> : null}
       <p className="lyrics-now">{current?.text ?? "·"}</p>
       <p className="lyrics-next">{next?.text ?? ""}</p>
     </div>

@@ -419,3 +419,104 @@ select:focus {
   .modes button.mode:hover .sparks i,
   .modes button.mode:focus-visible .sparks i { animation: none; }
 }
+
+/* ---------------------------------------------------------------- lyrics --
+ * The live line is the thing the singer is actually reading, so it gets the
+ * only lit treatment on the screen: a pool of light behind it and sparks
+ * lifting off it. Everything around it stays dim so the eye lands here.
+ */
+.lyrics {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Pool of light behind the live line. */
+.lyrics::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: min(92%, 46rem);
+  height: 5.5rem;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    rgba(121, 180, 255, 0.22) 0%,
+    rgba(47, 116, 216, 0.10) 45%,
+    transparent 76%
+  );
+  filter: blur(18px);
+  /* Off unless a line is actually live: during an instrumental gap the overlay
+     shows a rest glyph or a dim preview, and lighting those means nothing. */
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.lyrics:has(.lyrics-now:not(.lyrics-soon))::before { opacity: 1; }
+.lyrics-duet::before { top: 50%; }
+
+.lyrics-now {
+  color: var(--fg);
+  text-shadow:
+    0 0 14px rgba(255, 255, 255, 0.3),
+    0 0 44px rgba(121, 180, 255, 0.55),
+    0 2px 20px rgba(0, 0, 0, 0.6);
+}
+/* A line that has not arrived yet is a preview, not the cue — keep it dim. */
+.lyrics-now.lyrics-soon {
+  color: var(--fg-dim);
+  text-shadow: none;
+}
+.lyrics-next { color: var(--fg-faint); }
+
+.lyric-sparks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56%;
+  height: 0;
+  pointer-events: none;
+}
+.lyric-sparks i {
+  position: absolute;
+  width: var(--ps, 3px);
+  height: var(--ps, 3px);
+  margin-left: calc(var(--ps, 3px) / -2);
+  border-radius: 50%;
+  background: var(--blue-050);
+  box-shadow: 0 0 9px rgba(168, 208, 255, 0.95), 0 0 20px rgba(79, 151, 245, 0.55);
+  opacity: 0;
+  animation: lyric-spark 2.2s ease-out var(--pd, 0s) infinite;
+}
+
+@keyframes lyric-spark {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  10%  { opacity: 0.95; transform: translate(calc(var(--dx) * 0.1), calc(var(--dy) * 0.1)) scale(1); }
+  65%  { opacity: 0.7; transform: translate(calc(var(--dx) * 0.68), calc(var(--dy) * 0.68)) scale(0.75); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
+}
+
+/* Count-in dots pick up the accent rather than the old gold. */
+.lyrics-count .dot { background: var(--blue-200); box-shadow: 0 0 8px rgba(121, 180, 255, 0.7); }
+.lyrics-count .dot.spent { background: var(--fg-faint); box-shadow: none; }
+.lyrics-count .count-num { color: var(--blue-100); }
+
+/* ---- Hit callouts (stage and training) ---- */
+.hit-perfect {
+  color: var(--blue-050);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.85), 0 0 52px rgba(121, 180, 255, 0.9);
+}
+.hit-great {
+  color: var(--blue-100);
+  text-shadow: 0 0 14px rgba(168, 208, 255, 0.75), 0 0 40px rgba(79, 151, 245, 0.6);
+}
+.hit-good {
+  color: var(--blue-300);
+  text-shadow: 0 0 12px rgba(79, 151, 245, 0.5);
+}
+.hit-okay { color: var(--fg-dim); text-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lyric-sparks i { animation: none; }
+}

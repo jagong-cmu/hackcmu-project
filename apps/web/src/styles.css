@@ -237,7 +237,7 @@
 }
 .hit-perfect { color: var(--gold, #c9a227); }
 .hit-great { color: var(--cream, #f4efe6); }
-.hit-good { color: var(--sp-teal); }
+.hit-good { color: var(--blue-300); }
 .hit-okay { color: var(--mute, #8a8278); }
 @keyframes hit-pop {
   0% { opacity: 0; transform: translateX(-50%) scale(0.6); }

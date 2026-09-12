@@ -7,6 +7,8 @@ import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { ResultsModal } from "../results/ResultsModal.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
+import { HitCallout } from "../scoring/HitCallout.tsx";
+import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import {
   isMusicOnly,
@@ -334,13 +336,17 @@ export function Training() {
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
       <LyricsOverlay lrc={lrc} currentTime={playhead} />
-      <PitchMeter
-        melody={melody}
-        playheadSec={playhead}
-        liveHz={liveHz}
-        liveClarity={liveClarity}
-        liveRms={liveRms}
-      />
+      {/* Same PERFECT/GREAT callouts the stage shows, so practice reads like a turn. */}
+      <div className="pitch-stage">
+        <PitchMeter
+          melody={melody}
+          playheadSec={playhead}
+          liveHz={liveHz}
+          liveClarity={liveClarity}
+          liveRms={liveRms}
+        />
+        {running ? <HitCallout grade={gradeLive(melody, playhead, liveHz)} /> : null}
+      </div>
 
       <div className="stage-self">
         {camDenied ? <div className="avatar-tile">camera off</div> : <video ref={videoRef} muted playsInline />}
