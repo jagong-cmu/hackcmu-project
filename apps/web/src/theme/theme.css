@@ -487,12 +487,17 @@ select:focus {
 }
 .lyrics-next { color: var(--fg-faint); }
 
+/* Hugs the words, so "the sides" means the sides of the text and not of the
+   column. The line is centred and rarely fills the width. */
+.lyric-line {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
 .lyric-sparks {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 56%;
-  height: 0;
+  inset: 0;
   pointer-events: none;
 }
 .lyric-sparks i {
@@ -564,10 +569,14 @@ select:focus {
 .page-head .back:hover { color: var(--fg); }
 .page-head .back::before { content: "← "; }
 
-/* Glass meter, so the band shows through instead of being boxed out. */
-.training .pitch-guide {
+/*
+ * One meter treatment on every page. The canvas paints --meter-bg (--surface
+ * at 0.55 alpha), so with the container transparent the voice wave reads
+ * through the staff on Training and on the stage alike.
+ */
+.pitch-guide {
   background: transparent;
-  border-color: var(--edge-soft);
+  border: 1px solid var(--edge-soft);
   border-radius: 14px;
   overflow: hidden;
   backdrop-filter: blur(3px);

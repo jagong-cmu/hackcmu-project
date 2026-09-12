@@ -31,7 +31,6 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
     const singing = !cue.waiting && now.kind !== "wait";
     return (
       <div className="lyrics lyrics-duet">
-        {singing && cue.current ? <LyricSparks key={cue.current.timeSec} /> : null}
         <p className={`lyrics-cue ${now.kind}`}>{now.text}</p>
         <p
           className={[
@@ -44,7 +43,10 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
             .filter(Boolean)
             .join(" ")}
         >
-          {cue.waiting ? "·" : (cue.current?.text ?? "·")}
+          <span className="lyric-line">
+            {cue.waiting ? "·" : (cue.current?.text ?? "·")}
+            {singing && cue.current ? <LyricSparks key={cue.current.timeSec} /> : null}
+          </span>
         </p>
         {upcoming ? (
           <p className={`lyrics-next ${nextWho?.kind ?? ""}`}>
@@ -94,8 +96,12 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
 
   return (
     <div className="lyrics">
-      {current ? <LyricSparks key={current.timeSec} /> : null}
-      <p className="lyrics-now">{current?.text ?? "·"}</p>
+      <p className="lyrics-now">
+        <span className="lyric-line">
+          {current?.text ?? "·"}
+          {current ? <LyricSparks key={current.timeSec} /> : null}
+        </span>
+      </p>
       <p className="lyrics-next">{next?.text ?? ""}</p>
     </div>
   );
