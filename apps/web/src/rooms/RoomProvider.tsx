@@ -50,10 +50,13 @@ type RoomContextValue = {
   scores: Record<string, ScoreCard>;
   matchOver: MatchOver | null;
   error: SocketError | null;
+  queuedMode: Mode | null;
   hello: (displayName: string) => void;
   queueJoin: (mode: Mode) => void;
+  queueLeave: () => void;
   roomCreate: (mode: Mode) => void;
   roomJoin: (code: string) => void;
+  roomLeave: () => void;
   chaosJoin: (code?: string) => void;
   ready: () => void;
 };
@@ -75,6 +78,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const [scores, setScores] = useState<Record<string, ScoreCard>>({});
   const [matchOver, setMatchOver] = useState<MatchOver | null>(null);
   const [error, setError] = useState<SocketError | null>(null);
+  const [queuedMode, setQueuedMode] = useState<Mode | null>(null);
 
   // Re-sent on every reconnect so a dropped socket re-establishes identity.
   const nameRef = useRef(getDisplayName());
@@ -93,10 +97,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setConnected(true);
       sayHello();
     };
-    const onDisconnect = () => setConnected(false);
+    const onDisconnect = () => {
+      setConnected(false);
+      setQueuedMode(null);
+    };
     const onPlayerOk = (p: { player: PlayerPublic }) => setMe(p.player);
     const onRoomState = (state: RoomState) => {
       setRoom(state);
+      setError(null);
       // A fresh lobby means the previous result is stale.
       if (state.status === "lobby") {
         setMatchOver(null);
@@ -105,7 +113,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     };
     const onMatchFound = ({ code }: { code: string }) => {
       setError(null);
+      setQueuedMode(null);
       navigate(`/room/${code}`);
+    };
+    const onQueueWaiting = ({ mode }: { mode: Mode }) => {
+      setQueuedMode(mode);
+      setError(null);
     };
     const onClockPlay = (payload: ClockPlay) => setClockPlay(payload);
     const onScoreReady = ({ playerId, score }: { playerId: string; score: ScoreCard }) =>
@@ -121,6 +134,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     socket.on(ServerEvents.playerOk, onPlayerOk);
     socket.on(ServerEvents.roomState, onRoomState);
     socket.on(ServerEvents.matchFound, onMatchFound);
+    socket.on(ServerEvents.queueWaiting, onQueueWaiting);
     socket.on(ServerEvents.clockPlay, onClockPlay);
     socket.on(ServerEvents.scoreReady, onScoreReady);
     socket.on(ServerEvents.matchOver, onMatchOver);
@@ -134,6 +148,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       socket.off(ServerEvents.playerOk, onPlayerOk);
       socket.off(ServerEvents.roomState, onRoomState);
       socket.off(ServerEvents.matchFound, onMatchFound);
+      socket.off(ServerEvents.queueWaiting, onQueueWaiting);
       socket.off(ServerEvents.clockPlay, onClockPlay);
       socket.off(ServerEvents.scoreReady, onScoreReady);
       socket.off(ServerEvents.matchOver, onMatchOver);
@@ -150,21 +165,39 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const queueJoin = useCallback((mode: Mode) => {
     setError(null);
+    setQueuedMode(mode);
     socket.emit(ClientEvents.queueJoin, { mode });
+  }, []);
+
+  const queueLeave = useCallback(() => {
+    setQueuedMode(null);
+    socket.emit(ClientEvents.queueLeave);
   }, []);
 
   const roomCreate = useCallback((mode: Mode) => {
     setError(null);
+    setQueuedMode(null);
     socket.emit(ClientEvents.roomCreate, { mode });
   }, []);
 
   const roomJoin = useCallback((code: string) => {
     setError(null);
+    setQueuedMode(null);
     socket.emit(ClientEvents.roomJoin, { code: code.trim() });
+  }, []);
+
+  const roomLeave = useCallback(() => {
+    setQueuedMode(null);
+    setRoom(null);
+    setClockPlay(null);
+    setMatchOver(null);
+    setScores({});
+    socket.emit(ClientEvents.roomLeave);
   }, []);
 
   const chaosJoin = useCallback((code?: string) => {
     setError(null);
+    setQueuedMode(null);
     socket.emit(ClientEvents.chaosJoin, code ? { code: code.trim() } : {});
   }, []);
 
@@ -182,16 +215,19 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       scores,
       matchOver,
       error,
+      queuedMode,
       hello,
       queueJoin,
+      queueLeave,
       roomCreate,
       roomJoin,
+      roomLeave,
       chaosJoin,
       ready,
     }),
     [
-      connected, me, room, clockPlay, scores, matchOver, error,
-      hello, queueJoin, roomCreate, roomJoin, chaosJoin, ready,
+      connected, me, room, clockPlay, scores, matchOver, error, queuedMode,
+      hello, queueJoin, queueLeave, roomCreate, roomJoin, roomLeave, chaosJoin, ready,
     ],
   );
 

@@ -7,8 +7,8 @@
  */
 import {
   ChaosCap,
+  ChaosLounges,
   DemoRoomCode,
-  PublicChaosCode,
   RankedCap,
   StartingElo,
   type Mode,
@@ -106,10 +106,12 @@ export function generateCode(): string {
   throw new Error("room code space exhausted");
 }
 
-/** `0000` is a permanent Ranked room so one person can demo without a partner. */
+/** `0000` plus the two Chaos lounges survive going empty. */
 export function ensurePermanentRooms(): void {
   if (!rooms.has(DemoRoomCode)) createRoom("ranked", DemoRoomCode, true);
-  if (!rooms.has(PublicChaosCode)) createRoom("chaos", PublicChaosCode, true);
+  for (const lounge of ChaosLounges) {
+    if (!rooms.has(lounge.code)) createRoom("chaos", lounge.code, true);
+  }
 }
 
 export function addPlayer(
@@ -160,7 +162,7 @@ export function later(room: Room, ms: number, fn: () => void): NodeJS.Timeout {
   return timer;
 }
 
-/** Drop a room once the last player leaves, unless it is 0000 or chaos. */
+/** Drop a room once the last player leaves, unless it is 0000 or a lounge. */
 export function disposeIfEmpty(room: Room): void {
   if (room.persistent || room.players.length > 0) return;
   clearTimers(room);
