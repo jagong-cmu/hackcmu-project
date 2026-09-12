@@ -138,11 +138,11 @@ export function SyncLyrics() {
 
   return (
     <main className="page training">
-      <header className="row-head">
+      <header className="page-head">
+        <h1>Lyric sync</h1>
         <Link to="/" className="back">
           Home
         </Link>
-        <h1>Lyric sync</h1>
       </header>
 
       <label className="song-pick">

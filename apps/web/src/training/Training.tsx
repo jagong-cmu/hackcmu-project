@@ -17,6 +17,7 @@ import {
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
+import { WaveField } from "../theme/WaveField.tsx";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -303,12 +304,13 @@ export function Training() {
   const nameOk = validName(getDisplayName());
 
   return (
-    <main className="page training">
-      <header className="row-head">
+    <main className="page training wave-page">
+      <WaveField />
+      <header className="page-head">
+        <h1>Training</h1>
         <Link to="/" className="back">
           Home
         </Link>
-        <h1>Training</h1>
       </header>
 
       <label className="song-pick">

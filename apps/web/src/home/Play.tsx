@@ -49,16 +49,18 @@ export function Play() {
   return (
     <main className="page bloom-page quiet play-page">
       <Bloom />
-      <Link
-        to="/"
-        className="back"
-        onClick={() => {
-          if (inQueue) queueLeave();
-        }}
-      >
-        Home
-      </Link>
-      <h1>{info.title}</h1>
+      <header className="page-head">
+        <h1>{info.title}</h1>
+        <Link
+          to="/"
+          className="back"
+          onClick={() => {
+            if (inQueue) queueLeave();
+          }}
+        >
+          Home
+        </Link>
+      </header>
       <p className="tag">{info.blurb}</p>
       {!named ? (
         <p>

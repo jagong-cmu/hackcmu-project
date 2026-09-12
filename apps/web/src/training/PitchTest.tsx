@@ -131,11 +131,11 @@ export function PitchTest() {
 
   return (
     <main className="page training">
-      <header className="row-head">
+      <header className="page-head">
+        <h1>Pitch test</h1>
         <Link to="/" className="back">
           Home
         </Link>
-        <h1>Pitch test</h1>
       </header>
 
       <p className="status">{status}</p>

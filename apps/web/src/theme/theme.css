@@ -520,3 +520,110 @@ select:focus {
 @media (prefers-reduced-motion: reduce) {
   .lyric-sparks i { animation: none; }
 }
+
+/* ------------------------------------------------------------ page heads --
+ * Title in the upper left, the way back underneath it. The old .row-head put
+ * them side by side on a shared baseline, which left "Home" floating beside a
+ * display-size title with nothing to align to.
+ */
+.page-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0 0 22px;
+}
+.page-head h1 {
+  margin: 0;
+  line-height: 0.95;
+  text-shadow: 0 0 42px rgba(121, 180, 255, 0.4);
+}
+.page-head .back {
+  color: var(--fg-dim);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.page-head .back:hover { color: var(--fg); }
+.page-head .back::before { content: "← "; }
+
+/* ------------------------------------------------------------- wavefield --
+ * Training's background. Same light as the bloom, shaped as a waveform, with
+ * the bars mirrored about a centre line so it reads as a signal rather than a
+ * bar chart. No JS: the pitch tracker owns the frame budget on this page.
+ */
+.wavefield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* The gradient wash the rest of the app has, held low and wide. */
+.wavefield-glow {
+  position: absolute;
+  left: 50%;
+  top: 72%;
+  width: 130vw;
+  height: 70vh;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse 50% 42% at 50% 50%,
+    rgba(79, 151, 245, 0.22) 0%,
+    rgba(47, 116, 216, 0.10) 42%,
+    transparent 74%
+  );
+  filter: blur(52px);
+  animation: wavefield-breathe 26s ease-in-out infinite;
+}
+
+.wavefield-bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Along the foot: the pitch meter is opaque and owns the middle. */
+  top: 84%;
+  /* A real height: the bars size off this, and a percentage of zero is zero. */
+  height: 30vh;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.35%;
+  padding: 0 2vw;
+}
+.wavefield-bars i {
+  flex: 1;
+  height: var(--h, 10%);
+  min-width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(121, 180, 255, 0.55) 20%,
+    rgba(226, 240, 255, 0.9) 50%,
+    rgba(121, 180, 255, 0.55) 80%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgba(79, 151, 245, 0.35);
+  animation: wavefield-pulse var(--bs, 3s) ease-in-out var(--bd, 0s) infinite;
+  opacity: 0.3;
+}
+
+@keyframes wavefield-pulse {
+  0%, 100% { transform: scaleY(0.5); opacity: 0.2; }
+  50%      { transform: scaleY(1); opacity: 0.38; }
+}
+@keyframes wavefield-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -50%) scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wavefield-bars i,
+  .wavefield-glow { animation: none; }
+}
+
+/* Content sits above the field. */
+.page.wave-page { position: relative; }
+.page.wave-page > *:not(.wavefield) { position: relative; z-index: 1; }

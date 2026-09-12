@@ -43,10 +43,12 @@ export function Settings() {
   return (
     <main className="page bloom-page quiet">
       <Bloom />
-      <Link to="/" className="back">
-        Home
-      </Link>
-      <h1>Settings</h1>
+      <header className="page-head">
+        <h1>Settings</h1>
+        <Link to="/" className="back">
+          Home
+        </Link>
+      </header>
       <form className="settings-form" onSubmit={(e) => void save(e)}>
         <label>
           Display name

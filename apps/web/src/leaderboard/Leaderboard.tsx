@@ -26,11 +26,11 @@ export function Leaderboard() {
   return (
     <main className="page bloom-page">
       <Bloom />
-      <header className="row-head">
+      <header className="page-head">
+        <h1>Leaderboard</h1>
         <Link to="/" className="back">
           Home
         </Link>
-        <h1>Leaderboard</h1>
       </header>
       {!mongo ? <p className="dim">Atlas is off, so the ladder is empty.</p> : null}
       <div className="tabs">
