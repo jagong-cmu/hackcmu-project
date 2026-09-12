@@ -6,6 +6,7 @@ import { Home } from "./home/Home.tsx";
 import { Play } from "./home/Play.tsx";
 import { Settings } from "./home/Settings.tsx";
 import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
+import { SyncLyrics } from "./training/SyncLyrics.tsx";
 import { Training } from "./training/Training.tsx";
 import { RoomProvider } from "./rooms/RoomProvider.tsx";
 import Stage from "./stage/Stage.tsx";
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/play/:mode" element={<Play />} />
           <Route path="/training" element={<Training />} />
+          <Route path="/sync" element={<SyncLyrics />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/room/:code" element={<Stage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

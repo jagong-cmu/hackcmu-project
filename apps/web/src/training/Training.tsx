@@ -23,6 +23,7 @@ export function Training() {
   const [liveClarity, setLiveClarity] = useState(0);
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [camDenied, setCamDenied] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -30,6 +31,8 @@ export function Training() {
   const framesRef = useRef<PitchFrame[]>([]);
   const rafRef = useRef<number>(0);
   const stopRef = useRef<(() => void) | null>(null);
+  const endRef = useRef<(() => void) | null>(null);
+  const previewRafRef = useRef<number>(0);
 
   useEffect(() => {
     void loadCatalog().then((list) => {
@@ -63,7 +66,41 @@ export function Training() {
 
   useEffect(() => () => stopRef.current?.(), []);
 
+  function stopPreview() {
+    cancelAnimationFrame(previewRafRef.current);
+    const audio = audioRef.current;
+    if (audio) audio.pause();
+    setPreviewing(false);
+  }
+
+  async function startPreview() {
+    const audio = audioRef.current;
+    if (!audio || !meta || !audioUrl || running) return;
+    if (audio.src !== new URL(audioUrl, location.href).href) audio.src = audioUrl;
+    if (audio.currentTime < meta.clipStartSec) audio.currentTime = meta.clipStartSec;
+    try {
+      await audio.play();
+    } catch {
+      // Chrome blocks playback that is not tied to a gesture; the button covers it.
+      setPreviewing(false);
+      return;
+    }
+    setPreviewing(true);
+    const tick = () => {
+      setPlayhead(audio.currentTime);
+      if (audio.paused || audio.ended) {
+        setPreviewing(false);
+        return;
+      }
+      previewRafRef.current = requestAnimationFrame(tick);
+    };
+    previewRafRef.current = requestAnimationFrame(tick);
+  }
+
+  useEffect(() => () => cancelAnimationFrame(previewRafRef.current), []);
+
   async function start() {
+    stopPreview();
     if (!meta || !melody) return;
     setCard(null);
     framesRef.current = [];
@@ -101,12 +138,11 @@ export function Training() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.src = audioUrl;
-    audio.currentTime = meta.clipStartSec;
+    audio.currentTime = 0;
     await audio.play();
 
-    const clipEnd = meta.clipStartSec + meta.clipDurationSec;
     setRunning(true);
-    setStatus("Sing the gold line.");
+    setStatus("Sing the gold line. Stop whenever — you'll still be scored.");
 
     const tick = () => {
       const t = audio.currentTime;
@@ -121,7 +157,7 @@ export function Training() {
       });
       setLiveHz(voiced ? hz : null);
       setLiveClarity(clarity);
-      if (t >= clipEnd || audio.ended) {
+      if (audio.ended) {
         void finish(stream, ctx);
         return;
       }
@@ -135,13 +171,17 @@ export function Training() {
       void ctx.close();
       setRunning(false);
       stopRef.current = null;
+      endRef.current = null;
     };
     stopRef.current = stop;
+    // Stopping a full song early should still score what was sung.
+    endRef.current = () => void finish(stream, ctx);
     rafRef.current = requestAnimationFrame(tick);
   }
 
   async function finish(stream: MediaStream, ctx: AudioContext) {
     stopRef.current = null;
+    endRef.current = null;
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     stream.getTracks().forEach((tr) => tr.stop());
@@ -149,9 +189,13 @@ export function Training() {
     setRunning(false);
     if (!meta || !melody) return;
 
-    const dsp = scoreContour(framesRef.current, melody, {
+    // Score everything from the first vocal line to wherever playback stopped,
+    // so the intro's silence never counts against the singer.
+    const frames = framesRef.current;
+    const lastSec = frames.length ? frames[frames.length - 1].timeSec : meta.clipStartSec;
+    const dsp = scoreContour(frames, melody, {
       startSec: meta.clipStartSec,
-      durationSec: meta.clipDurationSec,
+      durationSec: Math.max(1, lastSec - meta.clipStartSec),
     });
     setStatus("Scoring…");
     const lyrics = lrc
@@ -194,7 +238,16 @@ export function Training() {
 
       <label className="song-pick">
         Song
-        <select value={songId} disabled={running} onChange={(e) => setSongId(e.target.value)}>
+        <select
+          value={songId}
+          disabled={running}
+          onChange={(e) => {
+            stopPreview();
+            setPlayhead(0);
+            setCard(null);
+            setSongId(e.target.value);
+          }}
+        >
           {songs.map((s) => (
             <option key={s.id} value={s.id} disabled={!s.ready}>
               {s.title} — {s.artist}
@@ -225,10 +278,21 @@ export function Training() {
         <button
           type="button"
           className="btn ghost"
-          disabled={!running}
-          onClick={() => stopRef.current?.()}
+          disabled={running || !meta}
+          onClick={() => {
+            if (previewing) stopPreview();
+            else void startPreview();
+          }}
         >
-          Stop
+          {previewing ? "Pause preview" : "Preview"}
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={!running}
+          onClick={() => endRef.current?.()}
+        >
+          Stop &amp; score
         </button>
       </div>
 

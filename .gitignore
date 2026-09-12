@@ -7,3 +7,4 @@ server/dist/
 *.log
 .gstack/
 *.wav
+.vscode/
