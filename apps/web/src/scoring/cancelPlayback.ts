@@ -5,7 +5,7 @@ const FILTER = 96;
 const LAG_STEP = 8;
 const LAG_MAX = 2400;
 const CORR_N = 160;
-const VOICE_RMS = 0.016;
+const VOICE_RMS = 0.010;
 
 type PlaybackTap = {
   ctx: AudioContext;
@@ -117,6 +117,21 @@ export function cancelSpeaker(
     c.xi = (c.xi + 1) % n;
     out[i] = e;
   }
+
+  // The reference comes from an AnalyserNode whose clock is not the mic's, so
+  // when the true speaker-to-mic delay sits outside estimateLag's window the
+  // filter adapts to noise and starts subtracting the singer. A diverged filter
+  // adds energy rather than removing it; reset and pass the mic through.
+  let bad = false;
+  for (let i = 0; i < out.length; i++) {
+    if (!Number.isFinite(out[i] ?? 0)) { bad = true; break; }
+  }
+  if (bad || rmsOf(out) > rmsOf(mic) * 1.05) {
+    c.w.fill(0);
+    c.x.fill(0);
+    c.xi = 0;
+    out.set(mic);
+  }
 }
 
 /** True when leftover energy is just the bed, not a voice. */
@@ -126,7 +141,9 @@ export function isMusicOnly(mic: Float32Array, clean: Float32Array, ref: Float32
   const micRms = rmsOf(mic);
   const refRms = rmsOf(ref);
   if (refRms < 0.01) return false;
-  return micRms > 0.02 && cleanRms < micRms * 0.32;
+  // Only call it music when cancellation removed nearly everything. At 0.32 a
+  // canceller that ate part of the voice took real singing with it.
+  return micRms > 0.02 && cleanRms < micRms * 0.18;
 }
 
 export { FFT as PITCH_FFT, VOICE_RMS };

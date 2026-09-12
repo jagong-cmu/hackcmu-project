@@ -28,20 +28,43 @@ export function preloadCrepe(): Promise<tf.LayersModel> {
 
 export type CrepeResult = { hz: number | null; confidence: number };
 
+const scratch = new Float32Array(8192);
+
+/**
+ * Low-pass below the 8 kHz Nyquist of the 16 kHz target, then decimate.
+ * Without this, every harmonic above 8 kHz folds back down into the voice band
+ * and CREPE is fed a signal with phantom low partials in it.
+ */
+function antiAlias(src: Float32Array, n: number, sampleRate: number): Float32Array {
+  const fc = 7200 / sampleRate;
+  const c = Math.tan(Math.PI * fc);
+  const a0 = 1 + Math.SQRT2 * c + c * c;
+  const b0 = (c * c) / a0;
+  const b1 = (2 * c * c) / a0;
+  const b2 = (c * c) / a0;
+  const a1 = (2 * (c * c - 1)) / a0;
+  const a2 = (1 - Math.SQRT2 * c + c * c) / a0;
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < n; i++) {
+    const xi = src[i] ?? 0;
+    const yi = b0 * xi + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1; x1 = xi; y2 = y1; y1 = yi;
+    scratch[i] = yi;
+  }
+  return scratch;
+}
+
 function resampleTo16k(original: Float32Array, sampleRate: number): Float32Array {
   const out = new Float32Array(1024);
   const multiplier = sampleRate / 16000;
-  const interpolate = sampleRate % 16000 !== 0;
+  const needed = Math.min(original.length, Math.ceil(1024 * multiplier) + 2);
+  const src = sampleRate > 16000 ? antiAlias(original, needed, sampleRate) : original;
   for (let i = 0; i < 1024; i++) {
-    if (!interpolate) {
-      out[i] = original[Math.round(i * multiplier)] ?? 0;
-      continue;
-    }
     const x = i * multiplier;
     const left = Math.floor(x);
     const frac = x - left;
-    const a = original[left] ?? 0;
-    const b = original[left + 1] ?? a;
+    const a = src[left] ?? 0;
+    const b = src[left + 1] ?? a;
     out[i] = (1 - frac) * a + frac * b;
   }
   return out;

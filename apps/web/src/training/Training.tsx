@@ -35,6 +35,11 @@ export function Training() {
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  // On headphones there is no speaker bleed to cancel, so the mic can be opened
+  // raw. Chrome's noise suppression is tuned for speech and guts sustained
+  // low-frequency energy, which is most of a low voice; AGC moves the levels the
+  // RMS gates depend on. This is the same path /pitchtest uses.
+  const [headphones, setHeadphones] = useState(true);
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -126,21 +131,30 @@ export function Training() {
     framesRef.current = [];
     setStatus("Allow the mic. Camera is optional.");
 
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
+    const audioConstraints: MediaTrackConstraints = headphones
+      ? {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1,
+        }
+      : {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           channelCount: 1,
-        },
+        };
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
         video: true,
       });
     } catch {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: audioConstraints,
           video: false,
         });
         setCamDenied(true);
@@ -162,7 +176,9 @@ export function Training() {
     // Training plays the whole track, not just the ranked clip.
     audio.currentTime = 0;
 
-    const tap = ensurePlaybackTap(audio);
+    // On headphones there is nothing to cancel, so skip the tap entirely and
+    // read the mic straight.
+    const tap = headphones ? null : ensurePlaybackTap(audio);
     const ctx = tap?.ctx ?? new AudioContext();
     await ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
@@ -219,7 +235,7 @@ export function Training() {
         const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
         const hz = useCrepe ? lastCrepe.hz : yinHz;
         const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
-        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.02;
+        const forScore = clarity >= 0.45 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.012;
         framesRef.current.push({
           timeSec: t,
           hz: forScore ? hz : null,
@@ -330,6 +346,16 @@ export function Training() {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="song-pick" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <input
+          type="checkbox"
+          checked={headphones}
+          disabled={running}
+          onChange={(e) => setHeadphones(e.target.checked)}
+        />
+        Headphones — opens the mic raw, no noise suppression or echo cancelling
       </label>
 
       {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}

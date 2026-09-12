@@ -55,22 +55,47 @@ export function wrapMidi(sung: number, around: number): number {
 
 export type PitchSmoothState = {
   midi: number | null;
+  rawMidi: number | null;
+  octaveShift: number;
+  pendingShift: number;
+  pendingCount: number;
   lastTs: number;
   buf: number[];
   trail: Array<{ t: number; midi: number; inTune: boolean }>;
 };
 
 export function createPitchSmoothState(): PitchSmoothState {
-  return { midi: null, lastTs: 0, buf: [], trail: [] };
+  return {
+    midi: null,
+    rawMidi: null,
+    octaveShift: 0,
+    pendingShift: 0,
+    pendingCount: 0,
+    lastTs: 0,
+    buf: [],
+    trail: [],
+  };
 }
+
+// A bass singing two octaves under the tune is still singing it correctly, so
+// the indicator is drawn folded into the melody's octave. Scoring already
+// compares octave-independently via wrapMidi. The fold only changes after it
+// has been wanted for SHIFT_HOLD consecutive frames, so the indicator cannot
+// flicker between octaves at a boundary.
+const SHIFT_HOLD = 12;
 
 const MIN_HZ = 55;
 const MAX_HZ = 1400;
-const MIN_RMS = 0.02;
-const BLEED_RMS = 0.014;
-const MEDIAN_N = 9;
-const EMA = 0.28;
-const MAX_ST_PER_SEC = 28;
+const MIN_RMS = 0.012;
+const BLEED_RMS = 0.009;
+const MEDIAN_N = 5;
+const EMA = 0.36;
+const MAX_ST_PER_SEC = 34;
+// Absolute singable bounds. The live indicator must never be clamped to the
+// melody's range: doing that makes singing above the tune look identical to
+// singing exactly at the top of it.
+const SING_MIN_MIDI = 36;
+const SING_MAX_MIDI = 96;
 const ATTRACT_CENTS = 40;
 const TRAIL_SEC = 1.35;
 
@@ -97,16 +122,35 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
-/** Lift a subharmonic octave drop. Never fold a high note down into the staff. */
-function liftSubharmonic(raw: number, previous: number): number {
-  const up = raw + 12;
-  if (Math.abs(up - previous) + 0.5 < Math.abs(raw - previous)) return up;
+/**
+ * Correct a detector octave error, in either direction.
+ *
+ * Only fires when the reading is within OCTAVE_TOL of an exact octave away
+ * from where we were AND that reading is a big jump. A genuine slide is
+ * continuous and never lands on 12.00 semitones, so this leaves real singing
+ * alone. An earlier version shifted up unconditionally whenever +12 landed
+ * nearer the previous note, which turned every genuine downward interval into
+ * a jump up and ratcheted the display to the ceiling.
+ */
+const OCTAVE_TOL = 0.45;
+const OCTAVE_MIN_JUMP = 7;
+
+function fixOctave(raw: number, previous: number): number {
+  const delta = raw - previous;
+  if (Math.abs(delta) < OCTAVE_MIN_JUMP) return raw;
+  for (const shift of [12, -12, 24, -24]) {
+    if (Math.abs(delta + shift) <= OCTAVE_TOL) return raw + shift;
+  }
   return raw;
 }
 
 /**
  * Display-only smoother. Scoring still uses raw frames.
- * True pitch direction (higher Hz → higher on the staff). No octave wrap for Y.
+ *
+ * Direction is always true: higher Hz moves up the staff. The returned `midi`
+ * is folded into the melody's octave so a low voice singing the tune correctly
+ * two octaves down still reads as on the line; `rawMidi` carries the pitch
+ * actually sung, for labelling.
  */
 export function smoothLivePitch(
   state: PitchSmoothState,
@@ -121,7 +165,7 @@ export function smoothLivePitch(
     playheadSec: number;
     nowMs: number;
   },
-): { midi: number; inTune: boolean; tracking: boolean } {
+): { midi: number; rawMidi: number | null; inTune: boolean; tracking: boolean } {
   const dt = state.lastTs ? Math.min(0.08, (input.nowMs - state.lastTs) / 1000) : 1 / 60;
   state.lastTs = input.nowMs;
   if (state.midi == null) state.midi = input.restMidi;
@@ -137,7 +181,7 @@ export function smoothLivePitch(
   let tracking = false;
   if (pitched && input.hz != null) {
     let raw = midiFromHz(input.hz);
-    raw = liftSubharmonic(raw, state.midi);
+    raw = fixOctave(raw, state.midi);
 
     const looksLikeBleed =
       input.rms < BLEED_RMS &&
@@ -145,14 +189,34 @@ export function smoothLivePitch(
       Math.abs(wrapMidi(raw, input.targetMidi) - input.targetMidi) < 0.3;
     if (!looksLikeBleed) {
       tracking = true;
-      state.buf.push(raw);
+      state.rawMidi = raw;
+
+      // Fold into the melody's octave, with hysteresis so it cannot flicker.
+      const anchor = input.targetMidi ?? input.restMidi;
+      const want = 12 * Math.round((anchor - raw) / 12);
+      if (want === state.octaveShift) {
+        state.pendingCount = 0;
+      } else if (want === state.pendingShift) {
+        if (++state.pendingCount >= SHIFT_HOLD) {
+          state.octaveShift = want;
+          state.pendingCount = 0;
+          state.buf = [];
+          if (state.midi != null) state.midi = raw + want;
+        }
+      } else {
+        state.pendingShift = want;
+        state.pendingCount = 1;
+      }
+
+      const folded = raw + state.octaveShift;
+      state.buf.push(folded);
       if (state.buf.length > MEDIAN_N) state.buf.shift();
       let next = median(state.buf);
       next = state.midi + (next - state.midi) * EMA;
       const maxStep = MAX_ST_PER_SEC * dt;
       const delta = next - state.midi;
       if (Math.abs(delta) > maxStep) next = state.midi + Math.sign(delta) * maxStep;
-      state.midi = clamp(next, input.minMidi, input.maxMidi);
+      state.midi = clamp(next, SING_MIN_MIDI, SING_MAX_MIDI);
     }
   } else {
     state.buf = [];
@@ -168,7 +232,7 @@ export function smoothLivePitch(
   while (state.trail.length && (state.trail[0]?.t ?? 0) < oldest) state.trail.shift();
   if (state.trail.length > 90) state.trail.splice(0, state.trail.length - 90);
 
-  return { midi: state.midi, inTune, tracking };
+  return { midi: state.midi, rawMidi: state.rawMidi, inTune, tracking };
 }
 
 export { TRAIL_SEC };
