@@ -1169,3 +1169,32 @@ select:focus {
   background: var(--blue-050);
   box-shadow: 0 0 10px rgba(168, 208, 255, 0.95), 0 0 22px rgba(79, 151, 245, 0.7);
 }
+
+/*
+ * Home: the ribbon runs straight through the mode names, and no amount of
+ * dimming fixes light sitting directly behind type. Mask out the centre column
+ * so it enters from the left, disappears behind the text, and re-emerges on
+ * the right. The soft shoulders keep it from reading as a hard cut.
+ *
+ * Not applied on Training, where the wave behind the staff is deliberate.
+ */
+.home-simple .voice-wave {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 24%,
+    transparent 39%,
+    transparent 61%,
+    #000 76%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 24%,
+    transparent 39%,
+    transparent 61%,
+    #000 76%,
+    #000 100%
+  );
+}
