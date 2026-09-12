@@ -170,12 +170,17 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
 .row-head { margin-bottom: 8px; }
 .row-head h1 { margin: 0; }
 
-.pitch-meter {
+.pitch-guide {
   width: 100%;
-  height: auto;
-  border: 1px solid var(--line);
+  height: 240px;
   margin: 24px 0;
+  border: 1px solid var(--line);
   background: #0c0c0c;
+}
+.pitch-meter {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .lyrics { text-align: center; min-height: 7rem; margin: 8px 0 24px; }

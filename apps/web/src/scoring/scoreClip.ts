@@ -44,7 +44,7 @@ export function scoreContour(
   for (const f of windowed) {
     const target = melodyHzAt(melody, f.timeSec);
     if (target == null) continue;
-    if (f.hz == null || f.clarity < 0.6 || f.hz < 70 || f.hz > 1200) continue;
+    if (f.hz == null || f.clarity < 0.5 || f.hz < 55 || f.hz > 1200) continue;
     const err = centsError(f.hz, target);
     if (!Number.isFinite(err)) continue;
     errors.push(err);
