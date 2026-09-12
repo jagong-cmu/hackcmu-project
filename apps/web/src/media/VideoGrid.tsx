@@ -1,8 +1,7 @@
 /**
  * LANE A — camera tiles with names.
  *
- * The active singer's tile is highlighted so the room reads at a glance
- * (PRD §6.1 "on stage").
+ * Ranked/Duet: one small tile per side. Chaos: compact equal grid.
  */
 import { useEffect, useRef } from "react";
 import { Track, type Participant } from "livekit-client";
@@ -10,7 +9,7 @@ import { Track, type Participant } from "livekit-client";
 function useAttachedTrack(
   participant: Participant,
   source: Track.Source,
-): React.RefObject<HTMLVideoElement> {
+) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -43,7 +42,6 @@ function Tile({
 
   return (
     <div className={singing ? "tile singing" : "tile"}>
-      {/* Local video is mirrored and silent; hearing your own mic is a nightmare. */}
       <video
         ref={videoRef}
         autoPlay
@@ -55,16 +53,12 @@ function Tile({
       <div className="name">
         {participant.name || participant.identity}
         {isLocal ? " (you)" : ""}
-        {singing ? " 🎤" : ""}
+        {singing ? " · singing" : ""}
       </div>
     </div>
   );
 }
 
-/**
- * Remote audio needs its own element per participant — LiveKit does not play
- * subscribed audio unless it is attached to the DOM.
- */
 function RemoteAudio({ participant }: { participant: Participant }) {
   const ref = useRef<HTMLAudioElement>(null);
 
@@ -82,6 +76,39 @@ function RemoteAudio({ participant }: { participant: Participant }) {
   return <audio ref={ref} autoPlay />;
 }
 
+function EmptyTile({ label }: { label: string }) {
+  return (
+    <div className="tile">
+      <div className="placeholder">{label}</div>
+    </div>
+  );
+}
+
+export function CameraPane({
+  participant,
+  singing,
+  isLocal,
+  emptyLabel,
+}: {
+  participant: Participant | undefined;
+  singing: boolean;
+  isLocal: boolean;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="stage-cam">
+      {participant ? (
+        <>
+          <Tile participant={participant} singing={singing} isLocal={isLocal} />
+          {!isLocal && <RemoteAudio participant={participant} />}
+        </>
+      ) : (
+        <EmptyTile label={emptyLabel} />
+      )}
+    </div>
+  );
+}
+
 export default function VideoGrid({
   participants,
   activeIdentity,
@@ -96,9 +123,7 @@ export default function VideoGrid({
   if (participants.length === 0) {
     return (
       <div className={compact ? "grid compact" : "grid"}>
-        <div className="tile">
-          <div className="placeholder">waiting for cameras…</div>
-        </div>
+        <EmptyTile label="waiting for cameras…" />
       </div>
     );
   }

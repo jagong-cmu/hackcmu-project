@@ -32,7 +32,7 @@ export default function ClipTimer({
   if (msUntilStart > 0) {
     const seconds = Math.ceil(msUntilStart / 1000);
     return (
-      <div className="timer">
+      <div className="timer timer-compact">
         {seconds}
         <div className="bar"><span style={{ width: "0%" }} /></div>
       </div>
@@ -46,7 +46,7 @@ export default function ClipTimer({
   const pct = durationSec > 0 ? (elapsedSec / durationSec) * 100 : 0;
 
   return (
-    <div className="timer">
+    <div className="timer timer-compact">
       {remaining.toFixed(1)}s
       <div className="bar"><span style={{ width: `${pct}%` }} /></div>
     </div>
