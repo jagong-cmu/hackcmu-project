@@ -9,9 +9,6 @@ import { ResultsModal } from "../results/ResultsModal.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import {
-  cancelSpeaker,
-  createSpeakerCanceller,
-  ensurePlaybackTap,
   isMusicOnly,
   PITCH_FFT,
 } from "../scoring/cancelPlayback.ts";
@@ -35,11 +32,6 @@ export function Training() {
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
-  // On headphones there is no speaker bleed to cancel, so the mic can be opened
-  // raw. Chrome's noise suppression is tuned for speech and guts sustained
-  // low-frequency energy, which is most of a low voice; AGC moves the levels the
-  // RMS gates depend on. This is the same path /pitchtest uses.
-  const [headphones, setHeadphones] = useState(true);
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -131,19 +123,16 @@ export function Training() {
     framesRef.current = [];
     setStatus("Allow the mic. Camera is optional.");
 
-    const audioConstraints: MediaTrackConstraints = headphones
-      ? {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 1,
-        }
-      : {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        };
+    // Raw mic. Chrome's noise suppression is tuned for speech and guts the
+    // sustained low end of a low voice, and AGC moves the levels the RMS gates
+    // key off. Training assumes headphones, so there is no speaker bleed for
+    // echo cancelling to earn its keep either.
+    const audioConstraints: MediaTrackConstraints = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: 1,
+    };
 
     let stream: MediaStream;
     try {
@@ -176,10 +165,9 @@ export function Training() {
     // Training plays the whole track, not just the ranked clip.
     audio.currentTime = 0;
 
-    // On headphones there is nothing to cancel, so skip the tap entirely and
-    // read the mic straight.
-    const tap = headphones ? null : ensurePlaybackTap(audio);
-    const ctx = tap?.ctx ?? new AudioContext();
+    // Nothing to cancel on headphones, so the mic is read straight -- no
+    // playback tap, no adaptive canceller.
+    const ctx = new AudioContext();
     await ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
@@ -190,7 +178,6 @@ export function Training() {
     const refBuf = new Float32Array(PITCH_FFT);
     const clean = new Float32Array(PITCH_FFT);
     const detector = PitchDetector.forFloat32Array(PITCH_FFT);
-    const canceller = createSpeakerCanceller();
 
     await audio.play();
 
@@ -208,13 +195,7 @@ export function Training() {
       const t = audio.currentTime;
       setPlayhead(t);
       analyser.getFloatTimeDomainData(buf);
-      if (tap) {
-        tap.analyser.getFloatTimeDomainData(refBuf);
-        cancelSpeaker(buf, refBuf, canceller, clean);
-      } else {
-        clean.set(buf);
-        refBuf.fill(0);
-      }
+      clean.set(buf);
       const musicOnly = isMusicOnly(buf, clean, refBuf);
       const rms = rmsOf(clean);
       if (musicOnly) {
@@ -346,16 +327,6 @@ export function Training() {
             </option>
           ))}
         </select>
-      </label>
-
-      <label className="song-pick" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <input
-          type="checkbox"
-          checked={headphones}
-          disabled={running}
-          onChange={(e) => setHeadphones(e.target.checked)}
-        />
-        Headphones — opens the mic raw, no noise suppression or echo cancelling
       </label>
 
       {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
