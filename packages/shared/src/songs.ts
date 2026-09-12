@@ -65,7 +65,7 @@ export const SONGS: SongMeta[] = [
     clipStartSec: 0,
     clipDurationSec: 61.7,
     duetClipStartSec: 0,
-    duetClipDurationSec: 61.7,
+    duetClipDurationSec: 191.6,
     chaosDurationSec: 60,
   },
   {
