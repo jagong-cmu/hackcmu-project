@@ -39,7 +39,10 @@ export function StageLyrics() {
 
   useEffect(() => {
     const id = room?.songId;
-    if (!id) return;
+    if (!id) {
+      setLrc("");
+      return;
+    }
     let cancelled = false;
     void loadSongPack(id).then((pack) => {
       if (!cancelled) setLrc(pack.lrc);
@@ -59,7 +62,20 @@ export function StageLyrics() {
     return () => cancelAnimationFrame(raf);
   }, [audioRef]);
 
-  if (!lrc) return null;
+  if (!room?.songId) {
+    return (
+      <div className="lyrics">
+        <p className="lyrics-now">{room?.mode === "chaos" ? "Next song starting…" : "·"}</p>
+      </div>
+    );
+  }
+  if (!lrc) {
+    return (
+      <div className="lyrics">
+        <p className="lyrics-now">Loading lyrics…</p>
+      </div>
+    );
+  }
   return <LyricsOverlay lrc={lrc} currentTime={t} />;
 }
 

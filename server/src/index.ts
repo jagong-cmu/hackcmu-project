@@ -17,6 +17,7 @@ import express from "express";
 import { Server } from "socket.io";
 
 import {
+  ChaosLounges,
   ClientEvents,
   DemoRoomCode,
   PublicChaosCode,
@@ -39,6 +40,7 @@ import {
 } from "./rooms.ts";
 import {
   broadcastState,
+  catchUpClock,
   everyoneReady,
   forfeitFor,
   recordScore,
@@ -212,7 +214,10 @@ function seat(socketId: string, room: Room): boolean {
 
   io.sockets.sockets.get(socketId)?.join(room.code);
 
-  if (room.mode === "chaos" && wasEmpty) startChaos(io, room);
+  if (room.mode === "chaos") {
+    if (wasEmpty) startChaos(io, room);
+    else catchUpClock(io, room, socketId);
+  }
   broadcastState(io, room);
   return true;
 }
@@ -250,24 +255,42 @@ io.on("connection", (socket) => {
       typeof displayName === "string" && displayName.trim()
         ? displayName.trim().slice(0, 24)
         : "Singer";
-    let elo = StartingElo;
+
+    // Seat the session synchronously. Awaiting Atlas first let a following
+    // room:create / room:ready run against a wiped session (NOT_IN_ROOM).
+    const existing = sessions.get(socket.id);
+    const session: Session =
+      existing && existing.clientId === clientId
+        ? { ...existing, displayName: name }
+        : {
+            playerId: randomUUID(),
+            clientId,
+            displayName: name,
+            elo: existing?.elo ?? StartingElo,
+            roomCode: null,
+          };
+    sessions.set(socket.id, session);
+
     try {
       const db = await getDb();
       if (db) {
         const player = await upsertPlayer(db, clientId, name);
-        elo = player.elo;
+        session.elo = player.elo;
       }
     } catch {
-      /* Atlas down: stay at StartingElo */
+      /* Atlas down: keep current elo */
     }
-    const session: Session = {
-      playerId: randomUUID(),
-      clientId,
-      displayName: name,
-      elo,
-      roomCode: null,
-    };
-    sessions.set(socket.id, session);
+
+    if (session.roomCode) {
+      const room = getRoom(session.roomCode);
+      const seated = room?.players.find((p) => p.id === session.playerId);
+      if (room && seated) {
+        seated.displayName = session.displayName;
+        seated.elo = session.elo;
+        broadcastState(io, room);
+      }
+    }
+
     socket.emit(ServerEvents.playerOk, {
       player: {
         id: session.playerId,
@@ -294,7 +317,10 @@ io.on("connection", (socket) => {
       elo: session.elo,
     };
     const match = enqueue(mode, waiting);
-    if (!match) return;
+    if (!match) {
+      socket.emit(ServerEvents.queueWaiting, { mode });
+      return;
+    }
 
     for (const person of match.pair) {
       if (!seat(person.socketId, match.room)) continue;
@@ -327,6 +353,11 @@ io.on("connection", (socket) => {
     const room = getRoom(code);
     if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
 
+    if (session.roomCode === room.code) {
+      broadcastState(io, room);
+      return;
+    }
+
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
@@ -341,15 +372,30 @@ io.on("connection", (socket) => {
     const raw = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
     const code = raw || PublicChaosCode;
 
+    const knownLounge = ChaosLounges.some((lounge) => lounge.code === code);
+    const room = getRoom(code) ?? createRoom("chaos", code, knownLounge);
+    if (room.mode !== "chaos") return fail(socket, "NOT_CHAOS", `${code} is not a lounge`);
+
+    if (session.roomCode === room.code) {
+      catchUpClock(io, room, socket.id);
+      broadcastState(io, room);
+      return;
+    }
+
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
-    // A private chaos code is created on first join; the public lounge always
-    // exists.
-    const room = getRoom(code) ?? createRoom("chaos", code);
-    if (room.mode !== "chaos") return fail(socket, "NOT_CHAOS", `${code} is not a lounge`);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "lounge is full");
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
+  });
+
+  socket.on(ClientEvents.queueLeave, () => {
+    dequeue(socket.id);
+  });
+
+  socket.on(ClientEvents.roomLeave, () => {
+    dequeue(socket.id);
+    leaveCurrentRoom(socket.id);
   });
 
   socket.on(ClientEvents.roomReady, () => {
@@ -380,7 +426,7 @@ ensurePermanentRooms();
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
   console.log(`[lane-a] livekit: ${lk}`);
-  console.log(`[lane-a] demo room ${DemoRoomCode} and lounge ${PublicChaosCode} are live`);
+  console.log(`[lane-a] demo room ${DemoRoomCode} and lounges lounge-a / lounge-b are live`);
   if (process.env.USE_TEST_SONG === "1") {
     console.log("[lane-a] USE_TEST_SONG=1 — serving /songs/_test click track");
   }

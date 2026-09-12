@@ -3,8 +3,10 @@
 export const ClientEvents = {
   playerHello: "player:hello",
   queueJoin: "queue:join",
+  queueLeave: "queue:leave",
   roomCreate: "room:create",
   roomJoin: "room:join",
+  roomLeave: "room:leave",
   roomReady: "room:ready",
   chaosJoin: "chaos:join",
 } as const;
@@ -13,6 +15,7 @@ export const ServerEvents = {
   playerOk: "player:ok",
   roomState: "room:state",
   matchFound: "match:found",
+  queueWaiting: "queue:waiting",
   clockPlay: "clock:play",
   scoreReady: "score:ready",
   matchOver: "match:over",
@@ -21,7 +24,19 @@ export const ServerEvents = {
 
 export const ScorePostPath = "/api/turns/:roomId/score";
 export const DemoRoomCode = "0000";
-export const PublicChaosCode = "chaos";
+
+/** Two always-on Chaos lounges. Play offers these as the only Chaos entry. */
+export const ChaosLounges = [
+  { code: "lounge-a", name: "Lounge A" },
+  { code: "lounge-b", name: "Lounge B" },
+] as const;
+
+export const PublicChaosCode = ChaosLounges[0].code;
+
+export function chaosLoungeName(code: string): string | undefined {
+  return ChaosLounges.find((lounge) => lounge.code === code)?.name;
+}
+
 export const StartingElo = 1000;
 export const EloK = 32;
 export const ForfeitEloK = 16;

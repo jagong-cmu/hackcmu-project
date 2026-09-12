@@ -5,7 +5,7 @@
  * to press play (`playAtUnixMs`), never the audio itself. The instrumental must
  * never touch WebRTC (TECHNICAL_PRD §6).
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Server } from "socket.io";
@@ -72,8 +72,19 @@ const TEST_SONG: SongMeta = {
 
 const useTestSong = (): boolean => process.env.USE_TEST_SONG === "1";
 
+function metaFromDisk(id: string): SongMeta | undefined {
+  const file = path.join(songsDir, id, "meta.json");
+  if (!existsSync(file)) return undefined;
+  try {
+    return JSON.parse(readFileSync(file, "utf8")) as SongMeta;
+  } catch {
+    return undefined;
+  }
+}
+
 function pickSong(): SongMeta {
-  if (useTestSong()) return TEST_SONG;
+  const testFile = path.join(songsDir, TEST_SONG.id, "instrumental.mp3");
+  if (useTestSong() && existsSync(testFile)) return TEST_SONG;
   const onDisk = SONGS.filter(
     (s) =>
       existsSync(path.join(songsDir, s.id, "instrumental.mp3")) &&
@@ -81,7 +92,8 @@ function pickSong(): SongMeta {
   );
   const pool = onDisk.length > 0 ? onDisk : SONGS;
   const song = pool[Math.floor(Math.random() * pool.length)];
-  return song ?? TEST_SONG;
+  if (!song) return TEST_SONG;
+  return metaFromDisk(song.id) ?? song;
 }
 
 function songFor(room: Room): SongMeta | undefined {
@@ -106,6 +118,17 @@ function scheduleClip(io: Server, room: Room, playAtUnixMs: number): void {
     startSec: room.clipStartSec,
     durationSec: room.clipDurationSec,
     playAtUnixMs,
+  });
+}
+
+/** Late Chaos joiners missed the original clock:play — send it to that socket. */
+export function catchUpClock(io: Server, room: Room, socketId: string): void {
+  if (!room.songId || room.playAtUnixMs == null) return;
+  io.to(socketId).emit(ServerEvents.clockPlay, {
+    songId: room.songId,
+    startSec: room.clipStartSec,
+    durationSec: room.clipDurationSec,
+    playAtUnixMs: room.playAtUnixMs,
   });
 }
 
@@ -264,6 +287,7 @@ export async function finishMatch(
  * ForfeitSkipMs are discarded entirely rather than rated (PRD §6.1).
  */
 export function forfeitFor(io: Server, room: Room, leaver: Player): void {
+  if (room.mode === "chaos") return;
   const inMatch =
     room.status === "countdown" ||
     room.status === "turnA" ||
