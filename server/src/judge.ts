@@ -52,6 +52,8 @@ type PendingTurn = {
   mode: Mode;
   songId: string;
   startedAt: number;
+  forfeit?: boolean;
+  outcome?: 0 | 0.5 | 1;
   entries: Array<{
     clientId: string;
     displayName: string;
@@ -175,13 +177,13 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
     };
   }
 
-  const outcome = outcomeFromScores(a.score.overall, b.score.overall);
+  const outcome = turn.outcome ?? outcomeFromScores(a.score.overall, b.score.overall);
   const winnerId = outcome === 0.5 ? "draw" : outcome === 1 ? a.clientId : b.clientId;
   let delta = { a: 0, b: 0 };
   if (db) {
     const pa = await upsertPlayer(db, a.clientId, a.displayName);
     const pb = await upsertPlayer(db, b.clientId, b.displayName);
-    const k = kForMatch({ forfeit: false });
+    const k = kForMatch({ forfeit: Boolean(turn.forfeit) });
     delta = eloDelta(pa.elo, pb.elo, outcome, k);
     await applyEloAndBump(db, a.clientId, b.clientId, delta.a, delta.b);
     await matches(db).insertOne({
@@ -195,7 +197,7 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
       createdAt: new Date(),
     });
   } else {
-    delta = eloDelta(1000, 1000, outcome);
+    delta = eloDelta(1000, 1000, outcome, kForMatch({ forfeit: Boolean(turn.forfeit) }));
   }
 
   return {
@@ -218,6 +220,8 @@ export async function persistSeatedMatch(input: {
   songId: string | null;
   players: Array<{ id: string; clientId: string; displayName: string }>;
   scores: Map<string, ScoreCard>;
+  forfeit?: boolean;
+  outcome?: 0 | 0.5 | 1;
 }): Promise<number> {
   if (input.mode === "chaos" || input.players.length < 2) return 0;
   const [a, b] = input.players;
@@ -229,6 +233,8 @@ export async function persistSeatedMatch(input: {
     mode: input.mode,
     songId: input.songId || "unknown",
     startedAt: Date.now(),
+    forfeit: input.forfeit,
+    outcome: input.outcome,
     entries: [
       { clientId: a.clientId, displayName: a.displayName, score: sa },
       { clientId: b.clientId, displayName: b.displayName, score: sb },

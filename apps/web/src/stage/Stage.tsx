@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChaosCap, chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
+import { chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { useLiveKit } from "../media/useLiveKit.ts";
 import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
@@ -19,12 +19,11 @@ import { VoiceWave } from "../theme/VoiceWave.tsx";
 
 export default function Stage() {
   const { code = DemoRoomCode } = useParams();
-  const { connected, me, room, clockPlay, matchOver, error, roomJoin, chaosJoin, roomLeave, ready } =
+  const { connected, me, room, clockPlay, matchOver, error, roomJoin, chaosJoin, roomLeave } =
     useRoom();
   const slots = useStageSlots();
   const { audioRef, blocked, unlock, playing } = useSharedClock(clockPlay);
   const [copied, setCopied] = useState(false);
-  const [tappedReady, setTappedReady] = useState(false);
   const [duetVoice, setDuetVoice] = useState<DuetVoiceCue | null>(null);
   const reportDuetVoice = useCallback((voice: DuetVoiceCue | null) => {
     setDuetVoice((prev) => (prev === voice ? prev : voice));
@@ -44,6 +43,21 @@ export default function Stage() {
     const id = window.setInterval(join, 800);
     return () => window.clearInterval(id);
   }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin]);
+
+  useEffect(() => {
+    if (livekit.status !== "connected") return;
+    if (!livekit.capture.mic) return;
+    livekit.toggleMic(true);
+  }, [livekit.status, livekit.capture.mic, livekit.toggleMic]);
+
+  useEffect(() => {
+    const tap = () => {
+      unlock();
+      void livekit.startAudio();
+    };
+    window.addEventListener("pointerdown", tap);
+    return () => window.removeEventListener("pointerdown", tap);
+  }, [code, unlock, livekit.startAudio]);
 
   const isChaos = room?.mode === "chaos";
   const inLobby = !room || room.status === "lobby";
@@ -102,27 +116,6 @@ export default function Stage() {
         : "wait"
     : null;
 
-  const onReady = () => {
-    unlock();
-    void livekit.startAudio();
-    setTappedReady(true);
-    ready();
-  };
-
-  useEffect(() => {
-    setTappedReady(false);
-  }, [code]);
-
-  useEffect(() => {
-    if (room?.status === "results") setTappedReady(false);
-  }, [room?.status]);
-
-  useEffect(() => {
-    if (livekit.status !== "connected") return;
-    if (!livekit.capture.mic) return;
-    livekit.toggleMic(true);
-  }, [livekit.status, livekit.capture.mic, livekit.toggleMic]);
-
   const copyCode = () => {
     void navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
@@ -131,25 +124,13 @@ export default function Stage() {
   };
 
   const seated = room?.players.map((p) => p.displayName).join(" vs ") ?? "joining…";
-  const meSeated = room?.players.find((p) => p.id === me?.id);
-  const meReady = Boolean(meSeated?.ready) || tappedReady;
-  const others = room?.players.filter((p) => p.id !== me?.id) ?? [];
-  const waitingFor = others.find((p) => !p.ready);
-  const otherReady = others.length > 0 && others.every((p) => p.ready);
-  const readyLabel = showResults ? "Rematch" : meReady ? "You're ready" : "I'm ready";
-  const readyHint = !room
+  const waitingHint = !room
     ? "Joining the room…"
     : room.players.length < 2
-      ? "Waiting for someone to sit down"
-      : showResults
-        ? "Same pair, new song — both tap Rematch."
-        : meReady && waitingFor
-          ? `Waiting for ${waitingFor.displayName}`
-          : !meReady && otherReady
-            ? `${others[0]?.displayName ?? "They"} are ready — tap when you are`
-            : !meReady
-              ? "Tap I’m ready. The match starts when you both are."
-              : "Here we go…";
+      ? "Waiting for someone to sit down — match starts in 10 seconds once they do."
+      : room.status === "countdown"
+        ? "Match starts on GO."
+        : seated;
 
   return (
     <StageContext.Provider value={stageValue}>
@@ -180,7 +161,7 @@ export default function Stage() {
             <span>
               {isChaos
                 ? "Send this to a friend — they can walk in anytime."
-                : "Send this to your friend, then both tap Ready."}
+                : "Match starts in 10 seconds when you both sit down."}
             </span>
           </div>
         ) : null}
@@ -251,12 +232,18 @@ export default function Stage() {
                 <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
               ) : (
                 <div className="timer timer-compact ghost">
-                  {inLobby ? (meReady ? "You're ready" : "Tap I’m ready below") : "\u00a0"}
+                  {inLobby
+                    ? room && room.players.length >= 2
+                      ? "Starting in 10 seconds"
+                      : "Waiting for someone to sit down"
+                    : "\u00a0"}
                 </div>
               )}
               <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
-              {room && room.status !== "lobby" && room.status !== "results" ? (
-                <Slot component={slots.PitchMeter} label="PitchMeter" />
+              {room && room.status !== "lobby" ? (
+                <div className={showResults ? "pitch-hold" : undefined}>
+                  <Slot component={slots.PitchMeter} label="PitchMeter" />
+                </div>
               ) : null}
             </div>
             <CameraPane
@@ -270,43 +257,34 @@ export default function Stage() {
           </div>
         )}
 
-        {showResults && <Slot component={slots.ResultsModal} label="ResultsModal" />}
-
-        {!isChaos && (
+        {!isChaos && !showResults && (
           <div className="stage-dock">
-            {inLobby || showResults ? (
-              <button
-                type="button"
-                className={`cta cta-lg ${!showResults && meReady ? "is-on" : ""}`}
-                onClick={onReady}
-                disabled={!room || (!showResults && meReady)}
-              >
-                {readyLabel}
-              </button>
-            ) : null}
             <div className="ready-meta">
-              <p>{inLobby || showResults ? readyHint : seated}</p>
-              {room && (inLobby || showResults) ? (
+              <p>{waitingHint}</p>
+              {room && inLobby ? (
                 <div className="ready-chips">
-                  {room.players.map((p) => {
-                    const on = p.id === me?.id ? meReady : Boolean(p.ready);
-                    return (
-                      <span key={p.id} className={on ? "ready-chip on" : "ready-chip"}>
-                        <i />
-                        {p.displayName}
-                        {on ? " ready" : " not ready"}
-                      </span>
-                    );
-                  })}
+                  {room.players.map((p) => (
+                    <span key={p.id} className="ready-chip on">
+                      <i />
+                      {p.displayName}
+                      {room.players.length >= 2 ? " seated" : " here"}
+                    </span>
+                  ))}
                 </div>
               ) : null}
             </div>
           </div>
         )}
 
+        {showResults && (
+          <div className="stage-results-layer">
+            <Slot component={slots.ResultsModal} label="ResultsModal" />
+          </div>
+        )}
+
         {isChaos && (
           <p className="stage-dock dim">
-            {loungeName ?? "Chaos"} · {room?.players.length ?? 0}/{ChaosCap} · no scoring
+            {loungeName ?? "Chaos"} · {room?.players.length ?? 0} live · no scoring
           </p>
         )}
 

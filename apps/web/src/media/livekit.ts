@@ -7,6 +7,7 @@
  */
 import { Room, RoomEvent, Track } from "livekit-client";
 import { sharedAudioContext } from "./audioContext.ts";
+import { boostRemoteAudioTrack } from "./levels.ts";
 
 export type StageConnection = {
   room: Room;
@@ -148,6 +149,13 @@ export async function connectToStage(
 
   await room.connect(wsUrl, token);
   const capture = await openCapture(room);
+
+  room.on(RoomEvent.TrackSubscribed, (track) => boostRemoteAudioTrack(track));
+  for (const participant of room.remoteParticipants.values()) {
+    for (const publication of participant.audioTrackPublications.values()) {
+      if (publication.track) boostRemoteAudioTrack(publication.track);
+    }
+  }
 
   return { room, wsUrl, capture };
 }

@@ -2,6 +2,13 @@
 
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; margin: 0; overflow-x: hidden; }
+html:has(.stage-fit),
+body:has(.stage-fit),
+html:has(.play-page),
+body:has(.play-page) {
+  height: 100%;
+  overflow: hidden;
+}
 body { background: var(--stage); }
 
 a { color: var(--fg); }
@@ -279,6 +286,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
 .modal-scrim {
   position: fixed;
   inset: 0;
+  z-index: 40;
   background: color-mix(in srgb, var(--ink) 82%, transparent);
   backdrop-filter: blur(10px);
   display: grid;

@@ -46,6 +46,7 @@ export function Play() {
     hello,
     connected,
     error,
+    roomLeave,
   } = useRoom();
 
   const playMode = playModeOf(mode);
@@ -66,8 +67,10 @@ export function Play() {
       title={info.title}
       tag={info.blurb}
       wide
+      className="play-page"
       onHome={() => {
         if (inQueue) queueLeave();
+        roomLeave();
       }}
     >
       {!named ? (

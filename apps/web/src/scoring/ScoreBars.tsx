@@ -55,13 +55,56 @@ export function LiveScoreHud({
   left,
   right,
 }: {
-  left: { name: string; card: ScoreBits | null };
-  right: { name: string; card: ScoreBits | null };
+  left: { name: string; card: ScoreBits | null; singing?: boolean };
+  right?: { name: string; card: ScoreBits | null; singing?: boolean };
 }) {
   return (
-    <div className="live-scores">
-      <ScoreBreakdown name={left.name} card={left.card} pending={!left.card} compact />
-      <ScoreBreakdown name={right.name} card={right.card} pending={!right.card} compact />
+    <div className={`live-scores live-scores-slim ${right ? "" : "solo"}`}>
+      <SlimScore name={left.name} card={left.card} singing={left.singing} />
+      {right ? <SlimScore name={right.name} card={right.card} singing={right.singing} /> : null}
+    </div>
+  );
+}
+
+function SlimScore({
+  name,
+  card,
+  singing,
+}: {
+  name: string;
+  card: ScoreBits | null;
+  singing?: boolean;
+}) {
+  const overall = card?.overall ?? 0;
+  const pitch = card?.pitch ?? 0;
+  const tone = card?.tone ?? 0;
+  const empty = !card;
+  return (
+    <div className={`slim-score band-${empty ? "mid" : scoreBand(overall)} ${empty ? "pending" : ""} ${singing ? "singing" : ""}`}>
+      <div className="slim-score-row">
+        <span className="who">
+          {name}
+          {singing ? " · live" : ""}
+        </span>
+        <span className="overall">{empty ? "--" : overall}</span>
+      </div>
+      <div className="score-meter-track">
+        <span style={{ width: `${empty ? 0 : Math.max(0, Math.min(100, overall))}%` }} />
+      </div>
+      <div className="slim-subs">
+        <div className="slim-sub">
+          <span>Pitch</span>
+          <div className="score-meter-track">
+            <span style={{ width: `${empty ? 0 : Math.max(0, Math.min(100, pitch))}%` }} />
+          </div>
+        </div>
+        <div className="slim-sub">
+          <span>Tone</span>
+          <div className="score-meter-track">
+            <span style={{ width: `${empty ? 0 : Math.max(0, Math.min(100, tone))}%` }} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

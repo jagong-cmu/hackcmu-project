@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ClientEvents,
   ServerEvents,
@@ -102,6 +102,13 @@ const STATUS_ORDER: RoomStatus[] = [
   "results",
 ];
 
+function pathKeepsRoom(path: string, room: RoomState): boolean {
+  if (path === `/room/${room.code}`) return true;
+  // Matchmaking seats you while /play/:mode is still on screen.
+  if (path === `/play/${room.mode}`) return true;
+  return false;
+}
+
 function mergeRoom(prev: RoomState | null, incoming: RoomState): RoomState {
   if (!prev || prev.code !== incoming.code) return incoming;
   if (prev.status === "results" && incoming.status === "lobby") return incoming;
@@ -119,6 +126,7 @@ function mergeRoom(prev: RoomState | null, incoming: RoomState): RoomState {
 
 export function RoomProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [connected, setConnected] = useState(socket.connected);
   const [me, setMe] = useState<PlayerPublic | null>(null);
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -275,9 +283,12 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const pollCode = () => {
-      const fromRoom = roomRef.current?.code;
-      const fromPath = window.location.pathname.match(/^\/room\/([^/]+)/)?.[1];
-      return fromRoom || fromPath || null;
+      const path = window.location.pathname;
+      const fromPath = path.match(/^\/room\/([^/]+)/)?.[1];
+      if (fromPath) return fromPath;
+      const seated = roomRef.current;
+      if (seated && pathKeepsRoom(path, seated)) return seated.code;
+      return null;
     };
 
     const tick = async () => {
@@ -300,8 +311,25 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           setClockPlay(null);
         }
         if (data.room) {
+          const path = window.location.pathname;
+          const playMode = path.match(/^\/play\/([^/]+)/)?.[1];
+          if (playMode && playMode !== data.room.mode) {
+            socket.emit(ClientEvents.roomLeave);
+            socket.emit(ClientEvents.queueLeave);
+            wantQueueRef.current = null;
+            joinSentRef.current = false;
+            setQueuedMode(null);
+            setRoom(null);
+            setClockPlay(null);
+            setMatchOver(null);
+            setScores({});
+            return;
+          }
+          if (!pathKeepsRoom(path, data.room) && !path.startsWith(`/room/${data.room.code}`)) {
+            return;
+          }
           setRoom((prev) => mergeRoom(prev, data.room!));
-          if (data.room.players.length > 0 && window.location.pathname.startsWith("/play")) {
+          if (data.room.players.length > 0 && path.startsWith("/play") && (!playMode || playMode === data.room.mode)) {
             wantQueueRef.current = null;
             joinSentRef.current = false;
             setQueuedMode(null);
@@ -311,7 +339,17 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         if (data.scores && Object.keys(data.scores).length > 0) {
           setScores((prev) => ({ ...prev, ...data.scores }));
         }
-        if (data.matchOver) setMatchOver(data.matchOver);
+        if (data.matchOver) {
+          setMatchOver((prev) => {
+            if (!prev) return data.matchOver!;
+            // A stale isolate can replay match:over with eloDelta 0 after
+            // the live socket already delivered the rated delta.
+            if (prev.eloDelta !== 0 && data.matchOver!.eloDelta === 0) {
+              return { ...data.matchOver!, eloDelta: prev.eloDelta };
+            }
+            return data.matchOver!;
+          });
+        }
       } catch {
         /* isolate blip */
       }
@@ -372,6 +410,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     setMatchOver(null);
     setScores({});
     socket.emit(ClientEvents.roomLeave);
+    socket.emit(ClientEvents.queueLeave);
   }, []);
 
   const chaosJoin = useCallback((code?: string) => {
@@ -390,6 +429,40 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const emitPitchLive = useCallback((sample: PitchLiveSample) => {
     socket.emit(ClientEvents.pitchLive, sample);
+  }, []);
+
+  useEffect(() => {
+    const path = location.pathname;
+    const current = roomRef.current;
+    if (current && !pathKeepsRoom(path, current)) {
+      roomLeave();
+    }
+    const queued = wantQueueRef.current;
+    if (queued && path !== `/play/${queued}`) {
+      queueLeave();
+    }
+  }, [location.pathname, room, roomLeave, queueLeave]);
+
+  useEffect(() => {
+    if (!room) return;
+    const beat = () => {
+      socket.emit(ClientEvents.playerHello, {
+        clientId: getClientId(),
+        displayName: nameRef.current || "Singer",
+      });
+    };
+    beat();
+    const id = window.setInterval(beat, 12_000);
+    return () => window.clearInterval(id);
+  }, [room?.code]);
+
+  useEffect(() => {
+    const onHide = () => {
+      socket.emit(ClientEvents.roomLeave);
+      socket.emit(ClientEvents.queueLeave);
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
   }, []);
 
   const value = useMemo<RoomContextValue>(

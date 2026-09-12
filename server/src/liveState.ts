@@ -249,10 +249,12 @@ function applySnap(room: Room, snap: RoomSnap): void {
     if (have) {
       have.displayName = p.displayName;
       have.elo = p.elo;
+      if (p.lastSeenMs) have.lastSeenMs = Math.max(have.lastSeenMs || 0, p.lastSeenMs);
       if (rematch) have.ready = p.ready;
       else if (p.ready) have.ready = true;
       continue;
     }
+    if (!p.connected || !p.socketId || p.socketId === "pending") continue;
     addPlayer(room, {
       id: p.clientId,
       clientId: p.clientId,

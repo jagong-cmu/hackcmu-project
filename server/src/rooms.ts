@@ -24,6 +24,7 @@ export type Player = PlayerPublic & {
   socketId: string;
   ready: boolean;
   connected: boolean;
+  lastSeenMs: number;
 };
 
 export type Room = {
@@ -130,9 +131,20 @@ export function findOpenPublicChaosLounge(): Room {
   return createRoom("chaos", `${PublicChaosPrefix}${next}`, false);
 }
 
+export const PlayerIdleMs = 45_000;
+
+export function touchPlayer(player: Player): void {
+  player.lastSeenMs = Date.now();
+  player.connected = true;
+}
+
+export function livePlayers(room: Room): Player[] {
+  return room.players.filter((p) => p.connected);
+}
+
 export function addPlayer(
   room: Room,
-  player: Omit<Player, "ready" | "connected" | "elo"> & { elo?: number },
+  player: Omit<Player, "ready" | "connected" | "elo" | "lastSeenMs"> & { elo?: number },
 ): Player {
   const existing = room.players.find((p) => p.clientId === player.clientId);
   if (existing) {
@@ -141,6 +153,7 @@ export function addPlayer(
     existing.socketId = player.socketId;
     existing.displayName = player.displayName;
     existing.connected = true;
+    existing.lastSeenMs = Date.now();
     return existing;
   }
   const seated: Player = {
@@ -148,6 +161,7 @@ export function addPlayer(
     elo: player.elo ?? StartingElo,
     ready: false,
     connected: true,
+    lastSeenMs: Date.now(),
   };
   room.players.push(seated);
   return seated;
@@ -161,7 +175,25 @@ export function removePlayer(room: Room, playerId: string): Player | undefined {
 }
 
 export function isFull(room: Room): boolean {
-  return room.players.length >= capacityFor(room.mode);
+  return livePlayers(room).length >= capacityFor(room.mode);
+}
+
+/** Drop seats whose socket is gone or who have gone idle. Returns who was removed. */
+export function dropDeadPlayers(
+  room: Room,
+  isLive: (socketId: string) => boolean,
+  idleMs = PlayerIdleMs,
+): Player[] {
+  const now = Date.now();
+  const removed: Player[] = [];
+  room.players = room.players.filter((player) => {
+    const sockDead = !isLive(player.socketId);
+    const stale = Boolean(player.lastSeenMs) && now - player.lastSeenMs > idleMs;
+    if (!sockDead && !stale && player.connected) return true;
+    removed.push(player);
+    return false;
+  });
+  return removed;
 }
 
 export function clearTimers(room: Room): void {

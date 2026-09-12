@@ -11,6 +11,7 @@ import { MaxDriftSec } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
 import { unlockSharedAudio } from "../media/audioContext.ts";
+import { InstrumentalVolume } from "../media/levels.ts";
 
 /** Hand off from setTimeout to a rAF spin this long before the downbeat. */
 const SPIN_LEAD_MS = 80;
@@ -54,6 +55,7 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
     const { songId, startSec, durationSec, playAtUnixMs } = clockPlay;
     const src = `/songs/${songId}/instrumental.mp3`;
     if (!audio.src.endsWith(src)) audio.src = src;
+    audio.volume = InstrumentalVolume;
     audio.pause();
     audio.currentTime = startSec;
     setPlaying(false);

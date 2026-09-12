@@ -5,7 +5,9 @@ import type { MelodyFile } from "@karaoke/shared";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
 import { parseLrc } from "../lyrics/parseLrc.ts";
-import { ResultsModal } from "../results/ResultsModal.tsx";
+import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
+import { HitCallout } from "../scoring/HitCallout.tsx";
+import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
@@ -15,6 +17,7 @@ import { rmsOf } from "../scoring/pitchGuide.ts";
 import { postTurnScore } from "../scoring/postScore.ts";
 import { getClientId, getDisplayName } from "../home/identity.ts";
 import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
+import { InstrumentalVolume } from "../media/levels.ts";
 import { useStage } from "./StageContext.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import type { RoomState } from "@karaoke/shared";
@@ -108,7 +111,7 @@ export function StageLyrics() {
 
 export function StagePitch() {
   const { audioRef, micStream, room, myPlayerId, duetVoice } = useStage();
-  const { clockPlay, livePitch, livePitches, emitPitchLive, scores } = useRoom();
+  const { clockPlay, livePitches, emitPitchLive, scores } = useRoom();
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
@@ -145,7 +148,7 @@ export function StagePitch() {
 
   const refreshRunning = (t: number) => {
     if (!singingRef.current || postedRef.current) return;
-    if (t - lastScoreAtRef.current < 0.2) return;
+    if (t - lastScoreAtRef.current < 0.12) return;
     lastScoreAtRef.current = t;
     const mel = melodyRef.current;
     const clip = clipWindowRef.current;
@@ -244,7 +247,7 @@ export function StagePitch() {
     if (!micStream) return;
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.8;
+    audio.volume = InstrumentalVolume;
     const raw = micStream.getAudioTracks()[0];
     if (!raw) return;
     // Clone so WebRTC encoding cannot starve the pitch analyser.
@@ -266,7 +269,7 @@ export function StagePitch() {
       setLiveClarity(clarity);
       setLiveRms(rms);
       const now = performance.now();
-      if (now - lastEmitRef.current < 50) return;
+      if (now - lastEmitRef.current < 40) return;
       lastEmitRef.current = now;
       emitRef.current({ hz, clarity, rms, ...runningRef.current });
     };
@@ -328,13 +331,18 @@ export function StagePitch() {
     flushRef.current();
   }, [room, melody, myPlayerId]);
 
-  const remote =
-    !mine && livePitch && livePitch.playerId !== myPlayerId ? livePitch : null;
+  useEffect(() => {
+    return () => {
+      flushRef.current();
+    };
+  }, []);
+
+  const opponent = room?.players.find((p) => p.id !== myPlayerId);
+  const remote = opponent ? livePitches[opponent.id] : undefined;
   const shownHz = mine ? liveHz : (remote?.hz ?? null);
   const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
   const shownRms = mine ? liveRms : (remote?.rms ?? 0);
-  const opponent = room?.players.find((p) => p.id !== myPlayerId);
-  const themLive = opponent ? livePitches[opponent.id] : undefined;
+  const themLive = remote;
   const youCard: ScoreBits | null =
     (myPlayerId ? scores[myPlayerId] : undefined) ?? mineLive;
   const themCard: ScoreBits | null =
@@ -346,6 +354,14 @@ export function StagePitch() {
           overall: themLive.overall,
         }
       : null);
+  const youSinging =
+    room?.mode === "duet"
+      ? singingNow(duetVoice, seat).me
+      : Boolean(room && myPlayerId && room.activeSingerId === myPlayerId && (room.status === "turnA" || room.status === "turnB"));
+  const themSinging =
+    room?.mode === "duet"
+      ? singingNow(duetVoice, seat).them
+      : Boolean(room && opponent && room.activeSingerId === opponent.id && (room.status === "turnA" || room.status === "turnB"));
   const showHud =
     room?.mode === "ranked" || room?.mode === "duet"
       ? room.status === "turnA" ||
@@ -353,6 +369,7 @@ export function StagePitch() {
         room.status === "swap" ||
         room.status === "live"
       : false;
+  const calloutGrade = gradeLive(melody, playhead, shownHz);
 
   return (
     <div className="pitch-stage">
@@ -363,10 +380,11 @@ export function StagePitch() {
         liveClarity={shownClarity}
         liveRms={shownRms}
       />
+      {showHud ? <HitCallout grade={calloutGrade} /> : null}
       {showHud ? (
         <LiveScoreHud
-          left={{ name: opponent?.displayName ?? "Them", card: themCard }}
-          right={{ name: "You", card: youCard }}
+          left={{ name: opponent?.displayName ?? "Them", card: themCard, singing: themSinging }}
+          right={{ name: "You", card: youCard, singing: youSinging }}
         />
       ) : null}
     </div>
@@ -376,15 +394,17 @@ export function StagePitch() {
 export function StageResults() {
   const navigate = useNavigate();
   const { room, myPlayerId } = useStage();
-  const { matchOver, scores, ready } = useRoom();
-  if (!matchOver || !room || !myPlayerId) return null;
+  const { matchOver, scores, ready, roomLeave } = useRoom();
+  if (!room || !myPlayerId) return null;
+  if (room.status === "results" && !matchOver) return <ScoringWait />;
+  if (!matchOver) return null;
 
   const you = scores[myPlayerId] ?? matchOver.scores[myPlayerId];
   const opponent = room.players.find((p) => p.id !== myPlayerId);
   const oppCard = opponent
     ? (scores[opponent.id] ?? matchOver.scores[opponent.id] ?? null)
     : null;
-  if (!you) return null;
+  if (!you) return <ScoringWait />;
 
   const shared =
     room.mode === "duet" && oppCard
@@ -392,12 +412,12 @@ export function StageResults() {
       : null;
   const myDelta =
     room.mode === "ranked"
-      ? matchOver.winnerId === myPlayerId
-        ? Math.abs(matchOver.eloDelta)
-        : matchOver.winnerId
-          ? -Math.abs(matchOver.eloDelta)
-          : 0
+      ? room.players[0]?.id === myPlayerId
+        ? matchOver.eloDelta
+        : -matchOver.eloDelta
       : null;
+  const rankedWinner =
+    matchOver.winnerId ?? (room.mode === "ranked" ? "draw" : null);
 
   return (
     <ResultsModal
@@ -406,12 +426,15 @@ export function StageResults() {
       opponent={oppCard}
       opponentName={opponent?.displayName ?? "Them"}
       revealOpponent
-      winnerId={matchOver.winnerId}
+      winnerId={rankedWinner}
       youId={myPlayerId}
       opponentId={opponent?.id}
       eloDelta={myDelta}
       shared={shared}
-      onHome={() => navigate("/")}
+      onHome={() => {
+        roomLeave();
+        navigate("/");
+      }}
       onRematch={() => ready()}
     />
   );

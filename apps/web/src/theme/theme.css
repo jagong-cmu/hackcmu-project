@@ -809,6 +809,29 @@ select:focus {
   margin: 0 auto;
   width: 100%;
 }
+
+.page.shell.play-page {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 20px 28px 16px;
+}
+.play-page .shell-inner {
+  margin-top: 88px;
+  gap: 0;
+}
+.play-page .play-choices {
+  margin-top: 14px;
+  gap: 14px;
+}
+.play-page .play-choice {
+  min-height: 0;
+  padding: 16px 18px 14px;
+  gap: 8px;
+}
+.play-page .play-choice h2 { font-size: 1.7rem; }
+.play-page .play-choice p { font-size: 0.92rem; }
+.play-page .play-waiting { min-height: 0; padding: 20px 18px; }
 .play-hint {
   margin-top: 8px;
   background: none;
@@ -1037,16 +1060,98 @@ select:focus {
 .live-scores {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 16px;
-  margin-top: 10px;
+  gap: 6px 12px;
+  margin-top: 6px;
   width: 100%;
 }
 .live-scores .score-break .overall { font-size: 1.65rem; margin-bottom: 4px; }
 .live-scores .score-meter-track { height: 6px; }
 
+.live-scores-slim {
+  gap: 8px 14px;
+  margin-top: 4px;
+}
+.slim-score .slim-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.slim-score .who {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.slim-score .overall {
+  margin: 0;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.slim-score.band-good .overall { color: var(--score-good); }
+.slim-score.band-mid .overall { color: var(--warning); }
+.slim-score.band-bad .overall { color: var(--danger); }
+.slim-score.pending .overall { color: var(--fg-faint); }
+.slim-score .score-meter-track { height: 5px; }
+.slim-score.band-good .score-meter-track span { background: var(--score-good); }
+.slim-score.band-mid .score-meter-track span { background: var(--warning); }
+.slim-score.band-bad .score-meter-track span { background: var(--danger); }
+.slim-score.singing .who { color: var(--score-good); }
+.slim-subs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 4px;
+}
+.slim-sub span {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 2px;
+}
+.slim-sub .score-meter-track { height: 3px; }
+.live-scores.solo { grid-template-columns: 1fr; }
+.pitch-stage .live-scores-slim {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  margin: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.scoring-wait { text-align: center; max-width: 420px; }
+.scoring-copy { margin: 0 0 16px; color: var(--fg-dim); }
+.scoring-track {
+  height: 10px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  overflow: hidden;
+}
+.scoring-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue-300);
+  box-shadow: 0 0 16px rgba(121, 180, 255, 0.55);
+  transition: width 80ms linear;
+}
+
 .results { max-width: 560px; }
-.results .score-break .overall { font-size: 3.6rem; }
+.results .score-break .overall { font-size: 2.8rem; }
 .results .score-row { margin-bottom: 8px; }
+.results .score-meter { margin-top: 6px; }
+.modal-scrim .results {
+  padding: 20px 22px 18px;
+  max-height: min(92dvh, 720px);
+  overflow: auto;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .score-meter-track span { transition: none; }
@@ -1055,6 +1160,7 @@ select:focus {
 @media (max-width: 760px) {
   .play-choices { grid-template-columns: 1fr; }
   .play-choice { min-height: 0; }
+  .play-page .play-choices { gap: 10px; }
   .code-form { flex-direction: column; }
   .shell > .back { left: 20px; top: 20px; }
   .ready-meta { align-items: center; text-align: center; }

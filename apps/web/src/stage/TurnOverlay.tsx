@@ -1,5 +1,6 @@
 /**
  * Full-screen countdown and turn callouts so a match reads as beats, not a badge.
+ * A thinner guide stays up for the whole turn so the waiting singer doesn't jump in.
  */
 import { useEffect, useRef, useState } from "react";
 import type { RoomState } from "@karaoke/shared";
@@ -10,7 +11,35 @@ type Beat =
   | { kind: "end" }
   | { kind: "turn"; title: string; sub: string }
   | { kind: "together" }
+  | { kind: "chaos" }
   | { kind: "time" };
+
+function rankedCountdownCopy(
+  mine: boolean,
+  swapping: boolean,
+  singerName: string,
+): { kicker: string; sub: string } {
+  if (swapping) {
+    return mine
+      ? {
+          kicker: "Your turn — sing now",
+          sub: "Same chorus they just sang. Start on GO. They wait.",
+        }
+      : {
+          kicker: "Wait — their turn",
+          sub: `${singerName} sings the same chorus. Stay quiet until it is your turn again.`,
+        };
+  }
+  return mine
+    ? {
+        kicker: "You sing first",
+        sub: `${singerName} waits. Sing this chorus from the top. Do not start until GO.`,
+      }
+    : {
+        kicker: "Wait — they sing first",
+        sub: `${singerName} has this chorus. Stay quiet. You sing the same lines after they finish.`,
+      };
+}
 
 export default function TurnOverlay({
   room,
@@ -24,10 +53,11 @@ export default function TurnOverlay({
   const [now, setNow] = useState(() => serverNow());
   const [beat, setBeat] = useState<Beat | null>(null);
   const prevStatus = useRef<string | null>(null);
+  const prevSong = useRef<string | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(serverNow()), 80);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -47,13 +77,22 @@ export default function TurnOverlay({
     if (status === "turnA" || status === "turnB") {
       setBeat({
         kind: "turn",
-        title: mine ? "YOUR TURN" : "THEIR TURN",
-        sub: mine ? "Sing the chorus" : `${singer?.displayName ?? "They"} take the mic`,
+        title: mine ? "YOUR TURN" : "WAIT",
+        sub: mine
+          ? "Sing this chorus. They are watching."
+          : `Don't sing. ${singer?.displayName ?? "They"} have the mic.`,
       });
       return;
     }
     if (status === "live") {
-      if (room.mode === "duet") return;
+      if (room.mode === "duet") {
+        setBeat({ kind: "together" });
+        return;
+      }
+      if (room.mode === "chaos") {
+        setBeat({ kind: "chaos" });
+        return;
+      }
       setBeat({ kind: "together" });
       return;
     }
@@ -63,16 +102,26 @@ export default function TurnOverlay({
   }, [room, myPlayerId]);
 
   useEffect(() => {
+    if (room?.mode !== "chaos" || !clockPlay?.songId) return;
+    if (prevSong.current === clockPlay.songId) return;
+    prevSong.current = clockPlay.songId;
+    setBeat({ kind: "chaos" });
+  }, [room?.mode, clockPlay?.songId]);
+
+  useEffect(() => {
     if (!beat) return;
-    const hold = beat.kind === "end" ? 1400 : beat.kind === "time" ? 1400 : 1600;
+    const hold =
+      beat.kind === "end" ? 1600 : beat.kind === "time" ? 1400 : beat.kind === "chaos" ? 2800 : 2200;
     const t = window.setTimeout(() => setBeat(null), hold);
-    return () => clearTimeout(t);
+    return () => window.clearTimeout(t);
   }, [beat]);
 
-  if (!room || room.mode === "chaos") return null;
+  if (!room) return null;
 
   const mine = Boolean(myPlayerId && room.activeSingerId === myPlayerId);
   const singer = room.players.find((p) => p.id === room.activeSingerId);
+  const themName =
+    room.players.find((p) => p.id !== myPlayerId)?.displayName ?? singer?.displayName ?? "They";
   const msUntil = clockPlay ? clockPlay.playAtUnixMs - now : 0;
   const countingDown =
     (room.status === "countdown" || room.status === "swap") &&
@@ -84,78 +133,108 @@ export default function TurnOverlay({
     msUntil > -1100 &&
     (room.status === "countdown" || room.status === "swap");
 
-  if (countingDown) {
-    const count = Math.max(1, Math.ceil(msUntil / 1000));
-    const swapping = room.status === "swap";
-    return (
-      <div className="callout hold" role="status">
-        <p className="callout-kicker">
-          {swapping
-            ? "SWITCH"
-            : room.mode === "duet"
-              ? "Your lines light up"
-              : mine
-                ? "You're up first"
-                : "They sing first"}
-        </p>
-        <p className="callout-count">{count}</p>
-        <p className="callout-sub">
-          {swapping
-            ? mine
-              ? "You're next"
-              : `${singer?.displayName ?? "They"} are next`
-            : room.mode === "duet"
-              ? "Jump in on together"
-              : "Get ready"}
-        </p>
-      </div>
-    );
+  const rankedCopy = rankedCountdownCopy(mine, room.status === "swap", themName);
+
+  let guide: { title: string; body: string } | null = null;
+  if (room.mode === "ranked" && (room.status === "turnA" || room.status === "turnB")) {
+    guide = mine
+      ? { title: "Your turn", body: "Sing this chorus. They wait and watch." }
+      : { title: "Wait", body: `${themName} is singing. Stay quiet — you go next.` };
+  } else if (room.mode === "ranked" && room.status === "swap") {
+    guide = mine
+      ? { title: "You're next", body: "Same chorus. Get ready." }
+      : { title: "Wait", body: `${themName} is up next. Don't sing yet.` };
+  } else if (room.mode === "duet" && (room.status === "countdown" || room.status === "live")) {
+    guide = {
+      title: "Sing together",
+      body: "Whole song. Your lines light up. Jump in on together.",
+    };
+  } else if (room.mode === "chaos" && room.status === "live") {
+    guide = {
+      title: "Chaos lounge",
+      body: "Whole song. No score. Sing whenever.",
+    };
   }
 
-  if (go) {
-    return (
-      <div className="callout hold" role="status">
-        <p className="callout-count go">GO</p>
-      </div>
-    );
-  }
+  return (
+    <>
+      {countingDown ? (
+        <div className="callout hold" role="status">
+          <p className="callout-kicker">
+            {room.mode === "duet"
+              ? "Sing together"
+              : room.mode === "chaos"
+                ? "Chaos lounge"
+                : rankedCopy.kicker}
+          </p>
+          <p className="callout-count">{Math.max(1, Math.ceil(msUntil / 1000))}</p>
+          <p className="callout-sub">
+            {room.mode === "duet"
+              ? "Whole song. Your lines light up. Don't start until GO."
+              : room.mode === "chaos"
+                ? "Whole song. No score. Sing whenever."
+                : rankedCopy.sub}
+          </p>
+        </div>
+      ) : null}
 
-  if (beat?.kind === "turn") {
-    return (
-      <div className="callout flash" role="status">
-        <p className="callout-title">{beat.title}</p>
-        <p className="callout-sub">{beat.sub}</p>
-      </div>
-    );
-  }
+      {go ? (
+        <div className="callout hold" role="status">
+          <p className="callout-count go">GO</p>
+          <p className="callout-sub">
+            {room.mode === "duet"
+              ? "Sing your lines"
+              : room.mode === "chaos"
+                ? "Open mic"
+                : mine
+                  ? "Sing now"
+                  : "Stay quiet"}
+          </p>
+        </div>
+      ) : null}
 
-  if (beat?.kind === "together") {
-    return (
-      <div className="callout flash" role="status">
-        <p className="callout-title">SING TOGETHER</p>
-        <p className="callout-sub">Both mics are on</p>
-      </div>
-    );
-  }
+      {!countingDown && !go && beat?.kind === "turn" ? (
+        <div className="callout flash" role="status">
+          <p className="callout-title">{beat.title}</p>
+          <p className="callout-sub">{beat.sub}</p>
+        </div>
+      ) : null}
 
-  if (beat?.kind === "end") {
-    return (
-      <div className="callout hold" role="status">
-        <p className="callout-kicker">End of turn</p>
-        <p className="callout-title">LOCKED IN</p>
-        <p className="callout-sub">Same chorus. Other singer.</p>
-      </div>
-    );
-  }
+      {!countingDown && !go && beat?.kind === "together" ? (
+        <div className="callout flash" role="status">
+          <p className="callout-title">SING TOGETHER</p>
+          <p className="callout-sub">Whole song. Your lines light up.</p>
+        </div>
+      ) : null}
 
-  if (beat?.kind === "time") {
-    return (
-      <div className="callout hold" role="status">
-        <p className="callout-title">TIME</p>
-        <p className="callout-sub">Locking in scores</p>
-      </div>
-    );
-  }
+      {!countingDown && !go && beat?.kind === "chaos" ? (
+        <div className="callout flash" role="status">
+          <p className="callout-title">CHAOS</p>
+          <p className="callout-sub">Whole song. No score. Sing whenever.</p>
+        </div>
+      ) : null}
 
-  return null;
+      {beat?.kind === "end" ? (
+        <div className="callout hold" role="status">
+          <p className="callout-kicker">End of turn</p>
+          <p className="callout-title">SWAP</p>
+          <p className="callout-sub">Same chorus. Other singer.</p>
+        </div>
+      ) : null}
+
+      {beat?.kind === "time" ? (
+        <div className="callout hold" role="status">
+          <p className="callout-title">TIME</p>
+          <p className="callout-sub">Locking in scores</p>
+        </div>
+      ) : null}
+
+      {guide && !countingDown && !go && beat?.kind !== "end" && beat?.kind !== "time" ? (
+        <div className={`turn-guide ${mine || room.mode !== "ranked" ? "go" : "wait"}`} role="status">
+          <strong>{guide.title}</strong>
+          <span>{guide.body}</span>
+        </div>
+      ) : null}
+    </>
+  );
 }

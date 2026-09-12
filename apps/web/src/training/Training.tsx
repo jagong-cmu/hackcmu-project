@@ -5,11 +5,12 @@ import type { MelodyFile, ScoreCard, SongMeta } from "@karaoke/shared";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
-import { ResultsModal } from "../results/ResultsModal.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
+import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
+import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import {
   isMusicOnly,
   PITCH_FFT,
@@ -33,6 +34,9 @@ export function Training() {
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
   const [card, setCard] = useState<ScoreCard | null>(null);
+  const [liveCard, setLiveCard] = useState<ScoreBits | null>(null);
+  const [scoring, setScoring] = useState(false);
+  const [intro, setIntro] = useState(false);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -123,6 +127,7 @@ export function Training() {
     stopPreview();
     if (!meta || !melody) return;
     setCard(null);
+    setLiveCard(null);
     framesRef.current = [];
     setStatus("Allow the mic. Camera is optional.");
 
@@ -185,10 +190,13 @@ export function Training() {
     await audio.play();
 
     setRunning(true);
+    setIntro(true);
+    window.setTimeout(() => setIntro(false), 2400);
     setStatus("Follow the melody. Stop whenever — you'll still be scored.");
 
     let crepeSkip = 0;
     let lastCrepe = { hz: null as number | null, confidence: 0 };
+    let lastLiveScore = 0;
 
     const tick = () => {
       const t = audio.currentTime;
@@ -226,6 +234,16 @@ export function Training() {
         setLiveClarity(clarity);
         setLiveRms(rms);
       }
+      if (melody && t - lastLiveScore >= 0.12) {
+        lastLiveScore = t;
+        const live = scoreContour(framesRef.current, melody, {
+          startSec: 0,
+          durationSec: Math.max(0.25, t),
+        });
+        if (!live.silence) {
+          setLiveCard({ pitch: live.pitch, tone: live.tone, overall: live.overall });
+        }
+      }
       if (audio.ended) {
         src.disconnect();
         void finish(stream);
@@ -259,23 +277,27 @@ export function Training() {
     audioRef.current?.pause();
     stream.getTracks().forEach((tr) => tr.stop());
     setRunning(false);
+    setIntro(false);
     if (!meta || !melody) return;
 
-    // Score everything from the first vocal line to wherever playback stopped,
-    // so the intro's silence never counts against the singer.
-    const frames = framesRef.current;
-    const lastSec = frames.length ? frames[frames.length - 1].timeSec : meta.clipStartSec;
-    const dsp = scoreContour(frames, melody, {
-      startSec: meta.clipStartSec,
-      durationSec: Math.max(1, lastSec - meta.clipStartSec),
-    });
+    setScoring(true);
     setStatus("Scoring…");
+    const startedAt = Date.now();
+
+    // Whole take, from 0:00 — intro silence does not count against the singer.
+    const frames = framesRef.current;
+    const lastSec = frames.length ? frames[frames.length - 1].timeSec : 1;
+    const dsp = scoreContour(frames, melody, {
+      startSec: 0,
+      durationSec: Math.max(1, lastSec),
+    });
     const lyrics = lrc
       .split("\n")
       .map((l) => l.replace(/\[\d.+?\]/g, "").trim())
       .filter(Boolean)
       .slice(0, 12)
       .join("\n");
+    let next: ScoreCard = dsp;
     try {
       const res = await fetch("/api/training/score", {
         method: "POST",
@@ -289,10 +311,14 @@ export function Training() {
         }),
       });
       const json = (await res.json()) as { score?: ScoreCard };
-      setCard(json.score ?? dsp);
+      next = json.score ?? dsp;
     } catch {
-      setCard(dsp);
+      next = dsp;
     }
+    const wait = Math.max(0, 1400 - (Date.now() - startedAt));
+    if (wait) await new Promise((r) => window.setTimeout(r, wait));
+    setCard(next);
+    setScoring(false);
     setStatus("Done.");
   }
 
@@ -332,7 +358,6 @@ export function Training() {
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
       <LyricsOverlay lrc={lrc} currentTime={playhead} />
-      {/* Same PERFECT/GREAT callouts the stage shows, so practice reads like a turn. */}
       <div className="pitch-stage">
         <PitchMeter
           melody={melody}
@@ -342,6 +367,9 @@ export function Training() {
           liveRms={liveRms}
         />
         {running ? <HitCallout grade={gradeLive(melody, playhead, liveHz)} /> : null}
+        {running ? (
+          <LiveScoreHud left={{ name: getDisplayName() || "You", card: liveCard, singing: true }} />
+        ) : null}
       </div>
 
       <div className="stage-self">
@@ -377,13 +405,22 @@ export function Training() {
         </button>
       </div>
 
+      {intro && running ? (
+        <div className="callout hold training-callout" role="status">
+          <p className="callout-kicker">Training</p>
+          <p className="callout-title">YOUR TURN</p>
+          <p className="callout-sub">Whole song. Follow the melody. You’ll get a score when you stop.</p>
+        </div>
+      ) : null}
+      {scoring && !card ? <ScoringWait /> : null}
       {card ? (
         <ResultsModal
           you={card}
           onHome={() => navigate("/")}
           onAgain={() => {
             setCard(null);
-            setPlayhead(meta?.clipStartSec ?? 0);
+            setLiveCard(null);
+            setPlayhead(0);
           }}
         />
       ) : null}

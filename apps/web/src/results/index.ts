@@ -1,1 +1,1 @@
-export { ResultsModal } from "./ResultsModal.tsx";
+export { ResultsModal, ScoringWait } from "./ResultsModal.tsx";

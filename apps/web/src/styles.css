@@ -47,6 +47,17 @@
 .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
 
 .stage { display: grid; gap: 1rem; padding: 1rem; min-height: 100vh; }
+.stage.stage-fit {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem 0.4rem;
+  min-height: 0;
+}
 .stage header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 
 .stage.stage-fit > *:not(.voice-wave) {
@@ -149,16 +160,16 @@
   gap: 0.4rem;
 }
 .stage-fit .lyrics {
-  min-height: 6.6rem;
+  min-height: 3.4rem;
   margin: 0;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0.15rem 0.4rem;
+  padding: 0.05rem 0.3rem;
 }
 .stage-fit .lyrics-now {
-  font-size: clamp(2.4rem, 6.2vw, 4.8rem);
+  font-size: clamp(1.55rem, 3.6vw, 2.7rem);
   line-height: 1.02;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -203,8 +214,8 @@
   line-height: 1.15;
 }
 .stage-fit .pitch-guide {
-  height: min(32vh, 280px);
-  min-height: 200px;
+  height: min(13vh, 120px);
+  min-height: 80px;
   margin: 0;
   flex-shrink: 0;
 }
@@ -269,11 +280,24 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 1rem 1.4rem;
+  gap: 0.55rem 1rem;
   flex-shrink: 0;
   margin: 0;
   font-size: 0.92rem;
   color: var(--mute, #8a8278);
+}
+.stage-fit .pitch-hold {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  pointer-events: none;
+}
+.stage-results-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
 }
 .stage-fit .room-code-bar {
   flex-shrink: 0;
@@ -393,6 +417,44 @@
   margin: 0;
   color: var(--mute, #8a8278);
   font-size: 1rem;
+  max-width: 28rem;
+  padding: 0 1.2rem;
+}
+.turn-guide {
+  position: absolute;
+  top: 2.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 18px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  border: 1px solid var(--edge);
+  pointer-events: none;
+  text-align: center;
+  max-width: min(34rem, 92vw);
+}
+.turn-guide.wait { border-color: var(--warning); }
+.turn-guide.go { border-color: var(--score-good); }
+.turn-guide strong {
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.turn-guide span {
+  font-size: 0.8rem;
+  color: var(--mute, #8a8278);
+}
+.training-callout {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
 }
 @keyframes callout-flash {
   0% { opacity: 1; }
@@ -401,8 +463,8 @@
 }
 
 @media (max-height: 700px) {
-  .stage-fit .lyrics-now { font-size: clamp(1.9rem, 5vw, 3.2rem); }
-  .stage-fit .pitch-guide { height: min(28vh, 200px); min-height: 150px; }
+  .stage-fit .lyrics-now { font-size: clamp(1.4rem, 3.6vw, 2.2rem); }
+  .stage-fit .pitch-guide { height: min(12vh, 100px); min-height: 72px; }
 }
 
 .badge {
@@ -433,7 +495,7 @@
   border: 0;
   font-weight: 600;
 }
-.stage.stage-fit button.cta-lg { padding: 16px 32px; font-size: 1.15rem; }
+.stage.stage-fit button.cta-lg { padding: 10px 24px; font-size: 1.05rem; }
 .stage.stage-fit button.cta.is-on {
   background: var(--blue-400);
   color: #fff;

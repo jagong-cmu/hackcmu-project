@@ -11,9 +11,9 @@ import { fileURLToPath } from "node:url";
 import type { Server } from "socket.io";
 import {
   ClockLeadMs,
-  CountdownMs,
   ForfeitSkipMs,
   EloK,
+  ForfeitEloK,
   ServerEvents,
   SONGS,
   StartingElo,
@@ -25,6 +25,8 @@ import {
 import {
   clearTimers,
   later,
+  livePlayers,
+  resetToLobby,
   toPublic,
   type Player,
   type Room,
@@ -42,18 +44,22 @@ const songsDir =
   ].find((dir) => existsSync(dir)) ??
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
 
-/** Last-chance wait for an in-flight POST. Vercel round-trips need more than 250ms. */
-const SCORE_WAIT_MS = 1800;
+/** Ranked/Duet lobby wait before GO. Shared CountdownMs stays 5s for other beats. */
+const MatchCountdownMs = 10_000;
+/** After results, auto-start the next match if both singers are still seated. */
+const RematchWaitMs = 6_000;
+/** Last-chance wait for in-flight POSTs across Vercel isolates. */
+const SCORE_WAIT_MS = 8000;
 
 /**
- * Used when Lane B's DSP has not landed yet, or a client never POSTs.
- * Shape is pinned by the Lane A prompt so the machine is demoable solo.
+ * Fallback when a client never POSTs. Silence, not a fake 80, so ELO still
+ * moves instead of locking both singers into a draw.
  */
 const STUB_SCORE: ScoreCard = {
-  overall: 80,
-  pitch: 82,
-  tone: 74,
-  silence: false,
+  overall: 0,
+  pitch: 0,
+  tone: 0,
+  silence: true,
   verdict: "",
   source: "dsp",
 };
@@ -213,15 +219,23 @@ export function catchUpClock(io: Server, room: Room, socketId: string): void {
 // ---------------------------------------------------------------------------
 
 export function everyoneReady(room: Room): boolean {
-  return room.players.length === 2 && room.players.every((p) => p.ready);
+  return livePlayers(room).length === 2;
+}
+
+/** Two seated singers in lobby → 10s countdown. No ready taps. */
+export function maybeArmMatch(io: Server, room: Room): void {
+  if (room.mode === "chaos") return;
+  if (room.status !== "lobby") return;
+  if (livePlayers(room).length < 2) return;
+  startMatch(io, room);
 }
 
 /**
- * lobby → countdown 5s → turnA (0:00 through first chorus) → swap 5s → turnB (same) → results.
+ * lobby → countdown 10s → turnA (0:00 through first chorus) → swap 5s → turnB (same) → results.
  * Duet collapses the two turns into one shared `live` block for the whole track.
  */
 export function startMatch(io: Server, room: Room): void {
-  if (room.players.length !== 2) return;
+  if (livePlayers(room).length !== 2) return;
   if (room.status !== "lobby") return;
   clearTimers(room);
   room.scores.clear();
@@ -238,11 +252,11 @@ export function startMatch(io: Server, room: Room): void {
   room.clipDurationSec = window.durationSec;
   room.matchStartedAtMs = null;
 
-  scheduleClip(io, room, Date.now() + CountdownMs);
+  scheduleClip(io, room, Date.now() + MatchCountdownMs);
   broadcastState(io, room);
 
   const clipMs = Math.round(room.clipDurationSec * 1000);
-  later(room, CountdownMs, () => {
+  later(room, MatchCountdownMs, () => {
     room.matchStartedAtMs = Date.now();
     room.status = isDuet ? "live" : "turnA";
     broadcastState(io, room);
@@ -342,30 +356,60 @@ export async function finishMatch(
     }
   }
 
-  const usedStub = room.players.some((p) => !room.scores.has(p.id));
-  if (!forfeit && room.mode !== "chaos" && !usedStub) {
+  const rateRanked =
+    room.mode === "ranked" && (!forfeit || !forfeit.underMinimum);
+  if (rateRanked) {
     const [a, b] = room.players;
     const sa = a ? scores[a.id]?.overall ?? 0 : 0;
     const sb = b ? scores[b.id]?.overall ?? 0 : 0;
-    room.lastEloDelta = eloDelta(
-      StartingElo,
-      StartingElo,
-      outcomeFromScores(sa, sb),
-      EloK,
-    ).a;
+    const k = forfeit ? ForfeitEloK : EloK;
+    const outcome = forfeit
+      ? forfeit.winnerId === a?.id
+        ? 1
+        : forfeit.winnerId === b?.id
+          ? 0
+          : 0.5
+      : outcomeFromScores(sa, sb);
+    const local = eloDelta(
+      a?.elo ?? StartingElo,
+      b?.elo ?? StartingElo,
+      outcome,
+      k,
+    );
+    room.lastEloDelta = local.a;
+    if (a && b) {
+      const filled = new Map<string, ScoreCard>();
+      for (const player of room.players) {
+        const card = scores[player.id];
+        if (card) filled.set(player.id, card);
+      }
+      try {
+        room.lastEloDelta = await persistSeatedMatch({
+          code: room.code,
+          mode: room.mode,
+          songId: room.songId,
+          players: room.players,
+          scores: filled,
+          forfeit: Boolean(forfeit),
+          outcome,
+        });
+      } catch {
+        room.lastEloDelta = local.a;
+      }
+      a.elo = Math.max(100, Math.round((a.elo ?? StartingElo) + room.lastEloDelta));
+      b.elo = Math.max(100, Math.round((b.elo ?? StartingElo) - room.lastEloDelta));
+    }
+  } else if (!forfeit && room.mode === "duet") {
+    room.lastEloDelta = 0;
     void persistSeatedMatch({
       code: room.code,
       mode: room.mode,
       songId: room.songId,
       players: room.players,
       scores: room.scores,
-    })
-      .then((d) => {
-        room.lastEloDelta = d;
-      })
-      .catch(() => {
-        /* results already shown */
-      });
+    }).catch(() => {
+      /* leaderboard best-effort */
+    });
   }
 
   room.status = "results";
@@ -386,6 +430,15 @@ export async function finishMatch(
       : {}),
   });
   broadcastState(io, room);
+
+  if (!forfeit && room.players.filter((p) => p.connected).length >= 2) {
+    later(room, RematchWaitMs, () => {
+      if (room.status !== "results") return;
+      if (livePlayers(room).length < 2) return;
+      resetToLobby(room);
+      startMatch(io, room);
+    });
+  }
 }
 
 /**
@@ -417,32 +470,50 @@ export function forfeitFor(io: Server, room: Room, leaver: Player): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Chaos autoplays 60s cuts back to back for as long as anyone is in the room.
+ * Chaos autoplays whole tracks back to back for as long as anyone is in the room.
  * No scoring, no turns (PRD §6.4).
  */
-export function startChaos(io: Server, room: Room, delayMs = CountdownMs): void {
+export function startChaos(io: Server, room: Room, delayMs = ClockLeadMs): void {
   clearTimers(room);
-  if (room.players.length === 0) return;
+  if (livePlayers(room).length === 0) return;
   later(room, delayMs, () => playChaosSong(io, room));
 }
 
+function chaosStillPlaying(room: Room): boolean {
+  if (room.status !== "live" || !room.songId || room.playAtUnixMs == null) return false;
+  const end = room.playAtUnixMs + room.clipDurationSec * 1000;
+  return Date.now() < end + 750;
+}
+
+/** Keep the playlist going whenever anyone live is in the lounge. */
+export function ensureChaosPlaying(io: Server, room: Room): void {
+  if (room.mode !== "chaos") return;
+  if (livePlayers(room).length === 0) {
+    stopChaos(io, room);
+    return;
+  }
+  if (chaosStillPlaying(room)) return;
+  playChaosSong(io, room);
+}
+
 function playChaosSong(io: Server, room: Room): void {
-  if (room.players.length === 0) {
+  if (livePlayers(room).length === 0) {
     stopChaos(io, room);
     return;
   }
   const song = pickSong();
+  const window = clipWindow(song, "duet");
   room.songId = song.id;
   room.status = "live";
   room.activeSingerId = null;
-  room.clipStartSec = clipWindow(song, "ranked").startSec;
-  room.clipDurationSec = song.chaosDurationSec;
+  room.clipStartSec = window.startSec;
+  room.clipDurationSec = window.durationSec;
 
   const playAt = Date.now() + ClockLeadMs;
   scheduleClip(io, room, playAt);
   broadcastState(io, room);
 
-  later(room, ClockLeadMs + song.chaosDurationSec * 1000, () =>
+  later(room, ClockLeadMs + window.durationSec * 1000, () =>
     playChaosSong(io, room),
   );
 }

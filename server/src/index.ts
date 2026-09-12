@@ -27,27 +27,31 @@ import {
 
 import {
   addPlayer,
+  allRooms,
   disposeIfEmpty,
+  dropDeadPlayers,
   ensurePermanentRooms,
   createRoom,
   findOpenPublicChaosLounge,
   getRoom,
   isFull,
+  livePlayers,
   removePlayer,
   resetToLobby,
   toPublic,
+  touchPlayer,
   type Room,
 } from "./rooms.ts";
 import {
   broadcastState,
   catchUpClock,
-  everyoneReady,
+  ensureChaosPlaying,
   forfeitFor,
+  maybeArmMatch,
   publicClock,
   publicScores,
   recordScore,
   startChaos,
-  startMatch,
   stopChaos,
 } from "./clock.ts";
 import { dequeue, enqueue, isQueueMode, park, queueLength, type Waiting } from "./matchmaking.ts";
@@ -245,10 +249,12 @@ function seat(socketId: string, room: Room): boolean {
   const session = sessionOf(socketId);
   if (!session) return false;
 
+  pruneRoom(room);
+
   const alreadyHere = room.players.some((p) => p.clientId === session.clientId);
   if (!alreadyHere && isFull(room)) return false;
 
-  const wasEmpty = room.players.length === 0;
+  const wasEmpty = livePlayers(room).length === 0;
   const player = addPlayer(room, {
     id: session.playerId,
     clientId: session.clientId,
@@ -259,12 +265,16 @@ function seat(socketId: string, room: Room): boolean {
   // addPlayer may reuse an existing seat; keep the session pointing at it.
   session.playerId = player.id;
   session.roomCode = room.code;
+  touchPlayer(player);
 
   io.sockets.sockets.get(socketId)?.join(room.code);
 
   if (room.mode === "chaos") {
     if (wasEmpty) startChaos(io, room);
-    else catchUpClock(io, room, socketId);
+    else ensureChaosPlaying(io, room);
+    catchUpClock(io, room, socketId);
+  } else {
+    maybeArmMatch(io, room);
   }
   broadcastState(io, room);
   return true;
@@ -285,11 +295,33 @@ function leaveCurrentRoom(socketId: string): void {
   io.sockets.sockets.get(socketId)?.leave(room.code);
   session.roomCode = null;
 
-  if (room.mode === "chaos" && room.players.length === 0) stopChaos(io, room);
+  if (room.mode === "chaos") {
+    if (livePlayers(room).length === 0) stopChaos(io, room);
+    else ensureChaosPlaying(io, room);
+  } else if (room.status === "countdown" && livePlayers(room).length < 2) {
+    resetToLobby(room);
+  }
   if (room.players.length === 0 && room.persistent) resetToLobby(room);
 
   broadcastState(io, room);
   disposeIfEmpty(room);
+}
+
+function pruneRoom(room: Room): void {
+  const removed = dropDeadPlayers(room, (socketId) => socketIsLive(socketId));
+  for (const player of removed) {
+    const session = sessions.get(player.socketId);
+    if (session?.roomCode === room.code) session.roomCode = null;
+    io.sockets.sockets.get(player.socketId)?.leave(room.code);
+    if (room.mode !== "chaos") forfeitFor(io, room, player);
+  }
+  if (removed.length === 0) return;
+  if (room.mode === "chaos") {
+    if (livePlayers(room).length === 0) stopChaos(io, room);
+    else ensureChaosPlaying(io, room);
+  } else if (room.status === "countdown" && livePlayers(room).length < 2) {
+    resetToLobby(room);
+  }
 }
 
 function socketIsLive(socketId: string): boolean {
@@ -402,6 +434,7 @@ io.on("connection", (socket) => {
       if (room && seated) {
         seated.displayName = session.displayName;
         seated.elo = session.elo;
+        touchPlayer(seated);
         broadcastState(io, room);
       }
     }
@@ -580,20 +613,20 @@ io.on("connection", (socket) => {
     if (!room) return fail(socket, "NOT_IN_ROOM", "join a room first");
     if (room.mode === "chaos") return;
 
-    // Ready pressed on the results screen means rematch: same pair, new song.
-    if (room.status === "results") resetToLobby(room);
-
     const player = room.players.find((p) => p.clientId === session.clientId);
-    if (player) {
-      player.ready = true;
-      player.connected = true;
+    if (player) touchPlayer(player);
+
+    // Rematch: one tap starts the next 10s countdown for both.
+    if (room.status === "results") {
+      resetToLobby(room);
+      maybeArmMatch(io, room);
+      broadcastState(io, room);
+      return;
     }
 
-    if (room.status === "lobby" && everyoneReady(room)) startMatch(io, room);
-    else {
-      catchUpClock(io, room, socket.id);
-      broadcastState(io, room);
-    }
+    if (room.status === "lobby") maybeArmMatch(io, room);
+    else catchUpClock(io, room, socket.id);
+    broadcastState(io, room);
   });
 
   socket.on(ClientEvents.pitchLive, (payload: unknown) => {
@@ -602,6 +635,7 @@ io.on("connection", (socket) => {
     if (!session || !room) return;
     const player = room.players.find((p) => p.id === session.playerId);
     if (!player) return;
+    touchPlayer(player);
     const singing =
       room.mode === "duet"
         ? room.status === "live"
@@ -641,6 +675,16 @@ io.on("connection", (socket) => {
 });
 
 ensurePermanentRooms();
+
+setInterval(() => {
+  for (const room of allRooms()) {
+    pruneRoom(room);
+    if (room.mode === "chaos") ensureChaosPlaying(io, room);
+    else if (room.status === "lobby") maybeArmMatch(io, room);
+    if (room.players.length === 0 && room.persistent) continue;
+    if (room.players.length === 0) disposeIfEmpty(room);
+  }
+}, 4000);
 
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";

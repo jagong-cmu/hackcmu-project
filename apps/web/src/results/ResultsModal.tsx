@@ -1,5 +1,38 @@
 import type { ScoreCard } from "@karaoke/shared";
+import { useEffect, useState } from "react";
 import { ScoreBreakdown } from "../scoring/ScoreBars.tsx";
+
+const SCORE_COUNTDOWN_SEC = 6;
+
+export function ScoringWait() {
+  const [left, setLeft] = useState(SCORE_COUNTDOWN_SEC);
+
+  useEffect(() => {
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      const elapsed = (Date.now() - started) / 1000;
+      setLeft(Math.max(0, SCORE_COUNTDOWN_SEC - elapsed));
+    }, 80);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const pct = Math.min(100, ((SCORE_COUNTDOWN_SEC - left) / SCORE_COUNTDOWN_SEC) * 100);
+  const seconds = Math.ceil(left);
+
+  return (
+    <div className="modal-scrim">
+      <div className="results scoring-wait" role="status" aria-live="polite">
+        <h2 id="results-title">Scoring</h2>
+        <p className="scoring-copy">
+          {seconds > 0 ? `Reading pitch and tone · ${seconds}s` : "Almost there…"}
+        </p>
+        <div className="scoring-track">
+          <span style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Props = {
   you: ScoreCard;
@@ -62,7 +95,9 @@ export function ResultsModal({
         </div>
         {shared != null ? <p className="shared">Shared score {shared}</p> : null}
         {eloDelta != null && revealOpponent ? (
-          <p className="elo">{eloDelta >= 0 ? `+${eloDelta}` : `${eloDelta}`} ELO</p>
+          <p className="elo">
+            {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : ""}${eloDelta} ELO`}
+          </p>
         ) : null}
         {you.verdict ? <p className="verdict">{you.verdict}</p> : null}
         <div className="result-actions">

@@ -8,6 +8,7 @@
  */
 import { useEffect, useRef } from "react";
 import { Track, type Participant, type TrackPublication } from "livekit-client";
+import { boostRemoteAudioTrack } from "./levels.ts";
 
 function publicationOf(participant: Participant, source: Track.Source): TrackPublication | undefined {
   return participant.getTrackPublication(source);
@@ -26,6 +27,9 @@ function useAttachedMedia<T extends HTMLMediaElement>(
     const element = ref.current;
     if (!element || !track) return;
     track.attach(element);
+    if (source === Track.Source.Microphone) {
+      boostRemoteAudioTrack(track);
+    }
     const unlock = () => {
       if (!(element instanceof HTMLAudioElement)) return;
       // webAudioMix keeps this element muted on purpose; room.startAudio()
