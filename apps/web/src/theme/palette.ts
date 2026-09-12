@@ -19,7 +19,9 @@ export function palette(): Palette {
   const read = (name: string, fallback: string) =>
     css.getPropertyValue(name).trim() || fallback;
   cached = {
-    bg: read("--surface", "#090e18"),
+    // Translucent on purpose: the canvas paints this over whatever is behind
+    // the element, so the wavefield shows through the meter.
+    bg: read("--meter-bg", "rgba(9, 14, 24, 0.55)"),
     fg: read("--fg", "#ffffff"),
     ink: (alpha: number) => `rgba(206,224,255,${alpha})`,
     accent: read("--accent", "#79b4ff"),

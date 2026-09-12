@@ -38,6 +38,7 @@ export function WaveField() {
           <i key={i} style={barStyle(i)} />
         ))}
       </div>
+      <div className="wavefield-core" />
     </div>
   );
 }
