@@ -219,33 +219,49 @@ function parseLrcTimes(src) {
 
 // ---------------------------------------------------------------- main
 
-const [ORIG, VOX, PACK_DIR, OFFSET_STR] = process.argv.slice(2);
+const [ORIG, VOX, PACK_DIR, OFFSET_STR, FIXED_STR] = process.argv.slice(2);
 if (!ORIG || !VOX || !PACK_DIR || OFFSET_STR === undefined) {
-  throw new Error("usage: extract-melody-stem.mjs <original.mp3> <vocals.mp3> <packDir> <offsetSec>");
+  throw new Error(
+    "usage: extract-melody-stem.mjs <original.mp3> <vocals.mp3> <packDir> <offsetSec> [fixedVocalOffsetSec]",
+  );
 }
 const offsetSec = Number(OFFSET_STR);
+const fixedVox = FIXED_STR === undefined ? null : Number(FIXED_STR);
 
 // 1. alignment: original time -> vocals time
-const cOrig = chroma(decodeMono(ORIG, A_SR));
-const cVox = chroma(decodeMono(VOX, A_SR));
-const map = dtw(cOrig, cVox);
-const aFps = A_SR / A_HOP;
-// Smooth the drift so DTW's frame quantisation does not wobble inside a
-// plateau; the steps at real cuts survive a short median.
-const drift = new Float64Array(map.length);
-for (let i = 0; i < map.length; i++) drift[i] = map[i] / aFps - i / aFps;
-const driftSm = new Float64Array(map.length);
-const DW = 8;
-for (let i = 0; i < map.length; i++) {
-  const w = [];
-  for (let j = Math.max(0, i - DW); j <= Math.min(map.length - 1, i + DW); j++) w.push(drift[j]);
-  w.sort((a, b) => a - b);
-  driftSm[i] = w[w.length >> 1];
+//
+// DTW earns its keep when the vocal source has been edited. For a full-length
+// stem already in the original's timebase it only adds risk: a sparse vocal
+// over a dense mix gives chroma little to lock onto, and the path wanders. Pass
+// a fixed offset in that case.
+let origToVox;
+let driftDesc;
+if (fixedVox != null) {
+  origToVox = (tOrig) => tOrig + fixedVox;
+  driftDesc = `fixed ${fixedVox >= 0 ? "+" : ""}${fixedVox}s`;
+} else {
+  const cOrig = chroma(decodeMono(ORIG, A_SR));
+  const cVox = chroma(decodeMono(VOX, A_SR));
+  const map = dtw(cOrig, cVox);
+  const aFps = A_SR / A_HOP;
+  // Smooth the drift so DTW's frame quantisation does not wobble inside a
+  // plateau; the steps at real cuts survive a short median.
+  const drift = new Float64Array(map.length);
+  for (let i = 0; i < map.length; i++) drift[i] = map[i] / aFps - i / aFps;
+  const driftSm = new Float64Array(map.length);
+  const DW = 8;
+  for (let i = 0; i < map.length; i++) {
+    const w = [];
+    for (let j = Math.max(0, i - DW); j <= Math.min(map.length - 1, i + DW); j++) w.push(drift[j]);
+    w.sort((a, b) => a - b);
+    driftSm[i] = w[w.length >> 1];
+  }
+  origToVox = (tOrig) => {
+    const i = Math.min(map.length - 1, Math.max(0, Math.round(tOrig * aFps)));
+    return tOrig + driftSm[i];
+  };
+  driftDesc = `dtw ${driftSm[0].toFixed(1)}s..${driftSm[driftSm.length - 1].toFixed(1)}s`;
 }
-const origToVox = (tOrig) => {
-  const i = Math.min(map.length - 1, Math.max(0, Math.round(tOrig * aFps)));
-  return tOrig + driftSm[i];
-};
 
 // 2. pitch track the isolated vocal
 const sig = highpass(decodeMono(VOX, P_SR), HP_HZ, P_SR);
@@ -366,6 +382,6 @@ const top = pcs.map((n, k) => [names[k], n]).sort((a, b) => b[1] - a[1]).slice(0
 console.log(
   `${path.basename(PACK_DIR).padEnd(20)} voiced ${((voiced.length / outLen) * 100).toFixed(0)}%  ` +
   `range ${ms[0]}..${ms[ms.length - 1]} midi  median ${ms[ms.length >> 1]}  ` +
-  `drift ${driftSm[0].toFixed(1)}s..${driftSm[driftSm.length - 1].toFixed(1)}s  ` +
+  `${driftDesc}  ` +
   `top pcs ${top.map(([n, c]) => `${n}:${c}`).join(" ")}`,
 );
