@@ -311,16 +311,19 @@
   border-color: var(--gold, #c9a227);
   box-shadow: 0 0 0 3px rgb(201 162 39 / 0.55);
 }
-.tile.waiting video {
-  opacity: 0.42;
-  filter: saturate(0.45);
+.tile.waiting::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgb(0 0 0 / 0.42);
+  pointer-events: none;
 }
 .tile video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: opacity 80ms linear, filter 80ms linear;
 }
 .cam-cue {
   position: absolute;
@@ -335,13 +338,11 @@
   text-shadow: 0 2px 14px rgb(0 0 0 / 0.8);
 }
 .cam-cue.on { color: var(--gold, #c9a227); }
-@media (prefers-reduced-motion: reduce) {
-  .tile video { transition: none; }
-}
 .tile .name {
   position: absolute;
   left: 0.7rem;
   bottom: 0.7rem;
+  z-index: 2;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
   background: rgb(0 0 0 / 0.7);

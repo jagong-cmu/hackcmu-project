@@ -2,28 +2,45 @@
  * LANE A — camera tiles with names.
  *
  * Ranked/Duet: one large face cam per person. Chaos: equal grid.
+ *
+ * Attach once per track. Re-attaching on every parent render (speaker ticks,
+ * lyric cues, timers) blacks out the video and tears down remote audio.
  */
 import { useEffect, useRef } from "react";
-import { Track, type Participant } from "livekit-client";
+import { Track, type Participant, type TrackPublication } from "livekit-client";
 
-function useAttachedTrack(
+function publicationOf(participant: Participant, source: Track.Source): TrackPublication | undefined {
+  return participant.getTrackPublication(source);
+}
+
+function useAttachedMedia<T extends HTMLMediaElement>(
   participant: Participant,
   source: Track.Source,
 ) {
-  const ref = useRef<HTMLVideoElement>(null);
+  const ref = useRef<T>(null);
+  const publication = publicationOf(participant, source);
+  const track = publication?.track;
+  const trackSid = publication?.trackSid ?? track?.sid ?? null;
 
   useEffect(() => {
     const element = ref.current;
-    if (!element) return;
-    const publication = participant.getTrackPublication(source);
-    const track = publication?.track;
-    if (!track) return;
-
+    if (!element || !track) return;
     track.attach(element);
+    const unlock = () => {
+      if (!(element instanceof HTMLAudioElement)) return;
+      element.muted = false;
+      element.volume = 1;
+      void element.play().catch(() => {
+        /* Ready/unlock calls room.startAudio() to satisfy autoplay. */
+      });
+    };
+    unlock();
+    window.addEventListener("pointerdown", unlock);
     return () => {
+      window.removeEventListener("pointerdown", unlock);
       track.detach(element);
     };
-  });
+  }, [track, trackSid]);
 
   return ref;
 }
@@ -41,8 +58,9 @@ function Tile({
   waiting?: boolean;
   cue?: "you" | "them" | "together" | "wait" | null;
 }) {
-  const videoRef = useAttachedTrack(participant, Track.Source.Camera);
-  const cameraOn = participant.getTrackPublication(Track.Source.Camera)?.isMuted === false;
+  const videoRef = useAttachedMedia<HTMLVideoElement>(participant, Track.Source.Camera);
+  const cameraPub = publicationOf(participant, Track.Source.Camera);
+  const cameraOn = Boolean(cameraPub?.track) && cameraPub?.isMuted === false;
 
   return (
     <div className={singing ? "tile singing" : waiting ? "tile waiting" : "tile"}>
@@ -63,31 +81,8 @@ function Tile({
   );
 }
 
-function RemoteAudio({ participant, volume = 1 }: { participant: Participant; volume?: number }) {
-  const ref = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.volume = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const track = participant.getTrackPublication(Track.Source.Microphone)?.track;
-    if (!track) return;
-    element.volume = volume;
-    element.muted = false;
-    track.attach(element);
-    void element.play().catch(() => {
-      /* Ready/unlock calls room.startAudio() to satisfy autoplay. */
-    });
-    return () => {
-      track.detach(element);
-    };
-  });
-
+function RemoteAudio({ participant }: { participant: Participant }) {
+  const ref = useAttachedMedia<HTMLAudioElement>(participant, Track.Source.Microphone);
   return <audio ref={ref} autoPlay playsInline />;
 }
 
@@ -105,7 +100,6 @@ export function CameraPane({
   isLocal,
   emptyLabel,
   waiting = false,
-  heard = true,
   cue = null,
 }: {
   participant: Participant | undefined;
@@ -113,7 +107,6 @@ export function CameraPane({
   isLocal: boolean;
   emptyLabel: string;
   waiting?: boolean;
-  heard?: boolean;
   cue?: "you" | "them" | "together" | "wait" | null;
 }) {
   return (
@@ -127,7 +120,7 @@ export function CameraPane({
             waiting={waiting}
             cue={cue}
           />
-          {!isLocal && <RemoteAudio participant={participant} volume={heard ? 1 : 0.06} />}
+          {!isLocal && <RemoteAudio participant={participant} />}
         </>
       ) : (
         <EmptyTile label={emptyLabel} />

@@ -14,7 +14,6 @@ import {
   CountdownMs,
   ForfeitSkipMs,
   EloK,
-  RankedClipMs,
   ServerEvents,
   SONGS,
   StartingElo,
@@ -73,7 +72,44 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-const useTestSong = (): boolean => process.env.USE_TEST_SONG === "1";
+/** Seconds of instrumental before the first lyric. */
+const LyricPrerollSec = 5;
+
+function firstLyricSec(id: string): number | null {
+  const file = path.join(songsDir, id, "lyrics.lrc");
+  if (!existsSync(file)) return null;
+  try {
+    const src = readFileSync(file, "utf8");
+    let first: number | null = null;
+    const re = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/;
+    for (const raw of src.split(/\r?\n/)) {
+      const m = raw.match(re);
+      if (!m) continue;
+      const min = Number(m[1]);
+      const sec = Number(m[2]);
+      const frac = m[3] ? Number(m[3].padEnd(3, "0").slice(0, 3)) / 1000 : 0;
+      const t = min * 60 + sec + frac;
+      if (first == null || t < first) first = t;
+    }
+    return first;
+  } catch {
+    return null;
+  }
+}
+
+function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
+  const start0 = kind === "duet" ? song.duetClipStartSec : song.clipStartSec;
+  const duration0 = kind === "duet" ? song.duetClipDurationSec : song.clipDurationSec;
+  const end = start0 + duration0;
+  const first = firstLyricSec(song.id);
+  if (first == null) return { startSec: start0, durationSec: duration0 };
+  const startSec = Math.max(0, first - LyricPrerollSec);
+  return { startSec, durationSec: Math.max(duration0, end - startSec) };
+}
+
+function useTestSong(): boolean {
+  return process.env.USE_TEST_SONG === "1";
+}
 
 function metaFromDisk(id: string): SongMeta | undefined {
   const file = path.join(songsDir, id, "meta.json");
@@ -158,17 +194,18 @@ export function startMatch(io: Server, room: Room): void {
 
   const song = pickSong();
   const isDuet = room.mode === "duet";
+  const window = clipWindow(song, isDuet ? "duet" : "ranked");
   room.songId = song.id;
   room.status = "countdown";
   room.activeSingerId = room.players[0]?.id ?? null;
-  room.clipStartSec = isDuet ? song.duetClipStartSec : song.clipStartSec;
-  room.clipDurationSec = isDuet ? song.duetClipDurationSec : song.clipDurationSec;
+  room.clipStartSec = window.startSec;
+  room.clipDurationSec = window.durationSec;
   room.matchStartedAtMs = null;
 
   scheduleClip(io, room, Date.now() + CountdownMs);
   broadcastState(io, room);
 
-  const clipMs = isDuet ? room.clipDurationSec * 1000 : RankedClipMs;
+  const clipMs = Math.round(room.clipDurationSec * 1000);
   later(room, CountdownMs, () => {
     room.matchStartedAtMs = Date.now();
     room.status = isDuet ? "live" : "turnA";
@@ -190,7 +227,7 @@ function swapToTurnB(io: Server, room: Room): void {
   later(room, SwapMs, () => {
     room.status = "turnB";
     broadcastState(io, room);
-    later(room, RankedClipMs, () => awaitScores(io, room));
+    later(room, Math.round(room.clipDurationSec * 1000), () => awaitScores(io, room));
   });
 }
 
@@ -351,7 +388,7 @@ function playChaosSong(io: Server, room: Room): void {
   room.songId = song.id;
   room.status = "live";
   room.activeSingerId = null;
-  room.clipStartSec = song.clipStartSec;
+  room.clipStartSec = clipWindow(song, "ranked").startSec;
   room.clipDurationSec = song.chaosDurationSec;
 
   const playAt = Date.now() + ClockLeadMs;

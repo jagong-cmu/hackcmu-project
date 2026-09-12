@@ -1,14 +1,14 @@
 import type { SongMeta } from "./types.ts";
 
-/** Ranked/duet clips start ~3s before the first lyric so GO is not on the downbeat. */
+/** Ranked/duet clips start ~5s before the first lyric so GO is not on the downbeat. */
 export const SONGS: SongMeta[] = [
   {
     id: "viva-la-vida",
     title: "Viva La Vida",
     artist: "Coldplay",
-    clipStartSec: 5.4,
+    clipStartSec: 3.4,
     clipDurationSec: 15,
-    duetClipStartSec: 5.4,
+    duetClipStartSec: 3.4,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -16,9 +16,9 @@ export const SONGS: SongMeta[] = [
     id: "creep",
     title: "Creep",
     artist: "Radiohead",
-    clipStartSec: 20.4,
+    clipStartSec: 18.4,
     clipDurationSec: 15,
-    duetClipStartSec: 20.4,
+    duetClipStartSec: 18.4,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -26,9 +26,9 @@ export const SONGS: SongMeta[] = [
     id: "perfect",
     title: "Perfect",
     artist: "Ed Sheeran",
-    clipStartSec: 4.2,
+    clipStartSec: 2.2,
     clipDurationSec: 15,
-    duetClipStartSec: 4.2,
+    duetClipStartSec: 2.2,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },
@@ -36,9 +36,9 @@ export const SONGS: SongMeta[] = [
     id: "im-not-the-only-one",
     title: "I'm Not The Only One",
     artist: "Sam Smith",
-    clipStartSec: 17.6,
+    clipStartSec: 15.6,
     clipDurationSec: 15,
-    duetClipStartSec: 17.6,
+    duetClipStartSec: 15.6,
     duetClipDurationSec: 45,
     chaosDurationSec: 60,
   },

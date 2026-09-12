@@ -24,7 +24,7 @@ if (!SRC || !LRC_DIR) throw new Error("usage: build-song-packs.mjs <mp3-dir> <lr
 const MELODY_SR = 50;
 // Ranked/duet clips open slightly before the first lyric so GO does not land on
 // the downbeat the singer is meant to hit.
-const CLIP_LEAD_SEC = 3;
+const CLIP_LEAD_SEC = 5;
 
 /**
  * offsetSec: maps ORIGINAL time onto our karaoke track, measured by chroma/DTW
