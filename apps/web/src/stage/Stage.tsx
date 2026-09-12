@@ -1,7 +1,7 @@
 /**
  * LANE A — the stage.
  *
- * One viewport: cameras on the sides, lyrics in the middle, turn callouts on top.
+ * One viewport: two large face cams on top, lyrics and pitch underneath.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";

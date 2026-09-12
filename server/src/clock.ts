@@ -143,7 +143,7 @@ export function everyoneReady(room: Room): boolean {
 }
 
 /**
- * lobby → countdown 3s → turnA 15s → swap 2s → turnB 15s → results.
+ * lobby → countdown 5s → turnA 15s → swap 5s → turnB 15s → results.
  * Duet collapses the two turns into one shared `live` block (PRD §6.2).
  */
 export function startMatch(io: Server, room: Room): void {

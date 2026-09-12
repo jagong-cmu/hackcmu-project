@@ -1,7 +1,7 @@
 /**
  * LANE A — camera tiles with names.
  *
- * Ranked/Duet: one small tile per side. Chaos: compact equal grid.
+ * Ranked/Duet: one large face cam per person. Chaos: equal grid.
  */
 import { useEffect, useRef } from "react";
 import { Track, type Participant } from "livekit-client";

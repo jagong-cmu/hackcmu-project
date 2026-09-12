@@ -9,6 +9,7 @@ import {
   noteName,
   segmentMelody,
   smoothLivePitch,
+  windowedMelodyRange,
   type NoteRun,
 } from "./pitchGuide.ts";
 
@@ -20,9 +21,9 @@ type Props = {
   liveRms?: number;
 };
 
-const LOOKAHEAD_SEC = 4.2;
+const LOOKAHEAD_SEC = 2.0;
 const LOOKBEHIND_SEC = TRAIL_SEC;
-const RAIL = 58;
+const RAIL = 78;
 
 export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,7 +31,7 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
   const propsRef = useRef({ melody, playheadSec, liveHz, liveClarity, liveRms });
   const runsRef = useRef<NoteRun[]>([]);
   const smoothRef = useRef(createPitchSmoothState());
-  const viewRef = useRef({ min: 52, max: 76 });
+  const viewRef = useRef({ min: 52, max: 62 });
   propsRef.current = { melody, playheadSec, liveHz, liveClarity, liveRms };
 
   useEffect(() => {
@@ -89,28 +90,27 @@ function paint(
   ctx.fillStyle = "#0c0c0c";
   ctx.fillRect(0, 0, w, h);
 
-  const tune = melodyRange(runs);
-  // Widen the view so the singer stays visible off the top or bottom of the
-  // tune; otherwise every out-of-range note pins to the same rail and reads as
-  // "not moving". View edges ease toward the target so it never jitters.
+  const tNow = props.playheadSec;
+  const tune = windowedMelodyRange(runs, tNow, LOOKBEHIND_SEC, LOOKAHEAD_SEC, smooth.midi);
+  // Zoom onto the notes in frame. View edges ease so a sudden high/low note
+  // does not jump the staff.
   const view = viewRef;
-  const wantMin = Math.min(tune.min, smooth.midi != null ? smooth.midi - 2 : tune.min);
-  const wantMax = Math.max(tune.max, smooth.midi != null ? smooth.midi + 2 : tune.max);
-  view.min += (wantMin - view.min) * 0.08;
-  view.max += (wantMax - view.max) * 0.08;
+  view.min += (tune.min - view.min) * 0.12;
+  view.max += (tune.max - view.max) * 0.12;
   const min = view.min;
   const max = view.max;
   const span = Math.max(1, max - min);
-  const yPad = 22;
+  const yPad = 28;
   const yOf = (midi: number) => {
     const clamped = Math.min(max, Math.max(min, midi));
     const t = (clamped - min) / span;
     const y = h - yPad - t * (h - 2 * yPad);
     return Math.min(h - yPad, Math.max(yPad, y));
   };
-  const laneH = Math.max(8, ((h - 32) / span) * 0.78);
+  const laneH = Math.max(18, Math.min(h * 0.28, ((h - 48) / span) * 0.78));
+  const voiceW = Math.max(14, Math.round(h * 0.065));
+  const headR = Math.max(10, Math.round(h * 0.045));
 
-  const tNow = props.playheadSec;
   const windowSec = LOOKAHEAD_SEC + LOOKBEHIND_SEC;
   const fieldX = RAIL + 10;
   const fieldW = w - fieldX - 12;
@@ -149,14 +149,14 @@ function paint(
       : upcoming
         ? "rgba(244,239,230,0.78)"
         : "rgba(244,239,230,0.28)";
-    roundRect(ctx, x1, y - rh / 2, rw, rh, 4);
+    roundRect(ctx, x1, y - rh / 2, rw, rh, Math.min(8, rh / 2));
     ctx.fill();
-    if (rw > 36) {
+    if (rw > 44) {
       ctx.fillStyle = "#070707";
-      ctx.font = "600 11px Outfit, sans-serif";
+      ctx.font = `700 ${Math.max(13, Math.round(rh * 0.42))}px Outfit, sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(noteName(run.midi), x1 + 8, y + 1);
+      ctx.fillText(noteName(run.midi), x1 + 10, y + 1);
     }
   }
 
@@ -180,8 +180,8 @@ function paint(
   if (smooth.trail.length > 1) {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.shadowColor = "rgba(201,162,39,0.55)";
-    ctx.shadowBlur = 18;
+    ctx.shadowColor = "rgba(201,162,39,0.75)";
+    ctx.shadowBlur = 26;
     // Rolling average over the trail, then a quadratic through the midpoints.
     // Straight segments between per-frame samples read as a jagged sawtooth
     // even when the pitch itself is steady.
@@ -223,23 +223,23 @@ function paint(
       const last = pts[pts.length - 1]!;
       ctx.lineTo(last.x, last.y);
     }
-    ctx.strokeStyle = "rgba(201,162,39,0.55)";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(201,162,39,0.95)";
+    ctx.lineWidth = voiceW;
     ctx.stroke();
     ctx.shadowBlur = 0;
 
     // Dots sit on the smoothed curve, not the raw samples, or they read as
     // speckle scattered either side of the line.
-    for (let i = 0; i < n; i += 5) {
+    for (let i = 0; i < n; i += 4) {
       const p = smooth.trail[i];
       if (!p) continue;
       const age = (tNow - p.t) / LOOKBEHIND_SEC;
       const alpha = Math.max(0, 1 - age);
       ctx.fillStyle = p.inTune
-        ? `rgba(201,162,39,${0.2 + 0.65 * alpha})`
-        : `rgba(244,239,230,${0.12 + 0.4 * alpha})`;
+        ? `rgba(201,162,39,${0.25 + 0.7 * alpha})`
+        : `rgba(244,239,230,${0.16 + 0.45 * alpha})`;
       ctx.beginPath();
-      ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? 3.2 : 2, 0, Math.PI * 2);
+      ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -247,48 +247,47 @@ function paint(
   ctx.restore();
 
   ctx.strokeStyle = "rgba(201,162,39,0.95)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(nowX, 8);
   ctx.lineTo(nowX, h - 8);
   ctx.stroke();
 
   const y = headY ?? yOf(live.midi);
+  const pillH = Math.max(28, Math.round(laneH * 0.85));
   ctx.save();
   ctx.globalAlpha = live.tracking ? 1 : 0.72;
   ctx.shadowColor = live.inTune ? "rgba(201,162,39,0.9)" : "rgba(244,239,230,0.35)";
   ctx.shadowBlur = live.inTune ? 22 : live.tracking ? 8 : 4;
   ctx.fillStyle = live.inTune ? "#c9a227" : "#f4efe6";
-  roundRect(ctx, 8, y - 10, RAIL - 16, 20, 4);
+  roundRect(ctx, 8, y - pillH / 2, RAIL - 16, pillH, 6);
   ctx.fill();
   ctx.restore();
 
-  ctx.fillStyle = live.inTune ? "rgba(201,162,39,0.95)" : "rgba(244,239,230,0.75)";
-  ctx.fillRect(RAIL - 2, y - 1.5, Math.max(0, nowX - (RAIL - 2)), 3);
+  ctx.fillStyle = live.inTune ? "rgba(201,162,39,0.95)" : "rgba(244,239,230,0.8)";
+  ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
 
   // The indicator is octave-folded onto the tune, so label the note actually
   // sung. Otherwise a bass reads "G4" while singing G2.
   if (live.tracking && live.rawMidi != null) {
     ctx.fillStyle = "#070707";
-    ctx.font = "600 10px Outfit, sans-serif";
+    ctx.font = "700 14px Outfit, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(noteName(live.rawMidi), 8 + (RAIL - 16) / 2, y + 1);
   }
 
-  if (live.inTune) {
-    ctx.save();
-    ctx.shadowColor = "rgba(201,162,39,0.8)";
-    ctx.shadowBlur = 16;
-    ctx.fillStyle = "#c9a227";
-    ctx.beginPath();
-    ctx.arc(nowX, y, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+  ctx.save();
+  ctx.shadowColor = live.inTune ? "rgba(201,162,39,0.9)" : "rgba(244,239,230,0.45)";
+  ctx.shadowBlur = live.inTune ? 22 : 10;
+  ctx.fillStyle = live.inTune ? "#c9a227" : "#f4efe6";
+  ctx.beginPath();
+  ctx.arc(nowX, y, headR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   ctx.fillStyle = "rgba(138,130,120,0.95)";
-  ctx.font = "11px Outfit, sans-serif";
+  ctx.font = "12px Outfit, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("high", 10, 8);

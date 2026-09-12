@@ -8,10 +8,13 @@ type Props = {
 export function LyricsOverlay({ lrc, currentTime }: Props) {
   const lines = typeof lrc === "string" ? parseLrc(lrc) : lrc;
   const { current, next } = lineAt(lines, currentTime);
+  const waiting = !current && Boolean(next);
   return (
     <div className="lyrics">
-      <p className="lyrics-now">{current?.text ?? "·"}</p>
-      <p className="lyrics-next">{next?.text ?? ""}</p>
+      <p className={waiting ? "lyrics-now lyrics-soon" : "lyrics-now"}>
+        {current?.text ?? next?.text ?? "·"}
+      </p>
+      <p className="lyrics-next">{waiting ? "coming up" : (next?.text ?? "")}</p>
     </div>
   );
 }
