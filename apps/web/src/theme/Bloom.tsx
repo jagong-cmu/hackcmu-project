@@ -46,9 +46,20 @@ export function Bloom({ className }: { className?: string }) {
     };
   }, []);
 
+  // Each layer is a pair: the outer element carries the slow ambient drift, the
+  // inner one the pointer parallax. They have to be separate elements because a
+  // single transform can't hold a keyframe animation and a live value at once.
   return (
     <div className={["bloom", className ?? ""].filter(Boolean).join(" ")} ref={ref} aria-hidden="true">
-      <div className="bloom-core" />
+      <div className="bloom-drift bloom-drift-a">
+        <i className="bloom-arc bloom-arc-top" />
+      </div>
+      <div className="bloom-drift bloom-drift-b">
+        <i className="bloom-arc bloom-arc-bottom" />
+      </div>
+      <div className="bloom-drift bloom-drift-c">
+        <i className="bloom-core" />
+      </div>
     </div>
   );
 }

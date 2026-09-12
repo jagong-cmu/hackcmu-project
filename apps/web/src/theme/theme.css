@@ -81,21 +81,29 @@ body { background: var(--ink); }
   pointer-events: none;
   overflow: hidden;
 }
-.bloom::before,
-.bloom::after {
-  content: "";
+/*
+ * Layer pairs. The .bloom-drift wrapper owns the slow ambient wander; the
+ * inner element owns the pointer parallax. One transform cannot carry both a
+ * keyframe animation and a live value, hence the pair.
+ */
+.bloom-drift {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.bloom-drift-a { animation: bloom-wander-a 31s ease-in-out infinite; }
+.bloom-drift-b { animation: bloom-wander-b 41s ease-in-out infinite; }
+.bloom-drift-c { animation: bloom-wander-c 24s ease-in-out infinite; }
+
+.bloom-arc {
   position: absolute;
   left: 50%;
   width: 190vw;
   aspect-ratio: 1;
-  transform: translateX(-50%) translate(
-    calc(var(--bx, 0) * 42px),
-    calc(var(--by, 0) * 26px)
-  );
   border-radius: 50%;
   /* A bright, narrow edge over dark mid-tones. Raising the shoulder stops
      (0.10 / 0.16 here) is what washes the whole frame out — keep them low and
-     let only the 72% band carry the light. */
+     let only the 70-72% band carry the light. */
   background: radial-gradient(
     circle,
     transparent 58%,
@@ -107,10 +115,17 @@ body { background: var(--ink); }
   );
   filter: blur(30px);
 }
+
 /* Upper arc, curving down into frame. */
-.bloom::before { bottom: 53%; }
+.bloom-arc-top {
+  bottom: 53%;
+  transform: translateX(-50%) translate(
+    calc(var(--bx, 0) * 42px),
+    calc(var(--by, 0) * 26px)
+  );
+}
 /* Lower arc, curving up. Counter-drifts against the upper one. */
-.bloom::after {
+.bloom-arc-bottom {
   top: 53%;
   transform: translateX(-50%) translate(
     calc(var(--bx, 0) * -38px),
@@ -137,6 +152,27 @@ body { background: var(--ink); }
     transparent 78%
   );
   filter: blur(40px);
+}
+
+/* Long, prime-ish periods so the three layers never settle into a visible loop. */
+@keyframes bloom-wander-a {
+  0%, 100% { transform: translate3d(-2.2%, -1.4%, 0) scale(1.02); }
+  33%      { transform: translate3d(1.8%, 1.2%, 0) scale(1); }
+  66%      { transform: translate3d(2.6%, -0.9%, 0) scale(1.04); }
+}
+@keyframes bloom-wander-b {
+  0%, 100% { transform: translate3d(2.4%, 1.1%, 0) scale(1.03); }
+  40%      { transform: translate3d(-2%, -1.5%, 0) scale(1); }
+  72%      { transform: translate3d(-1.2%, 1.8%, 0) scale(1.05); }
+}
+@keyframes bloom-wander-c {
+  0%, 100% { transform: translate3d(-1.6%, 0.8%, 0) scale(1); }
+  45%      { transform: translate3d(2%, -1.2%, 0) scale(1.06); }
+  75%      { transform: translate3d(0.6%, 1.4%, 0) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom-drift { animation: none; }
 }
 
 /* Anything on a bloom page needs to sit above it. */
@@ -237,13 +273,14 @@ select:focus {
 .wordmark {
   margin: 0;
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
   letter-spacing: 0.3em;
   /* Tracking adds a trailing gap; pull it back so the word sits truly centred. */
   text-indent: 0.3em;
   line-height: 1;
   color: var(--fg);
-  text-shadow: 0 0 40px rgba(121, 180, 255, 0.45);
+  text-shadow: 0 0 48px rgba(121, 180, 255, 0.5);
+  margin-top: 26px;
 }
 
 /* Three columns so the wordmark centres on the page, not between its siblings. */
@@ -253,7 +290,7 @@ select:focus {
   align-items: center;
 }
 .home-top .wordmark { grid-column: 2; justify-self: center; }
-.home-top nav { grid-column: 3; justify-self: end; }
+.home-top nav { grid-column: 3; justify-self: end; align-self: start; }
 
 .home-top a { font-size: 13px; letter-spacing: 0.02em; }
 
@@ -290,8 +327,8 @@ select:focus {
   -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
   mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
 }
-.page.bloom-page .bloom::before { bottom: 80%; }
-.page.bloom-page .bloom::after { top: 26%; }
+.page.bloom-page .bloom-arc-top { bottom: 80%; }
+.page.bloom-page .bloom-arc-bottom { top: 26%; }
 .page.bloom-page .bloom-core { top: 24%; height: 15vh; }
 
 @media (max-width: 720px) {
@@ -341,13 +378,16 @@ select:focus {
 }
 .modes button.mode:hover .sparks i,
 .modes button.mode:focus-visible .sparks i {
-  animation: mode-spark 1.05s ease-out var(--pd, 0s) infinite;
+  animation: mode-spark 2.6s ease-out var(--pd, 0s) infinite;
 }
 
+/* Lit almost immediately, then held bright most of the way out — fading early
+   is what left the edge looking empty between beats. */
 @keyframes mode-spark {
   0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  12%  { opacity: 1; transform: translate(calc(var(--dx) * 0.12), calc(var(--dy) * 0.12)) scale(1); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.15); }
+  6%   { opacity: 1; transform: translate(calc(var(--dx) * 0.06), calc(var(--dy) * 0.06)) scale(1); }
+  62%  { opacity: 0.92; transform: translate(calc(var(--dx) * 0.66), calc(var(--dy) * 0.66)) scale(0.8); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
 }
 
 @media (prefers-reduced-motion: reduce) {
