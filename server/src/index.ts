@@ -48,6 +48,7 @@ import {
   ensureChaosPlaying,
   forfeitFor,
   maybeArmMatch,
+  advanceDue,
   publicClock,
   publicScores,
   recordScore,
@@ -167,6 +168,8 @@ app.get("/api/rooms/:code", async (req, res) => {
     res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
     return;
   }
+  pruneRoom(room);
+  advanceDue(io, room);
   const scores = publicScores(room);
   const [a, b] = room.players;
   let winnerId: string | null = null;
@@ -247,7 +250,10 @@ function fail(socket: { emit: (e: string, p: unknown) => void }, code: string, m
 /** Seat a socket in a room and sync everyone. Returns false if it could not. */
 function seat(socketId: string, room: Room): boolean {
   const session = sessionOf(socketId);
-  if (!session) return false;
+  if (!session) {
+    // Opponent lives on another Vercel isolate. Keep the Mongo-hydrated seat.
+    return room.players.some((p) => p.socketId === socketId);
+  }
 
   pruneRoom(room);
 
@@ -677,14 +683,16 @@ io.on("connection", (socket) => {
 ensurePermanentRooms();
 
 setInterval(() => {
-  for (const room of allRooms()) {
-    pruneRoom(room);
-    if (room.mode === "chaos") ensureChaosPlaying(io, room);
-    else if (room.status === "lobby") maybeArmMatch(io, room);
-    if (room.players.length === 0 && room.persistent) continue;
-    if (room.players.length === 0) disposeIfEmpty(room);
-  }
-}, 4000);
+  void (async () => {
+    for (const room of allRooms()) {
+      await ensureRoom(room.code);
+      pruneRoom(room);
+      advanceDue(io, room);
+      if (room.players.length === 0 && room.persistent) continue;
+      if (room.players.length === 0) disposeIfEmpty(room);
+    }
+  })();
+}, 2000);
 
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";

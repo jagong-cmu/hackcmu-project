@@ -198,6 +198,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         setClockPlay(null);
         setLivePitch(null);
         setLivePitches({});
+      } else if (state.playAtUnixMs && state.songId) {
+        setClockPlay((prev) => ({
+          songId: state.songId!,
+          startSec: prev?.startSec ?? 0,
+          durationSec: prev?.durationSec ?? 1,
+          playAtUnixMs: state.playAtUnixMs!,
+        }));
       }
       if (state.status === "results") {
         setClockPlay(null);
@@ -305,6 +312,19 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         };
         if (data.clock) setClockPlay(data.clock);
         else if (
+          data.room?.playAtUnixMs &&
+          data.room.songId &&
+          data.room.status !== "results" &&
+          data.room.status !== "lobby"
+        ) {
+          const roomClock = data.room;
+          setClockPlay((prev) => ({
+            songId: roomClock.songId!,
+            startSec: prev?.startSec ?? 0,
+            durationSec: prev?.durationSec ?? 1,
+            playAtUnixMs: roomClock.playAtUnixMs!,
+          }));
+        } else if (
           data.room &&
           (data.room.status === "results" || data.room.status === "lobby")
         ) {

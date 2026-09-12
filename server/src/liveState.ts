@@ -48,6 +48,7 @@ type RoomSnap = {
   matchStartedAtMs: number | null;
   lastEloDelta: number;
   settled: boolean;
+  rematchAtMs: number | null;
   scores: Record<string, ScoreCard>;
   updatedAt: Date;
 };
@@ -205,6 +206,7 @@ export async function saveRoomSnap(room: Room): Promise<void> {
         matchStartedAtMs: room.matchStartedAtMs,
         lastEloDelta: room.lastEloDelta,
         settled: room.settled,
+        rematchAtMs: room.rematchAtMs,
         scores,
         updatedAt: new Date(),
       },
@@ -242,21 +244,25 @@ function applySnap(room: Room, snap: RoomSnap): void {
     room.songStartedAtMs = snap.songStartedAtMs;
     room.matchStartedAtMs = snap.matchStartedAtMs;
     room.lastEloDelta = snap.lastEloDelta;
+    if (snap.rematchAtMs != null) room.rematchAtMs = snap.rematchAtMs;
   }
   if (snap.settled) room.settled = true;
+  const snapIds = new Set(snap.players.map((p) => p.clientId));
   for (const p of snap.players) {
     const have = room.players.find((x) => x.clientId === p.clientId);
     if (have) {
       have.displayName = p.displayName;
       have.elo = p.elo;
       if (p.lastSeenMs) have.lastSeenMs = Math.max(have.lastSeenMs || 0, p.lastSeenMs);
+      if (p.socketId && p.socketId !== "pending") have.socketId = p.socketId;
       if (rematch) have.ready = p.ready;
       else if (p.ready) have.ready = true;
+      if (p.connected) have.connected = true;
       continue;
     }
     if (!p.connected || !p.socketId || p.socketId === "pending") continue;
     addPlayer(room, {
-      id: p.clientId,
+      id: p.id || p.clientId,
       clientId: p.clientId,
       displayName: p.displayName,
       socketId: p.socketId || "pending",
@@ -266,8 +272,13 @@ function applySnap(room: Room, snap: RoomSnap): void {
     if (seated) {
       seated.ready = p.ready;
       seated.connected = p.connected;
+      if (p.lastSeenMs) seated.lastSeenMs = p.lastSeenMs;
     }
   }
+  const now = Date.now();
+  room.players = room.players.filter(
+    (p) => snapIds.has(p.clientId) || now - p.lastSeenMs < 8_000,
+  );
   for (const [id, card] of Object.entries(snap.scores ?? {})) {
     if (!room.scores.has(id)) room.scores.set(id, card);
   }

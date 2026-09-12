@@ -1,6 +1,7 @@
 import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
 import { LyricSparks } from "./LyricSparks.tsx";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
+import { formatCountdown } from "../stage/formatCountdown.ts";
 
 export type DuetView = {
   seat: DuetSeat | null;
@@ -81,7 +82,7 @@ export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
             {[4, 3, 2, 1].map((n) => (
               <span key={n} className={n <= beats ? "dot" : "dot spent"} />
             ))}
-            <span className="count-num">{beats}</span>
+            <span className="count-num">{formatCountdown(wait * 1000)}</span>
           </p>
         </div>
       );

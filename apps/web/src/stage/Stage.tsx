@@ -66,6 +66,7 @@ export default function Stage() {
     room?.status === "turnA" ||
     room?.status === "turnB" ||
     room?.status === "live";
+  const countingIn = room?.status === "countdown" || room?.status === "swap";
   const loungeName = chaosLoungeName(code);
   const song = room?.songId ? songById(room.songId) : undefined;
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
@@ -130,7 +131,9 @@ export default function Stage() {
       ? "Waiting for someone to sit down — match starts in 10 seconds once they do."
       : room.status === "countdown"
         ? "Match starts on GO."
-        : seated;
+        : room.players.length >= 2
+          ? "Starting…"
+          : seated;
 
   return (
     <StageContext.Provider value={stageValue}>
@@ -213,7 +216,11 @@ export default function Stage() {
               compact
             />
             <div className="stage-board">
-              <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
+              <ClipTimer
+                clockPlay={clockPlay}
+                playAtUnixMs={room?.playAtUnixMs}
+                status={room?.status ?? "lobby"}
+              />
               <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
             </div>
           </div>
@@ -228,13 +235,17 @@ export default function Stage() {
               emptyLabel="waiting…"
             />
             <div className="stage-board">
-              {singing ? (
-                <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
+              {singing || countingIn ? (
+                <ClipTimer
+                  clockPlay={clockPlay}
+                  playAtUnixMs={room?.playAtUnixMs}
+                  status={room?.status ?? "lobby"}
+                />
               ) : (
                 <div className="timer timer-compact ghost">
                   {inLobby
                     ? room && room.players.length >= 2
-                      ? "Starting in 10 seconds"
+                      ? "Starting…"
                       : "Waiting for someone to sit down"
                     : "\u00a0"}
                 </div>

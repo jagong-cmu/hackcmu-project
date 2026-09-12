@@ -259,6 +259,14 @@
   text-align: center;
 }
 .timer-compact.ghost { color: var(--mute, #8a8278); font-weight: 500; font-size: 0.85rem; }
+.timer-compact.timer-count {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2.6rem, 8vw, 4.2rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
 .timer-compact .bar { height: 3px; margin-top: 4px; }
 
 .stage-chaos {
@@ -410,7 +418,7 @@
   line-height: 0.9;
   color: var(--cream, #f4efe6);
 }
-.callout-count { font-size: clamp(5.5rem, 18vw, 9rem); }
+.callout-count { font-size: clamp(5.5rem, 18vw, 9rem); font-variant-numeric: tabular-nums; }
 .callout-count.go { color: var(--gold, #c9a227); }
 .callout-title { font-size: clamp(3.2rem, 10vw, 6.5rem); }
 .callout-sub {

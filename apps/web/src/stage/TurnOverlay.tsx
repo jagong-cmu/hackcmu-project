@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RoomState } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
+import { formatCountdown } from "./formatCountdown.ts";
 
 type Beat =
   | { kind: "end" }
@@ -122,16 +123,16 @@ export default function TurnOverlay({
   const singer = room.players.find((p) => p.id === room.activeSingerId);
   const themName =
     room.players.find((p) => p.id !== myPlayerId)?.displayName ?? singer?.displayName ?? "They";
-  const msUntil = clockPlay ? clockPlay.playAtUnixMs - now : 0;
+  const msUntil = (clockPlay?.playAtUnixMs ?? room.playAtUnixMs ?? 0) - now;
   const countingDown =
     (room.status === "countdown" || room.status === "swap") &&
-    Boolean(clockPlay) &&
-    msUntil > 0;
+    msUntil > 0 &&
+    (clockPlay != null || room.playAtUnixMs != null);
   const go =
-    Boolean(clockPlay) &&
     msUntil <= 0 &&
     msUntil > -1100 &&
-    (room.status === "countdown" || room.status === "swap");
+    (room.status === "countdown" || room.status === "swap") &&
+    (clockPlay != null || room.playAtUnixMs != null);
 
   const rankedCopy = rankedCountdownCopy(mine, room.status === "swap", themName);
 
@@ -167,7 +168,7 @@ export default function TurnOverlay({
                 ? "Chaos lounge"
                 : rankedCopy.kicker}
           </p>
-          <p className="callout-count">{Math.max(1, Math.ceil(msUntil / 1000))}</p>
+          <p className="callout-count">{formatCountdown(msUntil)}</p>
           <p className="callout-sub">
             {room.mode === "duet"
               ? "Whole song. Your lines light up. Don't start until GO."

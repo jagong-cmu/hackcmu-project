@@ -235,12 +235,13 @@ export function maybeArmMatch(io: Server, room: Room): void {
  * Duet collapses the two turns into one shared `live` block for the whole track.
  */
 export function startMatch(io: Server, room: Room): void {
-  if (livePlayers(room).length !== 2) return;
+  if (livePlayers(room).length < 2) return;
   if (room.status !== "lobby") return;
   clearTimers(room);
   room.scores.clear();
   room.lastEloDelta = 0;
   room.settled = false;
+  room.rematchAtMs = null;
 
   const song = pickSong();
   const isDuet = room.mode === "duet";
@@ -252,19 +253,78 @@ export function startMatch(io: Server, room: Room): void {
   room.clipDurationSec = window.durationSec;
   room.matchStartedAtMs = null;
 
-  scheduleClip(io, room, Date.now() + MatchCountdownMs);
+  const goAt = Date.now() + MatchCountdownMs;
+  scheduleClip(io, room, goAt);
   broadcastState(io, room);
 
+  later(room, MatchCountdownMs, () => beginClip(io, room));
+}
+
+function beginClip(io: Server, room: Room): void {
+  if (room.status !== "countdown") return;
+  const isDuet = room.mode === "duet";
+  room.matchStartedAtMs = Date.now();
+  room.status = isDuet ? "live" : "turnA";
+  broadcastState(io, room);
   const clipMs = Math.round(room.clipDurationSec * 1000);
-  later(room, MatchCountdownMs, () => {
-    room.matchStartedAtMs = Date.now();
-    room.status = isDuet ? "live" : "turnA";
+  later(room, clipMs, () => {
+    if (isDuet) awaitScores(io, room);
+    else if (room.status === "turnA") swapToTurnB(io, room);
+  });
+}
+
+/**
+ * Drive the match from wall-clock even when this isolate lost its setTimeout
+ * (Vercel freeze) or never owned the original later() callback.
+ */
+export function advanceDue(io: Server, room: Room): void {
+  if (room.mode === "chaos") {
+    ensureChaosPlaying(io, room);
+    return;
+  }
+  if (room.status === "lobby") {
+    maybeArmMatch(io, room);
+    return;
+  }
+
+  const now = Date.now();
+  const playAt = room.playAtUnixMs;
+  const clipMs = Math.round(room.clipDurationSec * 1000);
+
+  if (room.status === "countdown" && playAt != null && now >= playAt) {
+    beginClip(io, room);
+    return;
+  }
+  if (room.status === "swap" && playAt != null && now >= playAt) {
+    room.status = "turnB";
     broadcastState(io, room);
     later(room, clipMs, () => {
-      if (isDuet) awaitScores(io, room);
-      else swapToTurnB(io, room);
+      if (room.status === "turnB") awaitScores(io, room);
     });
-  });
+    return;
+  }
+  if (room.status === "turnA" && playAt != null && now >= playAt + clipMs) {
+    swapToTurnB(io, room);
+    return;
+  }
+  if (
+    (room.status === "turnB" || room.status === "live") &&
+    playAt != null &&
+    now >= playAt + clipMs
+  ) {
+    awaitScores(io, room);
+    return;
+  }
+  if (
+    room.status === "results" &&
+    room.settled &&
+    livePlayers(room).length >= 2 &&
+    room.rematchAtMs != null &&
+    now >= room.rematchAtMs
+  ) {
+    resetToLobby(room);
+    startMatch(io, room);
+  }
 }
 
 function swapToTurnB(io: Server, room: Room): void {
@@ -431,7 +491,8 @@ export async function finishMatch(
   });
   broadcastState(io, room);
 
-  if (!forfeit && room.players.filter((p) => p.connected).length >= 2) {
+  if (!forfeit && livePlayers(room).length >= 2) {
+    room.rematchAtMs = Date.now() + RematchWaitMs;
     later(room, RematchWaitMs, () => {
       if (room.status !== "results") return;
       if (livePlayers(room).length < 2) return;

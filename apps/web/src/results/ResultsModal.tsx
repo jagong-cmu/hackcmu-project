@@ -1,6 +1,7 @@
 import type { ScoreCard } from "@karaoke/shared";
 import { useEffect, useState } from "react";
 import { ScoreBreakdown } from "../scoring/ScoreBars.tsx";
+import { formatCountdown } from "../stage/formatCountdown.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
 
@@ -17,14 +18,15 @@ export function ScoringWait() {
   }, []);
 
   const pct = Math.min(100, ((SCORE_COUNTDOWN_SEC - left) / SCORE_COUNTDOWN_SEC) * 100);
-  const seconds = Math.ceil(left);
 
   return (
     <div className="modal-scrim">
       <div className="results scoring-wait" role="status" aria-live="polite">
         <h2 id="results-title">Scoring</h2>
         <p className="scoring-copy">
-          {seconds > 0 ? `Reading pitch and tone · ${seconds}s` : "Almost there…"}
+          {left > 0
+            ? `Reading pitch and tone · ${formatCountdown(left * 1000)}`
+            : "Almost there…"}
         </p>
         <div className="scoring-track">
           <span style={{ width: `${pct}%` }} />

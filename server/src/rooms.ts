@@ -57,6 +57,9 @@ export type Room = {
 
   /** True once match:over has been emitted, so late POSTs cannot double-settle. */
   settled: boolean;
+
+  /** Wall clock to auto-start the next match after results. */
+  rematchAtMs: number | null;
 };
 
 const rooms = new Map<string, Room>();
@@ -83,6 +86,7 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     timers: new Set(),
     lastEloDelta: 0,
     settled: false,
+    rematchAtMs: null,
   };
 }
 
@@ -139,7 +143,8 @@ export function touchPlayer(player: Player): void {
 }
 
 export function livePlayers(room: Room): Player[] {
-  return room.players.filter((p) => p.connected);
+  const now = Date.now();
+  return room.players.filter((p) => p.connected && now - p.lastSeenMs < PlayerIdleMs);
 }
 
 export function addPlayer(
@@ -178,7 +183,11 @@ export function isFull(room: Room): boolean {
   return livePlayers(room).length >= capacityFor(room.mode);
 }
 
-/** Drop seats whose socket is gone or who have gone idle. Returns who was removed. */
+/**
+ * Drop idle or explicitly disconnected seats.
+ * A socket that is not on this isolate is not dead — Vercel has one Socket.IO
+ * per function, so the opponent is almost always "not connected" here.
+ */
 export function dropDeadPlayers(
   room: Room,
   isLive: (socketId: string) => boolean,
@@ -187,9 +196,12 @@ export function dropDeadPlayers(
   const now = Date.now();
   const removed: Player[] = [];
   room.players = room.players.filter((player) => {
-    const sockDead = !isLive(player.socketId);
-    const stale = Boolean(player.lastSeenMs) && now - player.lastSeenMs > idleMs;
-    if (!sockDead && !stale && player.connected) return true;
+    if (isLive(player.socketId)) {
+      player.connected = true;
+      return true;
+    }
+    const stale = now - (player.lastSeenMs || 0) > idleMs;
+    if (!stale && player.connected) return true;
     removed.push(player);
     return false;
   });
@@ -228,6 +240,7 @@ export function resetToLobby(room: Room): void {
   room.scores.clear();
   room.lastEloDelta = 0;
   room.settled = false;
+  room.rematchAtMs = null;
   for (const player of room.players) player.ready = false;
 }
 
