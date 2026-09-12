@@ -59,14 +59,19 @@ test("dropDeadPlayers still kicks a seat that has gone idle", () => {
 
 test("two seated players arm a 10s countdown without ready taps", () => {
   const room = createRoom("ranked", "3333");
-  seat(room, "a", "sock-a");
-  seat(room, "b", "sock-b");
-  maybeArmMatch(fakeIo() as never, room);
-  assert.equal(room.status, "countdown");
-  assert.ok(room.playAtUnixMs);
-  const wait = room.playAtUnixMs - Date.now();
-  assert.ok(wait > 8_000 && wait <= 10_500, `expected ~10s, got ${wait}`);
-  clearTimers(room);
+  try {
+    seat(room, "a", "sock-a");
+    seat(room, "b", "sock-b");
+    maybeArmMatch(fakeIo() as never, room);
+    assert.equal(room.status, "countdown");
+    assert.equal(room.songId, "viva-la-vida", "ranked demo clip is Viva La Vida");
+    assert.equal(room.clipDurationSec, 30);
+    assert.ok(room.playAtUnixMs);
+    const wait = room.playAtUnixMs! - Date.now();
+    assert.ok(wait > 8_000 && wait <= 10_500, `expected ~10s, got ${wait}`);
+  } finally {
+    clearTimers(room);
+  }
 });
 
 test("countdown text is always one decimal", () => {
@@ -78,13 +83,16 @@ test("countdown text is always one decimal", () => {
 
 test("advanceDue starts the clip when playAtUnixMs is reached even if later() died", () => {
   const room = createRoom("ranked", "4444");
-  seat(room, "a", "sock-a");
-  seat(room, "b", "sock-b");
-  maybeArmMatch(fakeIo() as never, room);
-  assert.equal(room.status, "countdown");
-  room.playAtUnixMs = Date.now() - 20;
-  clearTimers(room);
-  advanceDue(fakeIo() as never, room);
-  assert.equal(room.status, "turnA");
-  clearTimers(room);
+  try {
+    seat(room, "a", "sock-a");
+    seat(room, "b", "sock-b");
+    maybeArmMatch(fakeIo() as never, room);
+    assert.equal(room.status, "countdown");
+    room.playAtUnixMs = Date.now() - 20;
+    clearTimers(room);
+    advanceDue(fakeIo() as never, room);
+    assert.equal(room.status, "turnA");
+  } finally {
+    clearTimers(room);
+  }
 });

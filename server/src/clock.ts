@@ -35,14 +35,28 @@ import { ensureRoom, saveRoomSnap } from "./liveState.ts";
 import { persistSeatedMatch } from "./judge.ts";
 import { eloDelta, outcomeFromScores } from "./elo.ts";
 
-const songsDir =
-  [
-    path.resolve(process.cwd(), "apps/web/dist/songs"),
-    path.resolve(process.cwd(), "apps/web/public/songs"),
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/dist/songs"),
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs"),
-  ].find((dir) => existsSync(dir)) ??
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
+const songDirs = [
+  path.resolve(process.cwd(), "apps/web/public/songs"),
+  path.resolve(process.cwd(), "apps/web/dist/songs"),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs"),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/dist/songs"),
+].filter((dir, i, all) => existsSync(dir) && all.indexOf(dir) === i);
+
+function songAssetsDir(id: string): string | undefined {
+  return songDirs.find(
+    (dir) =>
+      existsSync(path.join(dir, id, "instrumental.mp3")) &&
+      existsSync(path.join(dir, id, "melody.json")),
+  );
+}
+
+function songFile(id: string, name: string): string | undefined {
+  for (const dir of songDirs) {
+    const file = path.join(dir, id, name);
+    if (existsSync(file)) return file;
+  }
+  return undefined;
+}
 
 /** Ranked/Duet lobby wait before GO. Shared CountdownMs stays 5s for other beats. */
 const MatchCountdownMs = 10_000;
@@ -79,53 +93,15 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-/** Hold the last chorus line at least this long if the next line is farther. */
-const LyricTailSec = 6;
+const RankedDemoSongId = "viva-la-vida";
+const RankedDemoDurationSec = 30;
 
-const LrcTimeRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/;
-
-function lyricTimes(id: string): number[] {
-  const file = path.join(songsDir, id, "lyrics.lrc");
-  if (!existsSync(file)) return [];
-  try {
-    const times: number[] = [];
-    for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
-      const m = raw.match(LrcTimeRe);
-      if (!m) continue;
-      const min = Number(m[1]);
-      const sec = Number(m[2]);
-      const frac = m[3] ? Number(m[3].padEnd(3, "0").slice(0, 3)) / 1000 : 0;
-      times.push(min * 60 + sec + frac);
-    }
-    return times.sort((a, b) => a - b);
-  } catch {
-    return [];
-  }
-}
-
-function lineEndSec(times: number[], lineStart: number): number {
-  const next = times.find((t) => t > lineStart + 0.05);
-  if (next == null) return lineStart + 4;
-  return Math.min(next - 0.2, lineStart + LyricTailSec);
-}
-
-/** Ranked: 0:00 through the first chorus. Duet: the whole track. */
+/** Ranked: 30s of Viva La Vida for the demo. Duet: the whole track. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   if (kind === "duet") {
     return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
   }
-  const start0 = song.clipStartSec;
-  const duration0 = song.clipDurationSec;
-  const end0 = start0 + duration0;
-  const times = lyricTimes(song.id);
-  if (times.length === 0) return { startSec: 0, durationSec: Math.max(1, end0) };
-  const last = [...times].reverse().find((t) => t < end0 - 0.1);
-  if (last == null) return { startSec: 0, durationSec: Math.max(1, end0) };
-  const sungEnd = lineEndSec(times, last);
-  const next = times.find((t) => t > last + 0.05);
-  const cap = next == null ? sungEnd : next - 0.2;
-  const endSec = Math.min(Math.max(end0, sungEnd), cap);
-  return { startSec: 0, durationSec: Math.max(1, endSec) };
+  return { startSec: 0, durationSec: RankedDemoDurationSec };
 }
 
 function useTestSong(): boolean {
@@ -133,8 +109,8 @@ function useTestSong(): boolean {
 }
 
 function metaFromDisk(id: string): SongMeta | undefined {
-  const file = path.join(songsDir, id, "meta.json");
-  if (!existsSync(file)) return undefined;
+  const file = songFile(id, "meta.json");
+  if (!file) return undefined;
   try {
     return JSON.parse(readFileSync(file, "utf8")) as SongMeta;
   } catch {
@@ -142,18 +118,28 @@ function metaFromDisk(id: string): SongMeta | undefined {
   }
 }
 
-function pickSong(): SongMeta {
-  const testFile = path.join(songsDir, TEST_SONG.id, "instrumental.mp3");
-  if (useTestSong() && existsSync(testFile)) return TEST_SONG;
-  const onDisk = SONGS.filter(
-    (s) =>
-      existsSync(path.join(songsDir, s.id, "instrumental.mp3")) &&
-      existsSync(path.join(songsDir, s.id, "melody.json")),
-  );
-  const pool = onDisk.length > 0 ? onDisk : SONGS;
+function songPool(): SongMeta[] {
+  const testFile = songFile(TEST_SONG.id, "instrumental.mp3");
+  if (useTestSong() && testFile) return [TEST_SONG];
+  const onDisk = SONGS.filter((s) => songAssetsDir(s.id));
+  return onDisk.length > 0 ? onDisk : SONGS;
+}
+
+function resolvedMeta(song: SongMeta): SongMeta {
+  return metaFromDisk(song.id) ?? song;
+}
+
+/** Ranked always plays a 30s Viva La Vida clip so a demo can finish. Duet/Chaos stay random. */
+function pickSong(kind: "ranked" | "full" = "full"): SongMeta {
+  const pool = songPool();
+  if (pool.length === 0) return TEST_SONG;
+  if (kind === "ranked") {
+    const viva = SONGS.find((s) => s.id === RankedDemoSongId);
+    if (viva) return resolvedMeta(viva);
+  }
   const song = pool[Math.floor(Math.random() * pool.length)];
   if (!song) return TEST_SONG;
-  return metaFromDisk(song.id) ?? song;
+  return resolvedMeta(song);
 }
 
 function songFor(room: Room): SongMeta | undefined {
@@ -243,8 +229,8 @@ export function startMatch(io: Server, room: Room): void {
   room.settled = false;
   room.rematchAtMs = null;
 
-  const song = pickSong();
   const isDuet = room.mode === "duet";
+  const song = pickSong(isDuet ? "full" : "ranked");
   const window = clipWindow(song, isDuet ? "duet" : "ranked");
   room.songId = song.id;
   room.status = "countdown";
@@ -562,7 +548,7 @@ function playChaosSong(io: Server, room: Room): void {
     stopChaos(io, room);
     return;
   }
-  const song = pickSong();
+  const song = pickSong("full");
   const window = clipWindow(song, "duet");
   room.songId = song.id;
   room.status = "live";
