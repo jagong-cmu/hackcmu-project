@@ -75,9 +75,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
       return Math.min(1, Math.pow(rms / 0.07, 0.62));
     };
 
+    // A wide, shallow envelope. At 3.6 the ribbon bunched into a bright knot
+    // across the middle third; this carries it out to the edges instead.
     const envelope = (t: number) => {
       const d = (t - 0.5) * 2;
-      return Math.exp(-d * d * 3.6);
+      return Math.exp(-d * d * 1.35);
     };
 
     const stroke = (
@@ -132,11 +134,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
       ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
 
-      const amp = h * 0.2 * shown;
+      const amp = h * 0.12 * shown;
 
-      stroke(ctx, w, h, amp * 1.05, 1.15, 0, "rgba(70, 170, 255, 0.28)", Math.max(10, h * 0.035), 28);
-      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, "rgba(120, 210, 255, 0.55)", Math.max(3, h * 0.01), 18);
-      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, "rgba(160, 230, 255, 0.4)", Math.max(2, h * 0.007), 12);
+      stroke(ctx, w, h, amp * 1.05, 1.15, 0, "rgba(70, 170, 255, 0.16)", Math.max(12, h * 0.042), 46);
+      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, "rgba(120, 210, 255, 0.26)", Math.max(4, h * 0.013), 34);
+      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, "rgba(160, 230, 255, 0.18)", Math.max(3, h * 0.009), 26);
       stroke(
         ctx,
         w,
@@ -145,11 +147,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
         1.05,
         0.2,
         // Blue only — this stroke was pink, the one warm note in the palette.
-        `rgba(120, 190, 255, ${0.4 + shown * 0.5})`,
-        Math.max(1.5, h * 0.0055),
-        16,
+        `rgba(120, 190, 255, ${0.18 + shown * 0.26})`,
+        Math.max(2, h * 0.007),
+        30,
       );
-      stroke(ctx, w, h, amp * 0.18, 0.9, 0, "rgba(242, 248, 255, 0.85)", Math.max(1.2, h * 0.004), 8);
+      stroke(ctx, w, h, amp * 0.18, 0.9, 0, "rgba(242, 248, 255, 0.34)", Math.max(1.4, h * 0.005), 20);
 
       ctx.globalCompositeOperation = "source-over";
       ctx.shadowBlur = 0;

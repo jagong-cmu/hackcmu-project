@@ -951,3 +951,82 @@ select:focus {
   .shell > .back { left: 20px; top: 20px; }
   .ready-meta { align-items: center; text-align: center; }
 }
+
+/* ------------------------------------------------- training: one screen --
+ * Everything fits the viewport; the page never scrolls. The pitch staff takes
+ * whatever is left after the fixed-size rows, so the layout absorbs a taller
+ * or shorter window instead of pushing a scrollbar.
+ */
+.page.shell.training {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 14px;
+}
+.training .shell-inner {
+  /* Clears the absolutely-positioned page head. */
+  margin: 104px auto 0;
+  height: calc(100dvh - 118px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(62rem, 100%);
+}
+.training .tag { margin: 0 0 2px; }
+.training .song-pick { flex: none; margin: 0; }
+
+/* The lyric block keeps its own space; the staff takes the remainder. */
+.training .lyrics {
+  flex: none;
+  min-height: 5.2rem;
+  margin: 2px 0;
+}
+.training .pitch-stage {
+  flex: 1 1 auto;
+  /* .shell-inner centres its children, so without this the staff shrinks to
+     its content width instead of filling the column. */
+  width: 100%;
+  align-self: stretch;
+  /* A floor: flex: 1 with min-height 0 let it flatten to nothing on a short
+     window, which is worse than trimming a row elsewhere. */
+  min-height: 170px;
+  display: flex;
+}
+.training .pitch-guide {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+/* Secondary rows shrink so the staff keeps the room. */
+.training .stage-self { flex: none; flex-direction: row; align-items: center; gap: 10px; }
+.training .stage-self video,
+.training .avatar-tile { width: 108px; height: 66px; border-radius: 10px; }
+.training .stage-self p { margin: 0; font-size: 0.85rem; }
+.training .status { flex: none; margin: 0; font-size: 0.85rem; }
+.training .ctas { flex: none; margin: 2px 0 0; }
+
+/* The ribbon draws down the middle of its canvas, which on this page is the
+   top edge of the staff. Drop it so it runs behind the staff instead. */
+.training .voice-wave { transform: translateY(13%); }
+
+/* Shorter windows: give the staff a floor and let the rest compress. */
+/* Shorter windows: trim the fixed rows, never the staff. */
+@media (max-height: 820px) {
+  .training .shell-inner { margin-top: 84px; height: calc(100dvh - 96px); gap: 4px; }
+  .training .lyrics { min-height: 3.4rem; margin: 0; }
+  .training .lyrics-now { font-size: clamp(1.5rem, 3.4vw, 2.4rem); }
+  .training .lyrics-next { font-size: 0.95rem; }
+  .training .stage-self video,
+  .training .avatar-tile { width: 84px; height: 52px; }
+  .training .tag { display: none; }
+  .training .voice-wave { transform: translateY(11%); }
+}
+
+/* Very short: the camera tile is the least load-bearing thing on the page. */
+@media (max-height: 680px) {
+  .training .stage-self { display: none; }
+  .training .lyrics { min-height: 2.8rem; }
+}
