@@ -1,7 +1,7 @@
 /* Palette and theming live in theme/theme.css. This file is layout and type. */
 
 * { box-sizing: border-box; }
-html, body, #root { min-height: 100%; margin: 0; }
+html, body, #root { min-height: 100%; margin: 0; overflow-x: hidden; }
 body { background: var(--stage); }
 
 a { color: var(--fg); }
@@ -68,11 +68,13 @@ button, input, select { font: inherit; }
   outline: none;
 }
 
-.quiet { max-width: 28rem; }
+.quiet { max-width: none; }
+.page { display: flex; flex-direction: column; }
 .display,
 .quiet h1,
 .row-head h1,
 .page-head h1,
+.shell-inner h1,
 .results h1,
 .results h2,
 .lyrics-now,
@@ -83,7 +85,8 @@ button, input, select { font: inherit; }
 }
 .quiet h1,
 .row-head h1,
-.page-head h1 {
+.page-head h1,
+.shell-inner h1 {
   font-size: clamp(2.8rem, 6vw, 4rem);
   margin: 48px 0 8px;
   color: var(--cream);
@@ -91,7 +94,7 @@ button, input, select { font: inherit; }
 }
 .tag { margin: 0 0 8px; color: var(--mute); max-width: 24rem; }
 
-.play-page { max-width: 36rem; }
+.play-page { max-width: none; }
 .play-choices {
   display: flex;
   flex-direction: column;
@@ -260,7 +263,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
   color: var(--mute);
 }
 
-.stage-self { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.stage-self { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 16px auto 0; }
 .stage-self video, .avatar-tile {
   width: 180px;
   height: 120px;

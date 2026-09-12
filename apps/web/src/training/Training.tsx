@@ -1,6 +1,6 @@
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { MelodyFile, ScoreCard, SongMeta } from "@karaoke/shared";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
@@ -17,7 +17,7 @@ import {
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
-import { WaveField } from "../theme/WaveField.tsx";
+import { PageShell } from "../theme/PageShell.tsx";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -304,15 +304,13 @@ export function Training() {
   const nameOk = validName(getDisplayName());
 
   return (
-    <main className="page training wave-page">
-      <WaveField />
-      <header className="page-head">
-        <h1>Training</h1>
-        <Link to="/" className="back">
-          Home
-        </Link>
-      </header>
-
+    <PageShell
+      title="Training"
+      tag="Pick a song, then sing. The wave behind you is your mic."
+      wide
+      className="training"
+      level={Math.min(1, liveRms / 0.07)}
+    >
       <label className="song-pick">
         Song
         <select
@@ -334,7 +332,7 @@ export function Training() {
         </select>
       </label>
 
-      {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
+      {!nameOk ? <p className="err">Set a display name in Settings first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
       <LyricsOverlay lrc={lrc} currentTime={playhead} />
@@ -359,12 +357,12 @@ export function Training() {
 
       <p className="status">{status}</p>
       <div className="ctas">
-        <button type="button" className="btn gold" disabled={running || !meta || !nameOk} onClick={() => void start()}>
+        <button type="button" className="cta" disabled={running || !meta || !nameOk} onClick={() => void start()}>
           Start
         </button>
         <button
           type="button"
-          className="btn ghost"
+          className="cta cta-ghost"
           disabled={running || !meta}
           onClick={() => {
             if (previewing) stopPreview();
@@ -375,7 +373,7 @@ export function Training() {
         </button>
         <button
           type="button"
-          className="btn ghost"
+          className="cta cta-ghost"
           disabled={!running}
           onClick={() => endRef.current?.()}
         >
@@ -393,6 +391,6 @@ export function Training() {
           }}
         />
       ) : null}
-    </main>
+    </PageShell>
   );
 }

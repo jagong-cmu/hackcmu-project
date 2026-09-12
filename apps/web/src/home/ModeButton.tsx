@@ -32,10 +32,19 @@ function sparkStyle(i: number): React.CSSProperties {
   } as React.CSSProperties;
 }
 
-export function ModeButton({ label, onSelect }: { label: string; onSelect: () => void }) {
+export function ModeButton({
+  label,
+  hint,
+  onSelect,
+}: {
+  label: string;
+  hint?: string;
+  onSelect: () => void;
+}) {
   return (
     <button type="button" className="mode" onClick={onSelect}>
       {label}
+      {hint ? <span className="mode-hint">{hint}</span> : null}
       <span className="sparks" aria-hidden="true">
         {Array.from({ length: SPARKS }, (_, i) => (
           <i key={i} style={sparkStyle(i)} />

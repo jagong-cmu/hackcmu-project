@@ -70,17 +70,17 @@ export function ResultsModal({
         {you.verdict ? <p className="verdict">{you.verdict}</p> : null}
         <div className="result-actions">
           {onAgain ? (
-            <button type="button" className="btn gold" onClick={onAgain}>
+            <button type="button" className="cta" onClick={onAgain}>
               Sing again
             </button>
           ) : null}
           {onRematch ? (
-            <button type="button" className="btn gold" onClick={onRematch}>
+            <button type="button" className="cta" onClick={onRematch}>
               Rematch
             </button>
           ) : null}
           {onHome ? (
-            <button type="button" className="btn ghost" onClick={onHome}>
+            <button type="button" className="cta cta-ghost" onClick={onHome}>
               Home
             </button>
           ) : null}

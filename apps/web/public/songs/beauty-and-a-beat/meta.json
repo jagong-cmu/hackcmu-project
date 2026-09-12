@@ -2,9 +2,9 @@
   "id": "beauty-and-a-beat",
   "title": "Beauty And A Beat",
   "artist": "Justin Bieber",
-  "clipStartSec": 45.2,
-  "clipDurationSec": 30.4,
-  "duetClipStartSec": 45.2,
-  "duetClipDurationSec": 45,
+  "clipStartSec": 0,
+  "clipDurationSec": 75.6,
+  "duetClipStartSec": 0,
+  "duetClipDurationSec": 75.6,
   "chaosDurationSec": 60
 }

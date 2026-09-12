@@ -3,7 +3,7 @@
  *
  * One viewport: two large face cams on top, lyrics and pitch underneath.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChaosCap, chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
@@ -15,6 +15,7 @@ import { useSharedClock } from "./useSharedClock.ts";
 import TurnBadge from "./TurnBadge.tsx";
 import ClipTimer from "./ClipTimer.tsx";
 import TurnOverlay from "./TurnOverlay.tsx";
+import { VoiceWave } from "../theme/VoiceWave.tsx";
 
 export default function Stage() {
   const { code = DemoRoomCode } = useParams();
@@ -23,6 +24,7 @@ export default function Stage() {
   const slots = useStageSlots();
   const { audioRef, blocked, unlock, playing } = useSharedClock(clockPlay);
   const [copied, setCopied] = useState(false);
+  const [tappedReady, setTappedReady] = useState(false);
   const [duetVoice, setDuetVoice] = useState<DuetVoiceCue | null>(null);
   const reportDuetVoice = useCallback((voice: DuetVoiceCue | null) => {
     setDuetVoice((prev) => (prev === voice ? prev : voice));
@@ -30,22 +32,17 @@ export default function Stage() {
 
   const identity = me?.clientId ?? null;
   const livekit = useLiveKit(code, identity, me?.displayName ?? "Singer");
-  const joinAttempt = useRef<string | null>(null);
-
-  useEffect(() => {
-    joinAttempt.current = null;
-  }, [code]);
 
   useEffect(() => {
     if (!connected || !me) return;
-    if (room?.code === code) {
-      joinAttempt.current = code;
-      return;
-    }
-    if (joinAttempt.current === code) return;
-    joinAttempt.current = code;
-    if (isPublicChaosCode(code)) chaosJoin(code);
-    else roomJoin(code);
+    if (room?.code === code) return;
+    const join = () => {
+      if (isPublicChaosCode(code)) chaosJoin(code);
+      else roomJoin(code);
+    };
+    join();
+    const id = window.setInterval(join, 800);
+    return () => window.clearInterval(id);
   }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin]);
 
   const isChaos = room?.mode === "chaos";
@@ -108,8 +105,17 @@ export default function Stage() {
   const onReady = () => {
     unlock();
     void livekit.startAudio();
+    setTappedReady(true);
     ready();
   };
+
+  useEffect(() => {
+    setTappedReady(false);
+  }, [code]);
+
+  useEffect(() => {
+    if (room?.status === "results") setTappedReady(false);
+  }, [room?.status]);
 
   useEffect(() => {
     if (livekit.status !== "connected") return;
@@ -125,10 +131,30 @@ export default function Stage() {
   };
 
   const seated = room?.players.map((p) => p.displayName).join(" vs ") ?? "joining…";
+  const meSeated = room?.players.find((p) => p.id === me?.id);
+  const meReady = Boolean(meSeated?.ready) || tappedReady;
+  const others = room?.players.filter((p) => p.id !== me?.id) ?? [];
+  const waitingFor = others.find((p) => !p.ready);
+  const otherReady = others.length > 0 && others.every((p) => p.ready);
+  const readyLabel = showResults ? "Rematch" : meReady ? "You're ready" : "I'm ready";
+  const readyHint = !room
+    ? "Joining the room…"
+    : room.players.length < 2
+      ? "Waiting for someone to sit down"
+      : showResults
+        ? "Same pair, new song — both tap Rematch."
+        : meReady && waitingFor
+          ? `Waiting for ${waitingFor.displayName}`
+          : !meReady && otherReady
+            ? `${others[0]?.displayName ?? "They"} are ready — tap when you are`
+            : !meReady
+              ? "Tap I’m ready. The match starts when you both are."
+              : "Here we go…";
 
   return (
     <StageContext.Provider value={stageValue}>
       <div className="stage stage-fit">
+        <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
           <Link to="/" onClick={() => roomLeave()}>
             ← leave
@@ -227,7 +253,7 @@ export default function Stage() {
                 <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
               ) : (
                 <div className="timer timer-compact ghost">
-                  {inLobby ? "Waiting for Ready" : "\u00a0"}
+                  {inLobby ? (meReady ? "You're ready" : "Tap I’m ready below") : "\u00a0"}
                 </div>
               )}
               <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
@@ -250,16 +276,33 @@ export default function Stage() {
 
         {!isChaos && (
           <div className="stage-dock">
-            <button
-              className="primary"
-              onClick={onReady}
-              disabled={!room || (!inLobby && !showResults)}
-            >
-              {showResults ? "Rematch" : "Ready"}
-            </button>
-            <span>
-              {room ? `${room.players.length}/2 · ${seated}` : "joining…"}
-            </span>
+            {inLobby || showResults ? (
+              <button
+                type="button"
+                className={`cta cta-lg ${!showResults && meReady ? "is-on" : ""}`}
+                onClick={onReady}
+                disabled={!room || (!showResults && meReady)}
+              >
+                {readyLabel}
+              </button>
+            ) : null}
+            <div className="ready-meta">
+              <p>{inLobby || showResults ? readyHint : seated}</p>
+              {room && (inLobby || showResults) ? (
+                <div className="ready-chips">
+                  {room.players.map((p) => {
+                    const on = p.id === me?.id ? meReady : Boolean(p.ready);
+                    return (
+                      <span key={p.id} className={on ? "ready-chip on" : "ready-chip"}>
+                        <i />
+                        {p.displayName}
+                        {on ? " ready" : " not ready"}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           </div>
         )}
 

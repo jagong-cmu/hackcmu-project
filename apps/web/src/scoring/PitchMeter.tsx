@@ -7,10 +7,8 @@ import {
   TRAIL_SEC,
   createPitchSmoothState,
   melodyRange,
-  noteName,
   segmentMelody,
   smoothLivePitch,
-  windowedMelodyRange,
   type NoteRun,
 } from "./pitchGuide.ts";
 
@@ -93,14 +91,9 @@ function paint(
   ctx.fillRect(0, 0, w, h);
 
   const tNow = props.playheadSec;
-  const tune = windowedMelodyRange(runs, tNow, LOOKBEHIND_SEC, LOOKAHEAD_SEC, smooth.midi);
-  // Zoom onto the notes in frame. View edges ease so a sudden high/low note
-  // does not jump the staff.
-  const view = viewRef;
-  view.min += (tune.min - view.min) * 0.12;
-  view.max += (tune.max - view.max) * 0.12;
-  const min = view.min;
-  const max = view.max;
+  // Fixed staff: the whole song's range, never a per-window zoom.
+  const min = viewRef.min;
+  const max = viewRef.max;
   const span = Math.max(1, max - min);
   const yPad = 28;
   const yOf = (midi: number) => {
@@ -153,13 +146,6 @@ function paint(
         : pal.ink(0.28);
     roundRect(ctx, x1, y - rh / 2, rw, rh, Math.min(8, rh / 2));
     ctx.fill();
-    if (rw > 44) {
-      ctx.fillStyle = active || upcoming ? pal.bg : pal.ink(0.55);
-      ctx.font = `700 ${Math.max(13, Math.round(rh * 0.42))}px Outfit, sans-serif`;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(noteName(run.midi), x1 + 10, y + 1);
-    }
   }
 
   const targetHz = props.melody ? melodyHzAt(props.melody, tNow) : null;
@@ -270,16 +256,6 @@ function paint(
 
   ctx.fillStyle = live.inTune ? headHue : pal.ink(0.8);
   ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
-
-  // The indicator is octave-folded onto the tune, so label the note actually
-  // sung. Otherwise a bass reads "G4" while singing G2.
-  if (live.tracking && live.rawMidi != null) {
-    ctx.fillStyle = pal.bg;
-    ctx.font = "700 14px Outfit, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(noteName(live.rawMidi), 8 + (RAIL - 16) / 2, y + 1);
-  }
 
   ctx.save();
   ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.45);

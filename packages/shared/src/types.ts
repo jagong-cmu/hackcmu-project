@@ -32,6 +32,8 @@ export type PlayerPublic = {
   clientId: string;
   displayName: string;
   elo: number;
+  /** Lobby only. Omitted on player:ok (not seated yet). */
+  ready?: boolean;
 };
 
 export type RoomStatus =

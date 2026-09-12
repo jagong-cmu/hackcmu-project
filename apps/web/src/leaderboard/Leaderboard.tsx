@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bloom } from "../theme/Bloom.tsx";
-import { Link } from "react-router-dom";
 import { songById } from "@karaoke/shared";
+import { PageShell } from "../theme/PageShell.tsx";
 
 type RankedRow = { rank: number; displayName: string; elo: number; matchesPlayed: number };
 type DuetRow = { rank: number; songId: string; names: [string, string]; score: number };
@@ -24,14 +23,7 @@ export function Leaderboard() {
   }, []);
 
   return (
-    <main className="page bloom-page">
-      <Bloom />
-      <header className="page-head">
-        <h1>Leaderboard</h1>
-        <Link to="/" className="back">
-          Home
-        </Link>
-      </header>
+    <PageShell title="Leaderboard" tag="Who’s been singing." wide quietWave>
       {!mongo ? <p className="dim">Atlas is off, so the ladder is empty.</p> : null}
       <div className="tabs">
         <button type="button" className={tab === "ranked" ? "on" : ""} onClick={() => setTab("ranked")}>
@@ -52,14 +44,22 @@ export function Leaderboard() {
             </tr>
           </thead>
           <tbody>
-            {ranked.map((r) => (
-              <tr key={`${r.rank}-${r.displayName}`}>
-                <td>{r.rank}</td>
-                <td>{r.displayName}</td>
-                <td>{r.elo}</td>
-                <td>{r.matchesPlayed}</td>
+            {ranked.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="dim">
+                  No ranked matches yet.
+                </td>
               </tr>
-            ))}
+            ) : (
+              ranked.map((r) => (
+                <tr key={`${r.rank}-${r.displayName}`}>
+                  <td>{r.rank}</td>
+                  <td>{r.displayName}</td>
+                  <td>{r.elo}</td>
+                  <td>{r.matchesPlayed}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       ) : (
@@ -73,17 +73,25 @@ export function Leaderboard() {
             </tr>
           </thead>
           <tbody>
-            {duet.map((r) => (
-              <tr key={`${r.rank}-${r.names.join("-")}-${r.songId}`}>
-                <td>{r.rank}</td>
-                <td>{r.names.join(" + ")}</td>
-                <td>{songById(r.songId)?.title ?? r.songId}</td>
-                <td>{r.score}</td>
+            {duet.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="dim">
+                  No duet scores yet.
+                </td>
               </tr>
-            ))}
+            ) : (
+              duet.map((r) => (
+                <tr key={`${r.rank}-${r.names.join("-")}-${r.songId}`}>
+                  <td>{r.rank}</td>
+                  <td>{r.names.join(" + ")}</td>
+                  <td>{songById(r.songId)?.title ?? r.songId}</td>
+                  <td>{r.score}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       )}
-    </main>
+    </PageShell>
   );
 }

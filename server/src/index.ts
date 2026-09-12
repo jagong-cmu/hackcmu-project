@@ -6,7 +6,6 @@
  * Never touches Gemini or Mongo — that is Lane B (TECHNICAL_PRD §4).
  */
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -36,6 +35,7 @@ import {
   isFull,
   removePlayer,
   resetToLobby,
+  toPublic,
   type Room,
 } from "./rooms.ts";
 import {
@@ -43,12 +43,21 @@ import {
   catchUpClock,
   everyoneReady,
   forfeitFor,
+  publicClock,
+  publicScores,
   recordScore,
   startChaos,
   startMatch,
   stopChaos,
 } from "./clock.ts";
 import { dequeue, enqueue, isQueueMode, park, queueLength, type Waiting } from "./matchmaking.ts";
+import {
+  ensureRoom,
+  findOpenPair,
+  forgetWaiter,
+  seatPairOnThisIsolate,
+  sharedPairOrWait,
+} from "./liveState.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
@@ -148,8 +157,35 @@ app.post("/api/livekit/token", async (req, res) => {
  * `recordScore(...)` call — it is what advances Lane A's turn machine.
  * ──────────────────────────────────────────────────────────────────────────
  */
+app.get("/api/rooms/:code", async (req, res) => {
+  const room = await ensureRoom(req.params.code);
+  if (!room) {
+    res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
+    return;
+  }
+  const scores = publicScores(room);
+  const [a, b] = room.players;
+  let winnerId: string | null = null;
+  if (a && b && room.settled) {
+    const sa = scores[a.id]?.overall ?? 0;
+    const sb = scores[b.id]?.overall ?? 0;
+    if (sa > sb) winnerId = a.id;
+    else if (sb > sa) winnerId = b.id;
+  }
+  res.json({
+    room: toPublic(room),
+    clock: publicClock(room),
+    scores,
+    settled: room.settled,
+    matchOver:
+      room.status === "results" && room.settled
+        ? { scores, winnerId, eloDelta: room.lastEloDelta ?? 0 }
+        : null,
+  });
+});
+
 app.post("/api/turns/:roomId/score", async (req, res) => {
-  const room = getRoom(req.params.roomId);
+  const room = (await ensureRoom(req.params.roomId)) ?? getRoom(req.params.roomId);
   if (!room) {
     res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
     return;
@@ -260,6 +296,28 @@ function socketIsLive(socketId: string): boolean {
   return Boolean(io.sockets.sockets.get(socketId)?.connected && sessionOf(socketId));
 }
 
+async function deliverMatch(
+  mode: Extract<Mode, "ranked" | "duet">,
+  code: string,
+  pair: [Waiting, Waiting],
+  socket: { id: string; emit: (e: string, p: unknown) => void },
+): Promise<void> {
+  const room = (await ensureRoom(code)) ?? getRoom(code) ?? createRoom(mode, code);
+  await seatPairOnThisIsolate(room, pair, seat);
+  seat(socket.id, room);
+  socket.emit(ServerEvents.matchFound, { code: room.code, mode });
+  for (const person of pair) {
+    if (person.socketId === socket.id || !socketIsLive(person.socketId)) continue;
+    io.to(person.socketId).emit(ServerEvents.matchFound, {
+      code: room.code,
+      mode,
+    });
+    catchUpClock(io, room, person.socketId);
+  }
+  catchUpClock(io, room, socket.id);
+  broadcastState(io, room);
+}
+
 /** Seat both players and tell them. Returns false if either seat failed. */
 function announceQueueMatch(
   mode: Extract<Mode, "ranked" | "duet">,
@@ -304,7 +362,7 @@ io.on("connection", (socket) => {
       existing && existing.clientId === clientId
         ? { ...existing, displayName: name }
         : {
-            playerId: randomUUID(),
+            playerId: clientId,
             clientId,
             displayName: name,
             elo: existing?.elo ?? StartingElo,
@@ -349,14 +407,12 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on(ClientEvents.queueJoin, (payload: unknown) => {
+  socket.on(ClientEvents.queueJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
     const mode = ((payload ?? {}) as { mode?: Mode }).mode ?? "ranked";
     if (!isQueueMode(mode)) return fail(socket, "BAD_MODE", "ranked or duet only");
-
-    leaveCurrentRoom(socket.id);
 
     const waiting: Waiting = {
       socketId: socket.id,
@@ -364,6 +420,40 @@ io.on("connection", (socket) => {
       displayName: session.displayName,
       elo: session.elo,
     };
+
+    const ticket = await findOpenPair(session.clientId, mode);
+    if (ticket) {
+      await deliverMatch(mode, ticket.code, [ticket.a, ticket.b], socket);
+      return;
+    }
+
+    if (session.roomCode) {
+      const current = (await ensureRoom(session.roomCode)) ?? getRoom(session.roomCode);
+      if (
+        current &&
+        current.mode === mode &&
+        current.players.some((p) => p.clientId === session.clientId) &&
+        current.players.length === 2
+      ) {
+        socket.emit(ServerEvents.matchFound, { code: current.code, mode });
+        catchUpClock(io, current, socket.id);
+        broadcastState(io, current);
+        return;
+      }
+      leaveCurrentRoom(socket.id);
+    }
+
+    const shared = await sharedPairOrWait(mode, waiting);
+    if (shared && shared !== "waiting") {
+      dequeue(socket.id);
+      await deliverMatch(mode, shared.code, shared.pair, socket);
+      return;
+    }
+    if (shared === "waiting") {
+      socket.emit(ServerEvents.queueWaiting, { mode, waiting: Math.max(1, queueLength(mode)) });
+      return;
+    }
+
     const match = enqueue(mode, waiting, socketIsLive);
     if (!match) {
       socket.emit(ServerEvents.queueWaiting, { mode, waiting: queueLength(mode) });
@@ -371,8 +461,6 @@ io.on("connection", (socket) => {
     }
     if (announceQueueMatch(mode, match.room, match.pair)) return;
 
-    // A socket dropped between dequeue and seat. Put whoever is still here
-    // back in line so the next joiner is not stuck behind a ghost.
     for (const person of match.pair) {
       if (!socketIsLive(person.socketId)) continue;
       const retry = enqueue(mode, person, socketIsLive);
@@ -410,12 +498,12 @@ io.on("connection", (socket) => {
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
   });
 
-  socket.on(ClientEvents.roomJoin, (payload: unknown) => {
+  socket.on(ClientEvents.roomJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
     const code = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
-    const room = getRoom(code);
+    const room = (await ensureRoom(code)) ?? getRoom(code);
     if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
 
     if (session.roomCode === room.code) {
@@ -430,7 +518,7 @@ io.on("connection", (socket) => {
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
   });
 
-  socket.on(ClientEvents.chaosJoin, (payload: unknown) => {
+  socket.on(ClientEvents.chaosJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
@@ -439,7 +527,7 @@ io.on("connection", (socket) => {
       return fail(socket, "BAD_CODE", "enter a 4-digit code");
     }
 
-    let room = raw ? getRoom(raw) : findOpenPublicChaosLounge();
+    let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : findOpenPublicChaosLounge();
     if (raw) {
       if (room && room.mode !== "chaos") {
         return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
@@ -472,7 +560,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on(ClientEvents.queueLeave, () => {
+    const session = sessionOf(socket.id);
     dequeue(socket.id);
+    void forgetWaiter({ socketId: socket.id });
+    if (session) void forgetWaiter({ clientId: session.clientId });
   });
 
   socket.on(ClientEvents.roomLeave, () => {
@@ -480,20 +571,29 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
   });
 
-  socket.on(ClientEvents.roomReady, () => {
+  socket.on(ClientEvents.roomReady, async () => {
     const session = sessionOf(socket.id);
-    const room = roomOfSession(session);
-    if (!session || !room) return fail(socket, "NOT_IN_ROOM", "join a room first");
+    if (!session) return fail(socket, "NOT_IN_ROOM", "join a room first");
+    const room = session.roomCode
+      ? ((await ensureRoom(session.roomCode)) ?? roomOfSession(session))
+      : roomOfSession(session);
+    if (!room) return fail(socket, "NOT_IN_ROOM", "join a room first");
     if (room.mode === "chaos") return;
 
     // Ready pressed on the results screen means rematch: same pair, new song.
     if (room.status === "results") resetToLobby(room);
 
-    const player = room.players.find((p) => p.id === session.playerId);
-    if (player) player.ready = true;
+    const player = room.players.find((p) => p.clientId === session.clientId);
+    if (player) {
+      player.ready = true;
+      player.connected = true;
+    }
 
-    if (everyoneReady(room)) startMatch(io, room);
-    else broadcastState(io, room);
+    if (room.status === "lobby" && everyoneReady(room)) startMatch(io, room);
+    else {
+      catchUpClock(io, room, socket.id);
+      broadcastState(io, room);
+    }
   });
 
   socket.on(ClientEvents.pitchLive, (payload: unknown) => {
@@ -522,6 +622,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     dequeue(socket.id);
+    void forgetWaiter({ socketId: socket.id });
     leaveCurrentRoom(socket.id);
     sessions.delete(socket.id);
   });

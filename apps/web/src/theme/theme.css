@@ -341,6 +341,20 @@ select:focus {
   font-size: clamp(2.4rem, 5.4vw, 4rem);
   line-height: 1.02;
   transition: text-shadow 200ms ease, border-color 200ms ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 10px;
+}
+.mode-hint {
+  display: block;
+  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--fg-dim);
+  margin-top: 2px;
 }
 
 /*
@@ -627,3 +641,377 @@ select:focus {
 /* Content sits above the field. */
 .page.wave-page { position: relative; }
 .page.wave-page > *:not(.wavefield) { position: relative; z-index: 1; }
+
+/* ---------------------------------------------------------- voice wave -- */
+
+.voice-wave {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.bloom-page > .voice-wave {
+  position: fixed;
+  z-index: 0;
+}
+.voice-wave.quiet { opacity: 0.32; }
+.stage .voice-wave {
+  position: absolute;
+  z-index: 0;
+}
+
+/* ---------------------------------------------------------- page shell -- */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.shell > .back {
+  position: absolute;
+  top: 28px;
+  left: 40px;
+  z-index: 2;
+}
+.shell-inner {
+  width: min(42rem, 100%);
+  margin: 72px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.shell-inner.wide { width: min(56rem, 100%); }
+.shell-inner h1 {
+  margin: 0 0 8px;
+  text-align: center;
+}
+.shell-inner .tag {
+  margin: 0 0 8px;
+  max-width: 32rem;
+  text-align: center;
+}
+
+/* Prominent actions — filled pills, not leftover underlined text. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 14px 28px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--blue-050);
+  color: #06101f;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  max-width: 22rem;
+  transition: box-shadow 160ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
+}
+.cta:hover,
+.cta:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-hard);
+  transform: translateY(-1px);
+  background: #ffffff;
+  color: #06101f;
+}
+.cta-ghost {
+  background: rgba(12, 19, 32, 0.72);
+  color: var(--fg);
+  border-color: var(--edge);
+}
+.cta-ghost:hover,
+.cta-ghost:focus-visible {
+  background: rgba(18, 28, 46, 0.95);
+  color: var(--fg);
+  border-color: var(--blue-300);
+}
+.cta:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.cta-lg {
+  min-height: 64px;
+  font-size: 1.15rem;
+  max-width: 26rem;
+}
+.cta.is-on {
+  background: var(--blue-400);
+  color: #fff;
+  box-shadow: var(--glow-hard);
+  cursor: default;
+}
+.cta.is-on:disabled {
+  opacity: 1;
+}
+.cta.is-on:hover,
+.cta.is-on:focus-visible {
+  background: var(--blue-400);
+  color: #fff;
+  transform: none;
+}
+
+.code-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  align-items: stretch;
+  margin-top: 4px;
+}
+.code-form input {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  font-size: 1.35rem;
+  letter-spacing: 0.28em;
+  font-family: "Bebas Neue", sans-serif;
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: rgba(4, 6, 12, 0.45);
+}
+.code-form .cta {
+  width: 100%;
+  max-width: none;
+  flex: none;
+  padding: 14px 22px;
+}
+
+.play-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 100%;
+  margin-top: 36px;
+  text-align: left;
+}
+.play-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 28px 24px 24px;
+  min-height: 280px;
+}
+.play-choice h2 {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  margin: 0;
+  text-align: center;
+}
+.play-choice p {
+  margin: 0;
+  color: var(--fg-dim);
+  text-align: center;
+  flex: 1;
+}
+.play-choice .cta { max-width: none; margin-top: 4px; }
+.play-waiting {
+  grid-column: 1 / -1;
+  min-height: 220px;
+  align-items: center;
+  text-align: center;
+  max-width: 32rem;
+  margin: 0 auto;
+  width: 100%;
+}
+.play-hint {
+  margin-top: 8px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  align-self: center;
+}
+.play-hint:hover,
+.play-hint:focus-visible { color: var(--fg); outline: none; }
+.play-hint:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.shell-inner .dim,
+.shell-inner .status,
+.shell-inner .err {
+  text-shadow: 0 1px 10px #04060c, 0 0 18px #04060c;
+}
+.settings-form {
+  width: min(22rem, 100%);
+  margin: 36px auto;
+  text-align: left;
+}
+.settings-form .cta { max-width: none; }
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24px;
+  width: 100%;
+}
+.ctas .cta {
+  width: auto;
+  min-width: 10rem;
+  max-width: none;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 0;
+  margin: 24px auto;
+  padding: 4px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: rgba(9, 14, 24, 0.7);
+}
+.tabs button {
+  background: none;
+  color: var(--fg-dim);
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.tabs button.on {
+  color: #06101f;
+  background: var(--blue-050);
+  border-bottom-color: transparent;
+}
+
+.board {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  background: rgba(4, 6, 12, 0.88);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: center;
+}
+.result-actions .cta {
+  width: auto;
+  min-width: 9rem;
+  max-width: none;
+}
+
+.stage-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 22px;
+  padding: 8px 0 4px;
+}
+.stage-dock .cta {
+  width: auto;
+  min-width: 14rem;
+}
+.ready-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.ready-meta p {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 0.92rem;
+}
+.ready-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ready-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--edge);
+  background: rgba(9, 14, 24, 0.7);
+  font-size: 0.82rem;
+  color: var(--fg-dim);
+}
+.ready-chip.on {
+  color: var(--fg);
+  border-color: var(--blue-300);
+  box-shadow: 0 0 16px rgba(79, 151, 245, 0.35);
+}
+.ready-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-faint);
+}
+.ready-chip.on i {
+  background: var(--blue-200);
+  box-shadow: 0 0 8px rgba(168, 208, 255, 0.9);
+}
+
+.room-code-bar {
+  justify-content: center;
+  padding: 6px 0;
+}
+.room-code-bar button {
+  border-radius: 999px;
+}
+
+.training .lyrics,
+.training .pitch-guide { width: 100%; }
+.training .pitch-guide { margin: 12px 0 8px; }
+.song-pick {
+  width: min(28rem, 100%);
+  margin: 8px auto 20px;
+  text-align: left;
+}
+.song-pick select {
+  width: 100%;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(9, 14, 24, 0.7);
+}
+.training .lyrics,
+.training .pitch-guide { width: 100%; }
+.training .pitch-guide { margin: 12px 0 8px; }
+
+@media (max-width: 760px) {
+  .play-choices { grid-template-columns: 1fr; }
+  .play-choice { min-height: 0; }
+  .code-form { flex-direction: column; }
+  .shell > .back { left: 20px; top: 20px; }
+  .ready-meta { align-items: center; text-align: center; }
+}

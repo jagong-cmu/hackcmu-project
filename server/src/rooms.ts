@@ -214,11 +214,12 @@ export function toPublic(room: Room): RoomState {
   return {
     code: room.code,
     mode: room.mode,
-    players: room.players.map(({ id, clientId, displayName, elo }) => ({
+    players: room.players.map(({ id, clientId, displayName, elo, ready }) => ({
       id,
       clientId,
       displayName,
       elo,
+      ready,
     })),
     songId: room.songId,
     status: room.status,

@@ -21,6 +21,7 @@ import {
   type Mode,
   type PlayerPublic,
   type RoomState,
+  type RoomStatus,
   type ScoreCard,
 } from "@karaoke/shared";
 import { getClientId, getDisplayName, setDisplayName, socket } from "./socket.ts";
@@ -78,6 +79,31 @@ export function useRoom(): RoomContextValue {
   return value;
 }
 
+const STATUS_ORDER: RoomStatus[] = [
+  "lobby",
+  "countdown",
+  "turnA",
+  "swap",
+  "turnB",
+  "live",
+  "results",
+];
+
+function mergeRoom(prev: RoomState | null, incoming: RoomState): RoomState {
+  if (!prev || prev.code !== incoming.code) return incoming;
+  if (prev.status === "results" && incoming.status === "lobby") return incoming;
+  if (incoming.status === "results") return incoming;
+  const ahead = STATUS_ORDER.indexOf(incoming.status) >= STATUS_ORDER.indexOf(prev.status);
+  return {
+    ...incoming,
+    status: ahead ? incoming.status : prev.status,
+    players: incoming.players.length >= prev.players.length ? incoming.players : prev.players,
+    songId: incoming.songId ?? prev.songId,
+    playAtUnixMs: incoming.playAtUnixMs ?? prev.playAtUnixMs,
+    activeSingerId: incoming.activeSingerId ?? prev.activeSingerId,
+  };
+}
+
 export function RoomProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [connected, setConnected] = useState(socket.connected);
@@ -111,9 +137,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
     const flushQueue = () => {
       const mode = wantQueueRef.current;
-      if (!mode || roomRef.current || joinSentRef.current) return;
+      if (!mode || roomRef.current) return;
       if (!socket.connected) return;
-      joinSentRef.current = true;
       socket.emit(ClientEvents.queueJoin, { mode });
     };
     flushQueueRef.current = flushQueue;
@@ -168,7 +193,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       goToRoom(code);
     };
     const onQueueWaiting = ({ mode }: { mode: Mode }) => {
-      joinSentRef.current = true;
       setQueuedMode(mode);
       setError(null);
     };
@@ -208,7 +232,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
     if (socket.connected) sayHello();
 
+    const queueBeat = window.setInterval(() => {
+      if (!wantQueueRef.current || roomRef.current) return;
+      flushQueueRef.current();
+    }, 1000);
+
     return () => {
+      window.clearInterval(queueBeat);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off(ServerEvents.playerOk, onPlayerOk);
@@ -222,6 +252,55 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       socket.off(ServerEvents.error, onError);
     };
   }, [navigate]);
+
+  useEffect(() => {
+    const pollCode = () => {
+      const fromRoom = roomRef.current?.code;
+      const fromPath = window.location.pathname.match(/^\/room\/([^/]+)/)?.[1];
+      return fromRoom || fromPath || null;
+    };
+
+    const tick = async () => {
+      const code = pollCode();
+      if (!code) return;
+      try {
+        const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          room?: RoomState;
+          clock?: ClockPlay | null;
+          scores?: Record<string, ScoreCard>;
+          matchOver?: MatchOver | null;
+        };
+        if (data.clock) setClockPlay(data.clock);
+        else if (
+          data.room &&
+          (data.room.status === "results" || data.room.status === "lobby")
+        ) {
+          setClockPlay(null);
+        }
+        if (data.room) {
+          setRoom((prev) => mergeRoom(prev, data.room!));
+          if (data.room.players.length > 0 && window.location.pathname.startsWith("/play")) {
+            wantQueueRef.current = null;
+            joinSentRef.current = false;
+            setQueuedMode(null);
+            navigate(`/room/${data.room.code}`);
+          }
+        }
+        if (data.scores && Object.keys(data.scores).length > 0) {
+          setScores((prev) => ({ ...prev, ...data.scores }));
+        }
+        if (data.matchOver) setMatchOver(data.matchOver);
+      } catch {
+        /* isolate blip */
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(() => void tick(), 750);
+    return () => window.clearInterval(id);
+  }, [navigate, room?.code]);
 
   const hello = useCallback((displayName: string) => {
     const name = displayName.trim().slice(0, 24) || "Singer";

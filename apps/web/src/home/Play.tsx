@@ -1,14 +1,29 @@
 import { useState } from "react";
-import { Bloom } from "../theme/Bloom.tsx";
 import { Link, useParams } from "react-router-dom";
 import { DemoRoomCode, type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
+import { PageShell } from "../theme/PageShell.tsx";
 
-const COPY: Record<string, { title: string; blurb: string }> = {
-  ranked: { title: "Ranked", blurb: "Same chorus. A then B. ELO." },
-  duet: { title: "Duet", blurb: "Sing together. Shared score. No ELO." },
-  chaos: { title: "Chaos", blurb: "Join a lounge. Cameras and lyrics. No score." },
+const COPY: Record<string, { title: string; blurb: string; match: string; matchBtn: string }> = {
+  ranked: {
+    title: "Ranked",
+    blurb: "From the top through the first chorus. You then them. Winner takes ELO.",
+    match: "We’ll pair you with the next singer waiting in Ranked.",
+    matchBtn: "Find a match",
+  },
+  duet: {
+    title: "Duet",
+    blurb: "Sing from the top through the first chorus together. One shared score. No ELO.",
+    match: "We’ll pair you with the next singer waiting for a duet.",
+    matchBtn: "Find a partner",
+  },
+  chaos: {
+    title: "Chaos",
+    blurb: "Walk into a lounge. Cameras and lyrics. No score.",
+    match: "Jump in. You’ll be seated automatically. When a lounge fills, a new one opens.",
+    matchBtn: "Join a lounge",
+  },
 };
 
 function playModeOf(mode: string): Mode {
@@ -47,21 +62,14 @@ export function Play() {
   }
 
   return (
-    <main className="page bloom-page quiet play-page">
-      <Bloom />
-      <header className="page-head">
-        <h1>{info.title}</h1>
-        <Link
-          to="/"
-          className="back"
-          onClick={() => {
-            if (inQueue) queueLeave();
-          }}
-        >
-          Home
-        </Link>
-      </header>
-      <p className="tag">{info.blurb}</p>
+    <PageShell
+      title={info.title}
+      tag={info.blurb}
+      wide
+      onHome={() => {
+        if (inQueue) queueLeave();
+      }}
+    >
       {!named ? (
         <p>
           <Link to={`/settings?next=/play/${mode}`}>Set your name</Link> first.
@@ -76,30 +84,26 @@ export function Play() {
 
       {inQueue ? (
         <div className="play-choices">
-          <section className="play-choice">
-            <h2>In the random queue</h2>
+          <section className="card play-choice play-waiting">
+            <h2>Looking for a singer</h2>
             <p>
               {connected
-                ? `Waiting for the next person who joins the ${info.title.toLowerCase()} queue. You will be paired as soon as they join.`
-                : "Reconnecting — you will be put back in the queue automatically."}
+                ? `Stay here. The next person who taps “${info.matchBtn}” is your match.`
+                : "Reconnecting — you’ll be put back in the queue automatically."}
             </p>
-            <button type="button" className="btn ghost" onClick={queueLeave}>
+            <button type="button" className="cta cta-ghost" onClick={queueLeave}>
               Leave queue
             </button>
           </section>
         </div>
       ) : (
         <div className="play-choices">
-          <section className="play-choice">
-            <h2>{isChaos ? "Public lounge" : "Random queue"}</h2>
-            <p>
-              {isChaos
-                ? "Jump in. You'll be seated automatically. When a lounge fills up, a new one opens."
-                : "Get paired with the next player waiting in this mode."}
-            </p>
+          <section className="card play-choice">
+            <h2>{isChaos ? "Public lounge" : "Random match"}</h2>
+            <p>{info.match}</p>
             <button
               type="button"
-              className="btn gold"
+              className="cta"
               disabled={!named || !connected}
               onClick={() => {
                 announce();
@@ -107,29 +111,30 @@ export function Play() {
                 else queueJoin(playMode);
               }}
             >
-              {isChaos ? "Join queue" : "Join random queue"}
+              {info.matchBtn}
             </button>
           </section>
 
-          <section className="play-choice">
-            <h2>Private room</h2>
+          <section className="card play-choice">
+            <h2>{isChaos ? "Private lounge" : "Sing with a friend"}</h2>
             <p>
               {isChaos
-                ? "Create a 4-digit code and send it to a friend, or join one they already made. Same lounge rules, just not the public queue."
-                : "Create a 4-digit code and send it to a friend, or join one they already made."}
+                ? "Make a 4-digit code and send it, or join one a friend already made."
+                : "Create a room and send the code, or type theirs below."}
             </p>
             <button
               type="button"
-              className="btn gold"
+              className="cta cta-ghost"
               disabled={!named || !connected}
               onClick={() => {
                 announce();
                 roomCreate(playMode);
               }}
             >
-              Create private room
+              Create a room
             </button>
             <form
+              className="code-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 const c = parseCode(code);
@@ -142,31 +147,31 @@ export function Play() {
               <input
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="4-digit code"
+                placeholder="0000"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 aria-label="Room code"
               />
-              <button type="submit" className="btn ghost" disabled={!named || !connected}>
-                Join with code
+              <button type="submit" className="cta" disabled={!named || !connected || code.length !== 4}>
+                Join
               </button>
             </form>
             {mode === "ranked" ? (
               <button
                 type="button"
-                className="text-btn demo-code"
+                className="play-hint"
                 disabled={!named || !connected}
                 onClick={() => {
                   announce();
                   roomJoin(DemoRoomCode);
                 }}
               >
-                Or join the public demo room {DemoRoomCode}
+                Or jump into the public demo room {DemoRoomCode}
               </button>
             ) : null}
           </section>
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

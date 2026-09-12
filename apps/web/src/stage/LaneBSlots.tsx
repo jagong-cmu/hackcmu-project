@@ -2,17 +2,13 @@ import { PitchDetector } from "pitchy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MelodyFile } from "@karaoke/shared";
-import type { LayersModel } from "@tensorflow/tfjs";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
 import { parseLrc } from "../lyrics/parseLrc.ts";
 import { ResultsModal } from "../results/ResultsModal.tsx";
-import { HitCallout } from "../scoring/HitCallout.tsx";
-import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
 import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
-import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { postTurnScore } from "../scoring/postScore.ts";
@@ -121,7 +117,6 @@ export function StagePitch() {
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
   const postedRef = useRef(false);
-  const crepeRef = useRef<LayersModel | null>(null);
   const scoringRef = useRef(false);
   const meterRef = useRef(false);
   const emitRef = useRef(emitPitchLive);
@@ -168,16 +163,6 @@ export function StagePitch() {
   };
   const flushRef = useRef(flushScore);
   flushRef.current = flushScore;
-
-  useEffect(() => {
-    void preloadCrepe()
-      .then((model) => {
-        crepeRef.current = model;
-      })
-      .catch(() => {
-        crepeRef.current = null;
-      });
-  }, []);
 
   useEffect(() => {
     const id = room?.songId;
@@ -236,8 +221,6 @@ export function StagePitch() {
     const silentRef = new Float32Array(PITCH_FFT);
     const detector = PitchDetector.forFloat32Array(PITCH_FFT);
     let raf = 0;
-    let crepeSkip = 0;
-    let lastCrepe = { hz: null as number | null, confidence: 0 };
     const publish = (hz: number | null, clarity: number, rms: number) => {
       setLiveHz(hz);
       setLiveClarity(clarity);
@@ -266,23 +249,14 @@ export function StagePitch() {
         if (meterRef.current) publish(null, 0, 0);
       } else {
         const [yinHz, yinClarity] = detector.findPitch(buf, ctx.sampleRate);
-        const model = crepeRef.current;
-        if (model && crepeSkip++ % 2 === 0) {
-          try {
-            lastCrepe = crepeFromBuffer(model, buf, ctx.sampleRate);
-          } catch {
-            /* keep last CREPE frame */
-          }
-        }
-        const useCrepe = lastCrepe.hz != null && lastCrepe.confidence >= 0.4;
-        const hz = useCrepe ? lastCrepe.hz : yinHz;
-        const clarity = useCrepe ? lastCrepe.confidence : yinClarity;
+        const hz = Number.isFinite(yinHz) && yinHz > 0 ? yinHz : null;
+        const clarity = yinClarity;
         const forScore = clarity >= 0.4 && hz != null && hz >= 55 && hz <= 1200 && rms >= 0.008;
         if (singingRef.current) {
           framesRef.current.push({ timeSec: t, hz: forScore ? hz : null, clarity });
         }
         if (meterRef.current) {
-          publish(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null, clarity, rms);
+          publish(hz, clarity, rms);
         }
       }
       raf = requestAnimationFrame(tick);
@@ -314,7 +288,6 @@ export function StagePitch() {
   const shownHz = mine ? liveHz : (remote?.hz ?? null);
   const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
   const shownRms = mine ? liveRms : (remote?.rms ?? 0);
-  const grade = gradeLive(melody, playhead, shownHz);
 
   return (
     <div className="pitch-stage">
@@ -325,7 +298,6 @@ export function StagePitch() {
         liveClarity={shownClarity}
         liveRms={shownRms}
       />
-      {mine ? <HitCallout grade={grade} /> : null}
     </div>
   );
 }

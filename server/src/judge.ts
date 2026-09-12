@@ -32,7 +32,7 @@ dotenv.config({ path: path.resolve(here, "../.env") });
 dotenv.config({ path: path.resolve(here, "../../.env") });
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
-const GEMINI_TIMEOUT_MS = 8000;
+const GEMINI_TIMEOUT_MS = 2500;
 
 type PostedScore = {
   clientId: string;

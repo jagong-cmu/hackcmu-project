@@ -73,6 +73,14 @@ async function ensureIndexes(db: Db): Promise<void> {
   await matches(db).createIndex({ roomId: 1 });
   await duetScores(db).createIndex({ songId: 1, names: 1 }, { unique: true });
   await duetScores(db).createIndex({ score: -1 });
+  await db.collection("queueWaiters").createIndex({ clientId: 1 }, { unique: true });
+  await db.collection("queueWaiters").createIndex({ mode: 1, updatedAt: -1 });
+  await db.collection("queueWaiters").createIndex({ updatedAt: 1 }, { expireAfterSeconds: 20 });
+  await db.collection("queuePairs").createIndex({ createdAt: 1 }, { expireAfterSeconds: 180 });
+  await db.collection("queuePairs").createIndex({ "a.clientId": 1, mode: 1 });
+  await db.collection("queuePairs").createIndex({ "b.clientId": 1, mode: 1 });
+  await db.collection("liveRooms").createIndex({ code: 1 }, { unique: true });
+  await db.collection("liveRooms").createIndex({ updatedAt: 1 }, { expireAfterSeconds: 7200 });
 }
 
 export function players(db: Db): Collection<PlayerDoc> {

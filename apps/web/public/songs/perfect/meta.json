@@ -2,9 +2,9 @@
   "id": "perfect",
   "title": "Perfect",
   "artist": "Ed Sheeran",
-  "clipStartSec": 66.3,
-  "clipDurationSec": 34.1,
-  "duetClipStartSec": 66.3,
-  "duetClipDurationSec": 45,
+  "clipStartSec": 0,
+  "clipDurationSec": 100.4,
+  "duetClipStartSec": 0,
+  "duetClipDurationSec": 100.4,
   "chaosDurationSec": 60
 }

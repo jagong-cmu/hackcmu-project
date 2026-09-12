@@ -7,10 +7,10 @@
  */
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
+import { PageShell } from "../theme/PageShell.tsx";
 
 const FFT = 4096;
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -130,17 +130,11 @@ export function PitchTest() {
     s?.crepeHz && s?.yinHz ? Math.abs(12 * Math.log2(s.crepeHz / s.yinHz)) : null;
 
   return (
-    <main className="page training">
-      <header className="page-head">
-        <h1>Pitch test</h1>
-        <Link to="/" className="back">
-          Home
-        </Link>
-      </header>
+    <PageShell title="Pitch test" tag="Dev readout. Sing a slow glide." wide level={Math.min(1, (s?.rms ?? 0) / 0.07)}>
 
       <p className="status">{status}</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", margin: "1.5rem 0" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", margin: "1.5rem 0", width: "100%", textAlign: "left" }}>
         <div>
           <p style={{ opacity: 0.6, margin: 0 }}>CREPE</p>
           <p style={{ fontSize: "2.4rem", fontWeight: 700, margin: 0 }}>{crepeNote?.name ?? "—"}</p>
@@ -168,15 +162,15 @@ export function PitchTest() {
       </p>
 
       <div className="ctas">
-        <button type="button" className="btn gold" disabled={running} onClick={() => void start()}>
+        <button type="button" className="cta" disabled={running} onClick={() => void start()}>
           Start
         </button>
-        <button type="button" className="btn ghost" disabled={!running} onClick={() => stopRef.current?.()}>
+        <button type="button" className="cta cta-ghost" disabled={!running} onClick={() => stopRef.current?.()}>
           Stop
         </button>
         <button
           type="button"
-          className="btn ghost"
+          className="cta cta-ghost"
           disabled={running || count === 0}
           onClick={() => {
             void navigator.clipboard
@@ -187,6 +181,6 @@ export function PitchTest() {
           {copied ? "Copied" : `Copy ${count} samples`}
         </button>
       </div>
-    </main>
+    </PageShell>
   );
 }

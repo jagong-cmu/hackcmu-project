@@ -49,17 +49,9 @@
 .stage { display: grid; gap: 1rem; padding: 1rem; min-height: 100vh; }
 .stage header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 
-.stage.stage-fit {
-  height: 100dvh;
-  max-height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.55rem 0.9rem 0.65rem;
+.stage.stage-fit > *:not(.voice-wave) {
   position: relative;
-  isolation: isolate;
+  z-index: 1;
 }
 .stage.stage-fit audio.instrumental {
   position: absolute;
@@ -274,11 +266,13 @@
 
 .stage-dock {
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem 1.4rem;
   flex-shrink: 0;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: var(--mute, #8a8278);
 }
 .stage-fit .room-code-bar {
@@ -430,9 +424,24 @@
   font-weight: 600;
   line-height: 1.2;
 }
-.stage.stage-fit button {
-  padding: 0.35rem 0.7rem;
-  font-size: 0.9rem;
+.stage.stage-fit button.cta {
+  padding: 14px 28px;
+  font-size: 1.05rem;
+  border-radius: 999px;
+  background: var(--blue-050);
+  color: #06101f;
+  border: 0;
+  font-weight: 600;
+}
+.stage.stage-fit button.cta-lg { padding: 16px 32px; font-size: 1.15rem; }
+.stage.stage-fit button.cta.is-on {
+  background: var(--blue-400);
+  color: #fff;
+}
+.stage.stage-fit button.cta-ghost {
+  background: rgba(12, 19, 32, 0.72);
+  color: var(--fg);
+  border: 1px solid var(--edge);
 }
 .stage.stage-fit .badge { font-size: 0.75rem; padding: 0.2rem 0.65rem; white-space: nowrap; }
 

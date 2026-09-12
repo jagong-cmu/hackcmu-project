@@ -2,9 +2,9 @@
   "id": "viva-la-vida",
   "title": "Viva La Vida",
   "artist": "Coldplay",
-  "clipStartSec": 65.2,
-  "clipDurationSec": 30.0,
-  "duetClipStartSec": 65.2,
-  "duetClipDurationSec": 45,
+  "clipStartSec": 0,
+  "clipDurationSec": 95.2,
+  "duetClipStartSec": 0,
+  "duetClipDurationSec": 95.2,
   "chaosDurationSec": 60
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Bloom } from "../theme/Bloom.tsx";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getClientId, getDisplayName, setDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
+import { PageShell } from "../theme/PageShell.tsx";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -41,14 +41,7 @@ export function Settings() {
   }
 
   return (
-    <main className="page bloom-page quiet">
-      <Bloom />
-      <header className="page-head">
-        <h1>Settings</h1>
-        <Link to="/" className="back">
-          Home
-        </Link>
-      </header>
+    <PageShell title="Settings" tag="This is how other singers will see you.">
       <form className="settings-form" onSubmit={(e) => void save(e)}>
         <label>
           Display name
@@ -61,13 +54,17 @@ export function Settings() {
           />
         </label>
         {msg ? <p className="err">{msg}</p> : null}
-        <button type="submit" className="btn gold">
-          Save
+        <button type="submit" className="cta">
+          Save name
         </button>
       </form>
       <p className="dim">
-        {mongo == null ? "Checking Atlas…" : mongo ? "Atlas connected" : "Atlas is off until the database password is in server/.env"}
+        {mongo == null
+          ? "Checking Atlas…"
+          : mongo
+            ? "Atlas connected"
+            : "Atlas is off until the database password is in server/.env"}
       </p>
-    </main>
+    </PageShell>
   );
 }

@@ -29,6 +29,7 @@ import {
   type Player,
   type Room,
 } from "./rooms.ts";
+import { ensureRoom, saveRoomSnap } from "./liveState.ts";
 import { persistSeatedMatch } from "./judge.ts";
 import { eloDelta, outcomeFromScores } from "./elo.ts";
 
@@ -42,7 +43,7 @@ const songsDir =
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../apps/web/public/songs");
 
 /** Last-chance wait for an in-flight POST. Vercel round-trips need more than 250ms. */
-const SCORE_WAIT_MS = 8000;
+const SCORE_WAIT_MS = 1800;
 
 /**
  * Used when Lane B's DSP has not landed yet, or a client never POSTs.
@@ -72,8 +73,6 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-/** Seconds of lead-in before the chorus downbeat so GO is not on the lyric. */
-const LyricPrerollSec = 5;
 /** Hold the last chorus line at least this long if the next line is farther. */
 const LyricTailSec = 6;
 
@@ -98,37 +97,26 @@ function lyricTimes(id: string): number[] {
   }
 }
 
-function prerollStart(times: number[], chorusStart: number): number {
-  const preroll = Math.max(0, chorusStart - LyricPrerollSec);
-  const prev = [...times].reverse().find((t) => t < chorusStart - 0.05);
-  // If 5s before the chorus lands mid-phrase, start on that line instead.
-  if (prev != null && preroll > prev && preroll < chorusStart) return prev;
-  return preroll;
-}
-
 function lineEndSec(times: number[], lineStart: number): number {
   const next = times.find((t) => t > lineStart + 0.05);
   if (next == null) return lineStart + 4;
-  // Stop a breath before the following line so verse 2 never flashes.
   return Math.min(next - 0.2, lineStart + LyricTailSec);
 }
 
+/** Always from 0:00 through the authored chorus end, never a mid-track jump. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   const start0 = kind === "duet" ? song.duetClipStartSec : song.clipStartSec;
   const duration0 = kind === "duet" ? song.duetClipDurationSec : song.clipDurationSec;
   const end0 = start0 + duration0;
   const times = lyricTimes(song.id);
-  if (times.length === 0) return { startSec: start0, durationSec: duration0 };
-
-  const chorusStart = times.find((t) => t >= start0 - 0.25) ?? start0;
-  const startSec = prerollStart(times, chorusStart);
-  const last = [...times].reverse().find((t) => t < end0 - 0.1 && t >= chorusStart - 0.05);
-  if (last == null) return { startSec, durationSec: Math.max(1, end0 - startSec) };
+  if (times.length === 0) return { startSec: 0, durationSec: Math.max(1, end0) };
+  const last = [...times].reverse().find((t) => t < end0 - 0.1);
+  if (last == null) return { startSec: 0, durationSec: Math.max(1, end0) };
   const sungEnd = lineEndSec(times, last);
   const next = times.find((t) => t > last + 0.05);
   const cap = next == null ? sungEnd : next - 0.2;
   const endSec = Math.min(Math.max(end0, sungEnd), cap);
-  return { startSec, durationSec: Math.max(1, endSec - startSec) };
+  return { startSec: 0, durationSec: Math.max(1, endSec) };
 }
 
 function useTestSong(): boolean {
@@ -167,6 +155,28 @@ function songFor(room: Room): SongMeta | undefined {
 
 export function broadcastState(io: Server, room: Room): void {
   io.to(room.code).emit(ServerEvents.roomState, toPublic(room));
+  void saveRoomSnap(room);
+}
+
+export function publicClock(room: Room): {
+  songId: string;
+  startSec: number;
+  durationSec: number;
+  playAtUnixMs: number;
+} | null {
+  if (!room.songId || room.playAtUnixMs == null) return null;
+  return {
+    songId: room.songId,
+    startSec: room.clipStartSec,
+    durationSec: room.clipDurationSec,
+    playAtUnixMs: room.playAtUnixMs,
+  };
+}
+
+export function publicScores(room: Room): Record<string, ScoreCard> {
+  const scores: Record<string, ScoreCard> = {};
+  for (const [id, card] of room.scores) scores[id] = card;
+  return scores;
 }
 
 /**
@@ -200,17 +210,16 @@ export function catchUpClock(io: Server, room: Room, socketId: string): void {
 // ---------------------------------------------------------------------------
 
 export function everyoneReady(room: Room): boolean {
-  return (
-    room.players.length === 2 && room.players.every((p) => p.ready && p.connected)
-  );
+  return room.players.length === 2 && room.players.every((p) => p.ready);
 }
 
 /**
- * lobby → countdown 5s → turnA (full first chorus) → swap 5s → turnB (same) → results.
+ * lobby → countdown 5s → turnA (0:00 through first chorus) → swap 5s → turnB (same) → results.
  * Duet collapses the two turns into one shared `live` block (PRD §6.2).
  */
 export function startMatch(io: Server, room: Room): void {
   if (room.players.length !== 2) return;
+  if (room.status !== "lobby") return;
   clearTimers(room);
   room.scores.clear();
   room.lastEloDelta = 0;
@@ -281,6 +290,7 @@ export function recordScore(
 ): boolean {
   room.scores.set(playerId, score);
   io.to(room.code).emit(ServerEvents.scoreReady, { playerId, score });
+  void saveRoomSnap(room);
 
   if (scoresAreIn(room) && (room.status === "results" || room.status === "live")) {
     void finishMatch(io, room);
@@ -296,6 +306,16 @@ export async function finishMatch(
   room: Room,
   forfeit?: ForfeitInfo,
 ): Promise<void> {
+  const hydrated = await ensureRoom(room.code);
+  if (hydrated) {
+    for (const [id, card] of hydrated.scores) {
+      if (!room.scores.has(id)) room.scores.set(id, card);
+    }
+    if (hydrated.settled) {
+      room.settled = true;
+      return;
+    }
+  }
   if (room.settled) return;
   room.settled = true;
   clearTimers(room);

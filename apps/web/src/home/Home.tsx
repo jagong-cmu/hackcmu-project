@@ -1,13 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Bloom } from "../theme/Bloom.tsx";
+import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { ModeButton } from "./ModeButton.tsx";
 import { getDisplayName } from "./identity.ts";
 
 const MODES = [
-  { label: "Ranked", to: "/play/ranked" },
-  { label: "Duet", to: "/play/duet" },
-  { label: "Training", to: "/training" },
-  { label: "Chaos", to: "/play/chaos" },
+  { label: "Ranked", hint: "Find a match", to: "/play/ranked" },
+  { label: "Duet", hint: "Sing together", to: "/play/duet" },
+  { label: "Training", hint: "Solo practice", to: "/training" },
+  { label: "Chaos", hint: "Open lounge", to: "/play/chaos" },
 ];
 
 export function Home() {
@@ -17,6 +18,7 @@ export function Home() {
   return (
     <main className="home-simple bloom-page">
       <Bloom />
+      <VoiceWave />
 
       {/* Out of the hero column so the title can centre on the page itself. */}
       <nav className="home-nav">
@@ -34,6 +36,7 @@ export function Home() {
             <ModeButton
               key={mode.to}
               label={mode.label}
+              hint={mode.hint}
               onSelect={() => navigate(named ? mode.to : `/settings?next=${mode.to}`)}
             />
           ))}
