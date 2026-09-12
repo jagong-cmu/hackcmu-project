@@ -93,12 +93,12 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-const RankedDemoSongId = "beauty-and-a-beat";
-/** First lyric "Show you off" is at 15.81s; start 5s earlier so the drop is in the clip. */
-const RankedDemoStartSec = 10.81;
-const RankedDemoDurationSec = 25;
+const RankedDemoSongId = "from-the-start";
+/** First lyric "Don't you notice how" is at 4.59s; 5s earlier would be negative, so start at 0. */
+const RankedDemoStartSec = 0;
+const RankedDemoDurationSec = 20;
 
-/** Ranked: 25s Beauty And A Beat from 5s before the first lyric. Duet: the whole track. */
+/** Ranked: 20s of Laufey's From The Start from the top of the track. Duet: the whole track. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   if (kind === "duet") {
     return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
@@ -131,7 +131,7 @@ function resolvedMeta(song: SongMeta): SongMeta {
   return metaFromDisk(song.id) ?? song;
 }
 
-/** Ranked always plays the Beauty And A Beat demo clip. Duet/Chaos stay random. */
+/** Ranked always plays the From The Start demo clip. Duet/Chaos stay random. */
 function pickSong(kind: "ranked" | "full" = "full"): SongMeta {
   const pool = songPool();
   if (pool.length === 0) return TEST_SONG;

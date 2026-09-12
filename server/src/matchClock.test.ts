@@ -64,9 +64,9 @@ test("two seated players arm a 10s countdown without ready taps", () => {
     seat(room, "b", "sock-b");
     maybeArmMatch(fakeIo() as never, room);
     assert.equal(room.status, "countdown");
-    assert.equal(room.songId, "beauty-and-a-beat", "ranked demo clip is Beauty And A Beat");
-    assert.equal(room.clipStartSec, 10.81);
-    assert.equal(room.clipDurationSec, 25);
+    assert.equal(room.songId, "from-the-start", "ranked demo clip is From The Start");
+    assert.equal(room.clipStartSec, 0);
+    assert.equal(room.clipDurationSec, 20);
     assert.ok(room.playAtUnixMs);
     const wait = room.playAtUnixMs! - Date.now();
     assert.ok(wait > 8_000 && wait <= 10_500, `expected ~10s, got ${wait}`);
