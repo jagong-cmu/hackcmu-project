@@ -38,8 +38,8 @@ export default function TurnBadge({
         case "lobby":
           return "LOBBY";
         case "countdown":
-          return "GET READY";
         case "live":
+          if (!duetVoice && room.status === "countdown") return "GET READY";
           if (duetVoice === "both") return "TOGETHER";
           if (duetVoice === "rest" || !duetVoice) return "WAIT";
           return duetVoice === seat ? "YOU" : "THEM";

@@ -4,7 +4,7 @@ export type DuetCueVoice = DuetVoice | "rest";
 export type DuetSeat = "a" | "b";
 
 /** Light the next singer a hair before the lyric so the first syllable isn't late. */
-export const DUET_LEAD_SEC = 0.18;
+export const DUET_LEAD_SEC = 0.28;
 /** After this, a line yields to rest if the next line hasn't started (instrumental gaps). */
 export const DUET_LINE_HOLD_SEC = 5.4;
 
