@@ -84,105 +84,107 @@ export default function Stage() {
     });
   };
 
+  const showPitch = !isChaos && room?.status != null && room.status !== "lobby" && room.status !== "results";
+  const stageClass = ["stage", isChaos ? "chaos" : "", inLobby ? "lobby" : ""].filter(Boolean).join(" ");
+
+  const alert =
+    !connected ? (
+      <p className="warn">reconnecting…</p>
+    ) : error ? (
+      <p className="err">
+        {error.code}: {error.message}
+      </p>
+    ) : livekit.unconfigured ? (
+      <p className="warn">LiveKit keys missing — cameras are off.</p>
+    ) : livekit.status === "error" ? (
+      <p className="err">camera/mic: {livekit.error}</p>
+    ) : blocked || (isChaos && clockPlay && !playing) ? (
+      <p className="warn">
+        <button type="button" className="primary" onClick={unlock}>
+          Tap to hear the track
+        </button>
+      </p>
+    ) : null;
+
   return (
     <StageContext.Provider value={stageValue}>
-      <div className="stage">
-        <header>
-          <div className="row">
-            <Link to="/" onClick={() => roomLeave()}>
-              ← leave
-            </Link>
-            <strong>{loungeName ?? `Room ${code}`}</strong>
-            <span className="slot-empty">{room?.mode ?? "…"}</span>
-            {song ? (
-              <span className="slot-empty">
-                {song.title} — {song.artist}
-              </span>
-            ) : null}
-            <TurnBadge room={room} myPlayerId={me?.id ?? null} />
+      <div className={stageClass}>
+        <div className="stage-chrome">
+          <header className="stage-top">
+            <div className="row">
+              <Link to="/" onClick={() => roomLeave()}>
+                ← leave
+              </Link>
+              <strong>{loungeName ?? `Room ${code}`}</strong>
+              <span className="slot-empty">{room?.mode ?? "…"}</span>
+              {song ? (
+                <span className="slot-empty">
+                  {song.title} — {song.artist}
+                </span>
+              ) : null}
+              <TurnBadge room={room} myPlayerId={me?.id ?? null} />
+              {playing ? <span className="slot-empty">♪</span> : null}
+            </div>
+            <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
+          </header>
+          {alert}
+        </div>
+
+        <div className="stage-main">
+          <VideoGrid
+            participants={livekit.participants}
+            activeIdentity={activeIdentity}
+            localIdentity={identity}
+            compact={isChaos}
+          />
+          <div className="stage-read">
+            <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
+            {showPitch && <Slot component={slots.PitchMeter} label="PitchMeter" />}
           </div>
-          <ClipTimer clockPlay={clockPlay} status={room?.status ?? "lobby"} />
-        </header>
+        </div>
 
-        {privateCode && inLobby ? (
-          <div className="room-code-bar">
-            <span className="room-code-digits">{code}</span>
-            <button type="button" onClick={copyCode}>
-              {copied ? "Copied" : "Copy code"}
-            </button>
-            <span className="slot-empty">Send this to your friend, then both tap Ready.</span>
-          </div>
-        ) : null}
-
-        {!connected && <p className="warn">reconnecting…</p>}
-        {error && (
-          <p className="err">
-            {error.code}: {error.message}
-          </p>
-        )}
-        {livekit.unconfigured && (
-          <p className="warn">
-            LiveKit keys missing — cameras are off, everything else still works.
-            Add LIVEKIT_* to .env.
-          </p>
-        )}
-        {livekit.status === "error" && !livekit.unconfigured && (
-          <p className="err">camera/mic: {livekit.error}</p>
-        )}
-        {(blocked || (isChaos && clockPlay && !playing)) && (
-          <p className="warn">
-            <button type="button" className="primary" onClick={unlock}>
-              Tap to hear the track
-            </button>{" "}
-            Chrome blocked autoplay.
-          </p>
-        )}
-
-        <VideoGrid
-          participants={livekit.participants}
-          activeIdentity={activeIdentity}
-          localIdentity={identity}
-          compact={isChaos}
-        />
-
-        <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
-        {!isChaos && <Slot component={slots.PitchMeter} label="PitchMeter" />}
         {showResults && <Slot component={slots.ResultsModal} label="ResultsModal" />}
 
-        {!isChaos && (
-          <div className="row">
-            <button
-              className="primary"
-              onClick={onReady}
-              disabled={!room || (!inLobby && !showResults)}
-            >
-              {showResults ? "Rematch" : "Ready"}
-            </button>
+        <footer className="stage-dock">
+          {privateCode && inLobby ? (
+            <div className="room-code-bar">
+              <span className="room-code-digits">{code}</span>
+              <button type="button" onClick={copyCode}>
+                {copied ? "Copied" : "Copy code"}
+              </button>
+            </div>
+          ) : null}
+          {!isChaos && (
+            <>
+              <button
+                className="primary"
+                onClick={onReady}
+                disabled={!room || (!inLobby && !showResults)}
+              >
+                {showResults ? "Rematch" : "Ready"}
+              </button>
+              <span className="slot-empty">
+                {room
+                  ? `${room.players.length}/2 seated · ${room.players.map((p) => p.displayName).join(" vs ")}`
+                  : "joining…"}
+              </span>
+            </>
+          )}
+          {isChaos && (
+            <p className="slot-empty">
+              {loungeName ?? "Chaos lounge"} · {room?.players.length ?? 0}/8 · cameras on, lyrics
+              on, no scoring
+            </p>
+          )}
+          {matchOver && !slots.ResultsModal && (
             <span className="slot-empty">
-              {room
-                ? `${room.players.length}/2 seated · ${room.players.map((p) => p.displayName).join(" vs ")}`
-                : "joining…"}
+              winner {matchOver.winnerId ?? "draw"}
             </span>
-          </div>
-        )}
-
-        {isChaos && (
-          <p className="slot-empty">
-            {loungeName ?? "Chaos lounge"} · {room?.players.length ?? 0}/8 · cameras on, lyrics
-            on, no scoring
-          </p>
-        )}
-
-        {matchOver && !slots.ResultsModal && (
-          <pre className="slot-empty">
-            match:over → winner {matchOver.winnerId ?? "draw"} ·{" "}
-            {JSON.stringify(matchOver.scores)}
-          </pre>
-        )}
+          )}
+        </footer>
 
         {/* The instrumental. Local playback only — never published to LiveKit. */}
-        <audio ref={audioRef} preload="auto" />
-        <span className="slot-empty">{playing ? "♪ playing" : ""}</span>
+        <audio ref={audioRef} className="stage-audio" preload="auto" />
       </div>
     </StageContext.Provider>
   );

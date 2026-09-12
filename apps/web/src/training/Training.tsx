@@ -309,73 +309,74 @@ export function Training() {
           Home
         </Link>
         <h1>Training</h1>
+        <label className="song-pick">
+          Song
+          <select
+            value={songId}
+            disabled={running}
+            onChange={(e) => {
+              stopPreview();
+              setPlayhead(0);
+              setCard(null);
+              setSongId(e.target.value);
+            }}
+          >
+            {songs.map((s) => (
+              <option key={s.id} value={s.id} disabled={!s.ready}>
+                {s.title} — {s.artist}
+                {s.ready ? "" : " (incomplete)"}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
+        {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
       </header>
 
-      <label className="song-pick">
-        Song
-        <select
-          value={songId}
-          disabled={running}
-          onChange={(e) => {
-            stopPreview();
-            setPlayhead(0);
-            setCard(null);
-            setSongId(e.target.value);
-          }}
-        >
-          {songs.map((s) => (
-            <option key={s.id} value={s.id} disabled={!s.ready}>
-              {s.title} — {s.artist}
-              {s.ready ? "" : " (incomplete)"}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {!nameOk ? <p className="err">Set a display name on Home first.</p> : null}
-      {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
-
-      <PitchMeter
-        melody={melody}
-        playheadSec={playhead}
-        liveHz={liveHz}
-        liveClarity={liveClarity}
-        liveRms={liveRms}
-      />
-      <LyricsOverlay lrc={lrc} currentTime={playhead} />
-
-      <div className="stage-self">
-        {camDenied ? <div className="avatar-tile">camera off</div> : <video ref={videoRef} muted playsInline />}
-        <p>{getDisplayName() || "You"}</p>
+      <div className="training-stage">
+        <LyricsOverlay lrc={lrc} currentTime={playhead} />
+        <div className="stage-self">
+          {camDenied ? <div className="avatar-tile">camera off</div> : <video ref={videoRef} muted playsInline />}
+          <p>{getDisplayName() || "You"}</p>
+        </div>
+        <PitchMeter
+          melody={melody}
+          playheadSec={playhead}
+          liveHz={liveHz}
+          liveClarity={liveClarity}
+          liveRms={liveRms}
+        />
       </div>
 
-      <audio ref={audioRef} preload="auto" />
+      <audio ref={audioRef} className="stage-audio" preload="auto" />
 
-      <p className="status">{status}</p>
-      <div className="ctas">
-        <button type="button" className="btn gold" disabled={running || !meta || !nameOk} onClick={() => void start()}>
-          Start
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={running || !meta}
-          onClick={() => {
-            if (previewing) stopPreview();
-            else void startPreview();
-          }}
-        >
-          {previewing ? "Pause preview" : "Preview"}
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={!running}
-          onClick={() => endRef.current?.()}
-        >
-          Stop &amp; score
-        </button>
-      </div>
+      <footer className="training-dock">
+        <p className="status">{status}</p>
+        <div className="ctas">
+          <button type="button" className="btn gold" disabled={running || !meta || !nameOk} onClick={() => void start()}>
+            Start
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={running || !meta}
+            onClick={() => {
+              if (previewing) stopPreview();
+              else void startPreview();
+            }}
+          >
+            {previewing ? "Pause preview" : "Preview"}
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={!running}
+            onClick={() => endRef.current?.()}
+          >
+            Stop &amp; score
+          </button>
+        </div>
+      </footer>
 
       {card ? (
         <ResultsModal

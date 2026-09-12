@@ -96,8 +96,10 @@ export default function VideoGrid({
   if (participants.length === 0) {
     return (
       <div className={compact ? "grid compact" : "grid"}>
-        <div className="tile">
-          <div className="placeholder">waiting for cameras…</div>
+        <div className="tile-cell">
+          <div className="tile">
+            <div className="placeholder">waiting for cameras…</div>
+          </div>
         </div>
       </div>
     );
@@ -108,7 +110,7 @@ export default function VideoGrid({
       {participants.map((participant) => {
         const isLocal = participant.identity === localIdentity;
         return (
-          <div key={participant.sid || participant.identity}>
+          <div className="tile-cell" key={participant.sid || participant.identity}>
             <Tile
               participant={participant}
               singing={participant.identity === activeIdentity}
