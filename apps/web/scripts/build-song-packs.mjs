@@ -93,6 +93,13 @@ const PACKS = [
       [72, 72, 71, 69, 67], [64, 67, 69, 71, 69, 67],
     ],
   },
+  {
+    id: "cupid", title: "Cupid (Twin Ver.)", artist: "FIFTY FIFTY", offsetSec: -5.02, lyricLeadSec: 0,
+    phrases: [
+      [71, 71, 69, 67, 69], [69, 71, 72, 74, 72, 71],
+      [74, 74, 72, 71, 69], [67, 69, 71, 72, 71, 69],
+    ],
+  },
 ];
 
 const midiToHz = (m) => +(440 * 2 ** ((m - 69) / 12)).toFixed(2);

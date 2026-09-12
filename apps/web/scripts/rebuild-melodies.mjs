@@ -61,6 +61,13 @@ const JOBS = [
     original: "Justin Bieber, Nicki Minaj  Beauty And A Beat (Lyrics).mp3",
     vocals: "Justin Bieber, Nicki Minaj - Beauty And A Beat (Official Studio Acapella - Vocals Only).mp3",
   },
+  {
+    // Stem is ~10s shorter than the original with a 6.5s IQR: genuinely edited,
+    // so DTW rather than a fixed offset.
+    id: "cupid", offsetSec: -5.02, vocalSec: null,
+    original: "FIFTY FIFTY - Cupid (Twin Version) (Lyrics).mp3",
+    vocals: "Cupid (Twin Ver.) - Vocals Only (Acapella)  FIFTY FIFTY.mp3",
+  },
 ];
 
 const [ORIG_DIR, VOX_DIR, ONLY] = process.argv.slice(2);

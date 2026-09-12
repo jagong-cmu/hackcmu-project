@@ -56,6 +56,17 @@ export const SONGS: SongMeta[] = [
     chaosDurationSec: 60,
   },
   {
+    id: "cupid",
+    title: "Cupid (Twin Ver.)",
+    artist: "FIFTY FIFTY",
+    // 0:00 through the first chorus, ending on "Cupid is so dumb" plus the hold.
+    clipStartSec: 0,
+    clipDurationSec: 53.7,
+    duetClipStartSec: 0,
+    duetClipDurationSec: 53.7,
+    chaosDurationSec: 60,
+  },
+  {
     id: "beauty-and-a-beat",
     title: "Beauty And A Beat",
     artist: "Justin Bieber",
