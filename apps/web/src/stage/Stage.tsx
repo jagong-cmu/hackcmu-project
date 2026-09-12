@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { chaosLoungeName, DemoRoomCode, songById } from "@karaoke/shared";
+import { ChaosCap, chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { useLiveKit } from "../media/useLiveKit.ts";
 import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
@@ -40,7 +40,7 @@ export default function Stage() {
     }
     if (joinAttempt.current === code) return;
     joinAttempt.current = code;
-    if (chaosLoungeName(code)) chaosJoin(code);
+    if (isPublicChaosCode(code)) chaosJoin(code);
     else roomJoin(code);
   }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin]);
 
@@ -53,7 +53,7 @@ export default function Stage() {
     room?.status === "live";
   const loungeName = chaosLoungeName(code);
   const song = room?.songId ? songById(room.songId) : undefined;
-  const privateCode = !isChaos && /^\d{4}$/.test(code);
+  const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
 
   const them = livekit.participants.find((p) => p.identity !== identity);
   const you = livekit.participants.find((p) => p.identity === identity);
@@ -106,13 +106,17 @@ export default function Stage() {
           <TurnBadge room={room} myPlayerId={me?.id ?? null} />
         </header>
 
-        {privateCode && inLobby ? (
+        {privateCode && (inLobby || isChaos) ? (
           <div className="room-code-bar">
             <span className="room-code-digits">{code}</span>
             <button type="button" onClick={copyCode}>
               {copied ? "Copied" : "Copy code"}
             </button>
-            <span>Send this to your friend, then both tap Ready.</span>
+            <span>
+              {isChaos
+                ? "Send this to a friend — they can walk in anytime."
+                : "Send this to your friend, then both tap Ready."}
+            </span>
           </div>
         ) : null}
 
@@ -200,7 +204,7 @@ export default function Stage() {
 
         {isChaos && (
           <p className="stage-dock dim">
-            {loungeName ?? "Chaos"} · {room?.players.length ?? 0}/8 · no scoring
+            {loungeName ?? "Chaos"} · {room?.players.length ?? 0}/{ChaosCap} · no scoring
           </p>
         )}
 

@@ -69,7 +69,8 @@ export default function DevLanding() {
 
       <div className="row">
         <strong style={{ width: "5rem" }}>Chaos</strong>
-        <button onClick={() => chaosJoin()}>Join lounge</button>
+        <button onClick={() => chaosJoin()}>Join queue</button>
+        <button onClick={() => roomCreate("chaos")}>Create private</button>
       </div>
 
       <div className="row">

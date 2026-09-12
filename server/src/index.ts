@@ -17,10 +17,9 @@ import express from "express";
 import { Server } from "socket.io";
 
 import {
-  ChaosLounges,
   ClientEvents,
   DemoRoomCode,
-  PublicChaosCode,
+  isPublicChaosCode,
   ServerEvents,
   StartingElo,
   type Mode,
@@ -32,6 +31,7 @@ import {
   disposeIfEmpty,
   ensurePermanentRooms,
   createRoom,
+  findOpenPublicChaosLounge,
   getRoom,
   isFull,
   removePlayer,
@@ -340,6 +340,10 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
+    if (mode !== "ranked" && mode !== "duet" && mode !== "chaos") {
+      return fail(socket, "BAD_MODE", "ranked, duet, or chaos");
+    }
+
     const room = createRoom(mode);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
@@ -370,11 +374,19 @@ io.on("connection", (socket) => {
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
     const raw = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
-    const code = raw || PublicChaosCode;
+    if (raw && !isPublicChaosCode(raw) && !/^\d{4}$/.test(raw)) {
+      return fail(socket, "BAD_CODE", "enter a 4-digit code");
+    }
 
-    const knownLounge = ChaosLounges.some((lounge) => lounge.code === code);
-    const room = getRoom(code) ?? createRoom("chaos", code, knownLounge);
-    if (room.mode !== "chaos") return fail(socket, "NOT_CHAOS", `${code} is not a lounge`);
+    let room = raw ? getRoom(raw) : findOpenPublicChaosLounge();
+    if (raw) {
+      if (room && room.mode !== "chaos") {
+        return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
+      }
+      room ??= createRoom("chaos", raw, false);
+    }
+
+    if (!room) return fail(socket, "ROOM_NOT_FOUND", "no open lounge");
 
     if (session.roomCode === room.code) {
       catchUpClock(io, room, socket.id);
@@ -385,7 +397,16 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
-    if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "lounge is full");
+    if (!seat(socket.id, room)) {
+      if (!raw) {
+        room = findOpenPublicChaosLounge();
+        if (seat(socket.id, room)) {
+          socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
+          return;
+        }
+      }
+      return fail(socket, "ROOM_FULL", "lounge is full");
+    }
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
   });
 
@@ -426,7 +447,7 @@ ensurePermanentRooms();
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
   console.log(`[lane-a] livekit: ${lk}`);
-  console.log(`[lane-a] demo room ${DemoRoomCode} and lounges lounge-a / lounge-b are live`);
+  console.log(`[lane-a] demo room ${DemoRoomCode} is live; Chaos lounges spawn on join`);
   if (process.env.USE_TEST_SONG === "1") {
     console.log("[lane-a] USE_TEST_SONG=1 — serving /songs/_test click track");
   }
