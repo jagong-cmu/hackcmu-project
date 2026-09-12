@@ -232,6 +232,35 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--gold); }
 .lyrics-soon { color: var(--mute); }
 .lyrics-next { color: var(--mute); margin: 8px 0 0; font-size: clamp(1.05rem, 2vw, 1.5rem); }
 
+/* Instrumental gaps: count the singer back in. */
+.lyrics-rest {
+  font-size: clamp(2.2rem, 5.5vw, 4.2rem);
+  margin: 0;
+  color: var(--mute);
+  opacity: 0.5;
+}
+.lyrics-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+.lyrics-count .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.lyrics-count .dot.spent { background: rgba(244, 239, 230, 0.18); }
+.lyrics-count .count-num {
+  margin-left: 10px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--gold);
+  min-width: 1.2em;
+}
+
 /* Speaker cue above the line (duet). */
 .lyrics-cue {
   font-size: clamp(1.5rem, 3.2vw, 2.2rem);

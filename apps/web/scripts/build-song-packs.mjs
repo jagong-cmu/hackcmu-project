@@ -33,10 +33,12 @@ const CLIP_LEAD_SEC = 5;
  * lyricLeadSec: correction applied to lyrics ONLY -- folding it into offsetSec
  *   would drag the melody off the audio with it.
  *
- *   +0.90 on every song, set by ear. All four read early by about the same
- *   amount, which points at something systematic rather than per-song
- *   alignment: audio.currentTime runs ahead of what actually reaches the
- *   speakers by the output buffer, and paint adds a frame or two on top.
+ *   Set by ear, per song: +0.90 for viva-la-vida, creep and
+ *   im-not-the-only-one; 0 for perfect, which sits right untouched. That three
+ *   of four want the same figure suggests a systematic part -- audio
+ *   currentTime runs ahead of what reaches the speakers by the output buffer,
+ *   and paint adds a frame or two -- but perfect not needing it means the rest
+ *   is per-song, so do not collapse these into one constant.
  *
  *   An earlier attempt measured voiced onsets in the isolated vocals and moved
  *   lyrics EARLIER by 0.25-0.36s. That was worse: an onset detector fires on
@@ -64,7 +66,7 @@ const PACKS = [
     ],
   },
   {
-    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0.9,
+    id: "perfect", title: "Perfect", artist: "Ed Sheeran", offsetSec: 3.88, lyricLeadSec: 0,   // sits right with no delay
     phrases: [
       [63, 63, 65, 67, 65, 63], [63, 65, 67, 68, 67, 65],
       [65, 67, 65, 63], [68, 68, 70, 72, 70, 68],
