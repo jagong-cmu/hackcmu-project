@@ -1,7 +1,7 @@
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { MelodyFile, ScoreCard, SongMeta } from "@karaoke/shared";
+import { CountdownMs, type MelodyFile, type ScoreCard, type SongMeta } from "@karaoke/shared";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
@@ -19,6 +19,8 @@ import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { PageShell } from "../theme/PageShell.tsx";
+import CountdownOverlay from "../stage/CountdownOverlay.tsx";
+import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -36,7 +38,7 @@ export function Training() {
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [liveCard, setLiveCard] = useState<ScoreBits | null>(null);
   const [scoring, setScoring] = useState(false);
-  const [intro, setIntro] = useState(false);
+  const [countMs, setCountMs] = useState<number | null>(null);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
@@ -48,6 +50,7 @@ export function Training() {
   const stopRef = useRef<(() => void) | null>(null);
   const endRef = useRef<(() => void) | null>(null);
   const previewRafRef = useRef<number>(0);
+  const countTimerRef = useRef<number>(0);
 
   const crepeRef = useRef<LayersModel | null>(null);
 
@@ -88,7 +91,13 @@ export function Training() {
     };
   }, [songId, songs]);
 
-  useEffect(() => () => stopRef.current?.(), []);
+  useEffect(
+    () => () => {
+      window.clearInterval(countTimerRef.current);
+      stopRef.current?.();
+    },
+    [],
+  );
 
   function stopPreview() {
     cancelAnimationFrame(previewRafRef.current);
@@ -187,16 +196,23 @@ export function Training() {
     const clean = new Float32Array(PITCH_FFT);
     const detector = PitchDetector.forFloat32Array(PITCH_FFT);
 
-    await audio.play();
+    try {
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      /* timed play() below will surface a block */
+    }
 
-    setRunning(true);
-    setIntro(true);
-    window.setTimeout(() => setIntro(false), 2400);
-    setStatus("Follow the melody. Stop whenever — you'll still be scored.");
+    const armMs = CountdownMs * 2;
+    const goAt = Date.now() + armMs;
+    setCountMs(armMs);
+    setStatus("Your turn to sing. Track starts after the countdown.");
 
     let crepeSkip = 0;
     let lastCrepe = { hz: null as number | null, confidence: 0 };
     let lastLiveScore = 0;
+    let begun = false;
 
     const tick = () => {
       const t = audio.currentTime;
@@ -253,21 +269,54 @@ export function Training() {
     };
 
     const stop = () => {
+      window.clearInterval(countTimerRef.current);
+      countTimerRef.current = 0;
       cancelAnimationFrame(rafRef.current);
       audio.pause();
       stream.getTracks().forEach((tr) => tr.stop());
       src.disconnect();
       setRunning(false);
+      setCountMs(null);
       stopRef.current = null;
       endRef.current = null;
     };
     stopRef.current = stop;
-    // Stopping a full song early should still score what was sung.
     endRef.current = () => {
+      if (!begun) {
+        stop();
+        setStatus("Cancelled.");
+        return;
+      }
       src.disconnect();
       void finish(stream);
     };
-    rafRef.current = requestAnimationFrame(tick);
+
+    const begin = () => {
+      if (begun) return;
+      begun = true;
+      window.clearInterval(countTimerRef.current);
+      countTimerRef.current = 0;
+      setCountMs(null);
+      audio.currentTime = 0;
+      void audio.play().catch(() => undefined);
+      setRunning(true);
+      setStatus("Follow the melody. Stop whenever — you'll still be scored.");
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    countTimerRef.current = window.setInterval(() => {
+      const left = goAt - Date.now();
+      if (left <= 0) {
+        begin();
+        return;
+      }
+      setCountMs(left);
+      setStatus(
+        left > OverlayHideMs
+          ? "Your turn to sing. Track starts after the countdown."
+          : `Starting in ${formatCountdown(left)}`,
+      );
+    }, 80);
   }
 
   async function finish(stream: MediaStream) {
@@ -277,7 +326,7 @@ export function Training() {
     audioRef.current?.pause();
     stream.getTracks().forEach((tr) => tr.stop());
     setRunning(false);
-    setIntro(false);
+    setCountMs(null);
     if (!meta || !melody) return;
 
     setScoring(true);
@@ -337,7 +386,7 @@ export function Training() {
         Song
         <select
           value={songId}
-          disabled={running}
+          disabled={running || countMs != null}
           onChange={(e) => {
             stopPreview();
             setPlayhead(0);
@@ -381,13 +430,18 @@ export function Training() {
 
       <p className="status">{status}</p>
       <div className="ctas">
-        <button type="button" className="cta" disabled={running || !meta || !nameOk} onClick={() => void start()}>
+        <button
+          type="button"
+          className="cta"
+          disabled={running || countMs != null || !meta || !nameOk}
+          onClick={() => void start()}
+        >
           Start
         </button>
         <button
           type="button"
           className="cta cta-ghost"
-          disabled={running || !meta}
+          disabled={running || countMs != null || !meta}
           onClick={() => {
             if (previewing) stopPreview();
             else void startPreview();
@@ -398,20 +452,14 @@ export function Training() {
         <button
           type="button"
           className="cta cta-ghost"
-          disabled={!running}
+          disabled={!running && countMs == null}
           onClick={() => endRef.current?.()}
         >
-          Stop &amp; score
+          {countMs != null ? "Cancel" : "Stop & score"}
         </button>
       </div>
 
-      {intro && running ? (
-        <div className="callout hold training-callout" role="status">
-          <p className="callout-kicker">Training</p>
-          <p className="callout-title">YOUR TURN</p>
-          <p className="callout-sub">Whole song. Follow the melody. You’ll get a score when you stop.</p>
-        </div>
-      ) : null}
+      {countMs != null ? <CountdownOverlay remainingMs={countMs} singing /> : null}
       {scoring && !card ? <ScoringWait /> : null}
       {card ? (
         <ResultsModal

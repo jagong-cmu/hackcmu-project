@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type { RoomState } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
-import { formatCountdown } from "./formatCountdown.ts";
+import CountdownOverlay from "./CountdownOverlay.tsx";
+import { OverlayHideMs, showCountdownOverlay } from "./formatCountdown.ts";
 
 type Beat =
   | { kind: "end" }
@@ -15,31 +16,9 @@ type Beat =
   | { kind: "chaos" }
   | { kind: "time" };
 
-function rankedCountdownCopy(
-  mine: boolean,
-  swapping: boolean,
-  singerName: string,
-): { kicker: string; sub: string } {
-  if (swapping) {
-    return mine
-      ? {
-          kicker: "Your turn — sing now",
-          sub: "Same chorus they just sang. Start on GO. They wait.",
-        }
-      : {
-          kicker: "Wait — their turn",
-          sub: `${singerName} sings the same chorus. Stay quiet until it is your turn again.`,
-        };
-  }
-  return mine
-    ? {
-        kicker: "You sing first",
-        sub: `${singerName} waits. Sing this chorus from the top. Do not start until GO.`,
-      }
-    : {
-        kicker: "Wait — they sing first",
-        sub: `${singerName} has this chorus. Stay quiet. You sing the same lines after they finish.`,
-      };
+function isSingingTurn(room: RoomState, myPlayerId: string | null): boolean {
+  if (room.mode === "duet" || room.mode === "chaos") return true;
+  return Boolean(myPlayerId && room.activeSingerId === myPlayerId);
 }
 
 export default function TurnOverlay({
@@ -106,8 +85,10 @@ export default function TurnOverlay({
     if (room?.mode !== "chaos" || !clockPlay?.songId) return;
     if (prevSong.current === clockPlay.songId) return;
     prevSong.current = clockPlay.songId;
+    const lead = clockPlay.playAtUnixMs - serverNow();
+    if (lead > OverlayHideMs) return;
     setBeat({ kind: "chaos" });
-  }, [room?.mode, clockPlay?.songId]);
+  }, [room?.mode, clockPlay?.songId, clockPlay?.playAtUnixMs]);
 
   useEffect(() => {
     if (!beat) return;
@@ -124,23 +105,25 @@ export default function TurnOverlay({
   const themName =
     room.players.find((p) => p.id !== myPlayerId)?.displayName ?? singer?.displayName ?? "They";
   const msUntil = (clockPlay?.playAtUnixMs ?? room.playAtUnixMs ?? 0) - now;
-  const countingDown =
-    (room.status === "countdown" || room.status === "swap") &&
-    msUntil > 0 &&
-    (clockPlay != null || room.playAtUnixMs != null);
+  const hasClock = clockPlay != null || room.playAtUnixMs != null;
+  const prePlay = hasClock && msUntil > 0;
+  const swapping = room.status === "swap";
+  const overlayUp = prePlay && !swapping && showCountdownOverlay(msUntil);
   const go =
     msUntil <= 0 &&
     msUntil > -1100 &&
     (room.status === "countdown" || room.status === "swap") &&
-    (clockPlay != null || room.playAtUnixMs != null);
-
-  const rankedCopy = rankedCountdownCopy(mine, room.status === "swap", themName);
+    hasClock;
 
   let guide: { title: string; body: string } | null = null;
   if (room.mode === "ranked" && (room.status === "turnA" || room.status === "turnB")) {
     guide = mine
       ? { title: "Your turn", body: "Sing this chorus. They wait and watch." }
       : { title: "Wait", body: `${themName} is singing. Stay quiet — you go next.` };
+  } else if (room.mode === "ranked" && room.status === "countdown") {
+    guide = mine
+      ? { title: "Your turn", body: "Sing this chorus from the top." }
+      : { title: "Wait", body: `${themName} sings first. Stay quiet.` };
   } else if (room.mode === "ranked" && room.status === "swap") {
     guide = mine
       ? { title: "You're next", body: "Same chorus. Get ready." }
@@ -159,24 +142,8 @@ export default function TurnOverlay({
 
   return (
     <>
-      {countingDown ? (
-        <div className="callout hold" role="status">
-          <p className="callout-kicker">
-            {room.mode === "duet"
-              ? "Sing together"
-              : room.mode === "chaos"
-                ? "Chaos lounge"
-                : rankedCopy.kicker}
-          </p>
-          <p className="callout-count">{formatCountdown(msUntil)}</p>
-          <p className="callout-sub">
-            {room.mode === "duet"
-              ? "Whole song. Your lines light up. Don't start until GO."
-              : room.mode === "chaos"
-                ? "Whole song. No score. Sing whenever."
-                : rankedCopy.sub}
-          </p>
-        </div>
+      {overlayUp ? (
+        <CountdownOverlay remainingMs={msUntil} singing={isSingingTurn(room, myPlayerId)} />
       ) : null}
 
       {go ? (
@@ -194,21 +161,21 @@ export default function TurnOverlay({
         </div>
       ) : null}
 
-      {!countingDown && !go && beat?.kind === "turn" ? (
+      {!overlayUp && !go && beat?.kind === "turn" ? (
         <div className="callout flash" role="status">
           <p className="callout-title">{beat.title}</p>
           <p className="callout-sub">{beat.sub}</p>
         </div>
       ) : null}
 
-      {!countingDown && !go && beat?.kind === "together" ? (
+      {!overlayUp && !go && beat?.kind === "together" ? (
         <div className="callout flash" role="status">
           <p className="callout-title">SING TOGETHER</p>
           <p className="callout-sub">Whole song. Your lines light up.</p>
         </div>
       ) : null}
 
-      {!countingDown && !go && beat?.kind === "chaos" ? (
+      {!overlayUp && !go && beat?.kind === "chaos" ? (
         <div className="callout flash" role="status">
           <p className="callout-title">CHAOS</p>
           <p className="callout-sub">Whole song. No score. Sing whenever.</p>
@@ -230,7 +197,7 @@ export default function TurnOverlay({
         </div>
       ) : null}
 
-      {guide && !countingDown && !go && beat?.kind !== "end" && beat?.kind !== "time" ? (
+      {guide && !overlayUp && !go && beat?.kind !== "end" && beat?.kind !== "time" ? (
         <div className={`turn-guide ${mine || room.mode !== "ranked" ? "go" : "wait"}`} role="status">
           <strong>{guide.title}</strong>
           <span>{guide.body}</span>
