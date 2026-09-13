@@ -174,10 +174,6 @@ function paint(
     nowMs: performance.now(),
   });
 
-  // Stretch live travel around the target so small pitch/tone wobble reads.
-  const around = targetMidi ?? (min + max) / 2;
-  const liveYOf = (midi: number) => yOf(around + (midi - around) * 1.45);
-
   // The head marker rides the smoothed curve so the two cannot disagree.
   let headY: number | null = null;
 
@@ -203,7 +199,7 @@ function paint(
       }
       avg[i] = count ? sum / count : (smooth.trail[i]?.midi ?? 0);
     }
-    if (n > 0) headY = liveYOf(avg[n - 1]!);
+    if (n > 0) headY = yOf(avg[n - 1]!);
 
     const pts: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < n; i++) {
@@ -212,7 +208,7 @@ function paint(
       const x = xOf(p.t);
       const prev = pts[pts.length - 1];
       if (prev && Math.abs(x - prev.x) < 0.75) continue;
-      pts.push({ x, y: liveYOf(avg[i]!) });
+      pts.push({ x, y: yOf(avg[i]!) });
     }
 
     ctx.beginPath();
@@ -244,7 +240,7 @@ function paint(
         ? pitchColor(Math.round(p.midi), 0.25 + 0.7 * alpha)
         : pal.ink(0.16 + 0.45 * alpha);
       ctx.beginPath();
-      ctx.arc(xOf(p.t), liveYOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
+      ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -258,7 +254,7 @@ function paint(
   ctx.lineTo(nowX, h - 8);
   ctx.stroke();
 
-  const y = headY ?? liveYOf(live.midi);
+  const y = headY ?? yOf(live.midi);
   const pillH = Math.max(28, Math.round(laneH * 0.85));
   ctx.save();
   ctx.globalAlpha = live.tracking ? 1 : 0.72;
