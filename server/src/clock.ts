@@ -26,7 +26,6 @@ import {
   clearTimers,
   later,
   livePlayers,
-  resetToLobby,
   toPublic,
   type Player,
   type Room,
@@ -60,8 +59,6 @@ function songFile(id: string, name: string): string | undefined {
 
 /** Ranked/Duet lobby wait before GO. Shared CountdownMs stays 5s for other beats. */
 const MatchCountdownMs = 10_000;
-/** After results, auto-start the next match if both singers are still seated. */
-const RematchWaitMs = 6_000;
 /** Last-chance wait for in-flight POSTs across Vercel isolates. */
 const SCORE_WAIT_MS = 8000;
 
@@ -319,16 +316,6 @@ export function advanceDue(io: Server, room: Room): void {
     awaitScores(io, room);
     return;
   }
-  if (
-    room.status === "results" &&
-    room.settled &&
-    livePlayers(room).length >= 2 &&
-    room.rematchAtMs != null &&
-    now >= room.rematchAtMs
-  ) {
-    resetToLobby(room);
-    startMatch(io, room);
-  }
 }
 
 function swapToTurnB(io: Server, room: Room): void {
@@ -496,16 +483,6 @@ export async function finishMatch(
       : {}),
   });
   broadcastState(io, room);
-
-  if (!forfeit && livePlayers(room).length >= 2) {
-    room.rematchAtMs = Date.now() + RematchWaitMs;
-    later(room, RematchWaitMs, () => {
-      if (room.status !== "results") return;
-      if (livePlayers(room).length < 2) return;
-      resetToLobby(room);
-      startMatch(io, room);
-    });
-  }
 }
 
 /**

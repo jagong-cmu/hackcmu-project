@@ -306,7 +306,7 @@ export default function Stage() {
         )}
 
         <TurnOverlay room={room} myPlayerId={me?.id ?? null} clockPlay={clockPlay} />
-        <audio ref={audioRef} className="instrumental" preload="auto" />
+        <audio ref={audioRef} className="instrumental" preload="auto" loop={false} />
       </div>
     </StageContext.Provider>
   );

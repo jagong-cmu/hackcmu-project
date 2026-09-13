@@ -60,7 +60,7 @@ export type Room = {
   /** True once match:over has been emitted, so late POSTs cannot double-settle. */
   settled: boolean;
 
-  /** Wall clock to auto-start the next match after results. */
+  /** Wall clock leftover from an older auto-rematch; results now stay until someone taps Rematch. */
   rematchAtMs: number | null;
 };
 

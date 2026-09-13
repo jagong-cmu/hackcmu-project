@@ -105,6 +105,23 @@ test("draw does not move ELO even when ratings differ", () => {
   assert.deepEqual(eloDelta(1000, 1000, 0.5), { a: 0, b: 0 });
 });
 
+test("settled results do not auto-start a new match", () => {
+  const room = createRoom("ranked", "5555");
+  try {
+    seat(room, "a", "sock-a");
+    seat(room, "b", "sock-b");
+    room.status = "results";
+    room.settled = true;
+    room.songId = "from-the-start";
+    room.rematchAtMs = Date.now() - 10_000;
+    advanceDue(fakeIo() as never, room);
+    assert.equal(room.status, "results");
+    assert.equal(room.songId, "from-the-start");
+  } finally {
+    clearTimers(room);
+  }
+});
+
 test("ranked room stays full while a disconnected seat is still on the roster", () => {
   const room = createRoom("ranked", "7777");
   seat(room, "a", "sock-a");

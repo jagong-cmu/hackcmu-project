@@ -17,6 +17,23 @@ import { InstrumentalVolume } from "../media/levels.ts";
 const SPIN_LEAD_MS = 80;
 const DRIFT_CHECK_MS = 500;
 
+/** Shared playhead in song seconds. Same on every client, even if local audio is blocked. */
+export function playheadFromClock(clock: ClockPlay | null): number | null {
+  if (!clock || clock.playAtUnixMs == null || !clock.songId) return null;
+  const t = clock.startSec + (serverNow() - clock.playAtUnixMs) / 1000;
+  const end = clock.startSec + clock.durationSec;
+  return Math.min(end, Math.max(clock.startSec, t));
+}
+
+function whenMeta(audio: HTMLAudioElement, fn: () => void): () => void {
+  if (audio.readyState >= 1) {
+    fn();
+    return () => {};
+  }
+  audio.addEventListener("loadedmetadata", fn, { once: true });
+  return () => audio.removeEventListener("loadedmetadata", fn);
+}
+
 export type SharedClock = {
   audioRef: React.RefObject<HTMLAudioElement>;
   /** True when Chrome refused autoplay and we need a tap. */
@@ -61,17 +78,25 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !clockPlay?.songId) return;
+    if (!audio || !clockPlay?.songId) {
+      const el = audioRef.current;
+      if (!el) return;
+      livePlaybackRef.current = false;
+      el.pause();
+      setPlaying(false);
+      return;
+    }
 
     const songId = clockPlay.songId;
     const startSec = clockPlay.startSec;
     const durationSec = clockPlay.durationSec;
     const playAtUnixMs = clockPlay.playAtUnixMs;
+    const endSec = startSec + durationSec;
     const src = `/songs/${songId}/instrumental.mp3`;
     if (!audio.src.endsWith(src)) audio.src = src;
+    audio.loop = false;
     audio.volume = InstrumentalVolume;
     audio.pause();
-    audio.currentTime = startSec;
     setPlaying(false);
     livePlaybackRef.current = false;
 
@@ -82,41 +107,68 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
     let startTimer: number | undefined;
     let driftTimer: number | undefined;
     let stopTimer: number | undefined;
+    let dropMeta = () => {};
     let done = false;
+    let halted = false;
+
+    const halt = () => {
+      if (halted) return;
+      halted = true;
+      livePlaybackRef.current = false;
+      audio.pause();
+      try {
+        audio.currentTime = endSec;
+      } catch {
+        /* not seekable yet */
+      }
+      setPlaying(false);
+      if (driftTimer) {
+        clearInterval(driftTimer);
+        driftTimer = undefined;
+      }
+    };
+
+    const clipGuard = () => {
+      if (done) return;
+      if (expectedAt(serverNow()) >= endSec || audio.currentTime >= endSec - 0.02) halt();
+    };
 
     const begin = () => {
       if (done) return;
       const target = Math.max(startSec, expectedAt(serverNow()));
 
       // Past the end already (a very late join) — nothing to play.
-      if (target >= startSec + durationSec) return;
+      if (target >= endSec) {
+        halt();
+        return;
+      }
 
-      audio.currentTime = target;
-      livePlaybackRef.current = true;
-      void audio
-        .play()
-        .then(() => {
-          primedRef.current = true;
-          setBlocked(false);
-          setPlaying(true);
-        })
-        .catch(() => {
-          livePlaybackRef.current = false;
-          setBlocked(true);
-        });
+      dropMeta();
+      dropMeta = whenMeta(audio, () => {
+        if (done) return;
+        try {
+          audio.currentTime = target;
+        } catch {
+          /* Chrome can throw if the element is still HAVE_NOTHING. */
+        }
+        livePlaybackRef.current = true;
+        void audio
+          .play()
+          .then(() => {
+            primedRef.current = true;
+            setBlocked(false);
+            setPlaying(true);
+          })
+          .catch(() => {
+            livePlaybackRef.current = false;
+            setBlocked(true);
+          });
+      });
 
       driftTimer = window.setInterval(() => {
         const want = expectedAt(serverNow());
-        const end = startSec + durationSec;
-        if (want >= end) {
-          livePlaybackRef.current = false;
-          audio.pause();
-          audio.currentTime = end;
-          setPlaying(false);
-          if (driftTimer) {
-            clearInterval(driftTimer);
-            driftTimer = undefined;
-          }
+        if (want >= endSec) {
+          halt();
           return;
         }
         if (Math.abs(audio.currentTime - want) > MaxDriftSec) {
@@ -124,17 +176,8 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
         }
       }, DRIFT_CHECK_MS);
 
-      const remainingMs = (startSec + durationSec - target) * 1000;
-      stopTimer = window.setTimeout(() => {
-        livePlaybackRef.current = false;
-        audio.pause();
-        audio.currentTime = startSec + durationSec;
-        setPlaying(false);
-        if (driftTimer) {
-          clearInterval(driftTimer);
-          driftTimer = undefined;
-        }
-      }, remainingMs);
+      const remainingMs = (endSec - target) * 1000;
+      stopTimer = window.setTimeout(halt, remainingMs);
     };
 
     // Burn the last few milliseconds in rAF; setTimeout alone is too coarse to
@@ -145,6 +188,18 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
       else spinFrame = requestAnimationFrame(spin);
     };
 
+    dropMeta = whenMeta(audio, () => {
+      if (done) return;
+      try {
+        audio.currentTime = startSec;
+      } catch {
+        /* wait for begin() */
+      }
+    });
+
+    audio.addEventListener("timeupdate", clipGuard);
+    audio.addEventListener("ended", halt);
+
     const leadMs = playAtUnixMs - serverNow();
     if (leadMs <= 0) begin();
     else if (leadMs <= SPIN_LEAD_MS) spinFrame = requestAnimationFrame(spin);
@@ -152,10 +207,13 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
 
     return () => {
       done = true;
+      dropMeta();
       cancelAnimationFrame(spinFrame);
       if (startTimer) clearTimeout(startTimer);
       if (driftTimer) clearInterval(driftTimer);
       if (stopTimer) clearTimeout(stopTimer);
+      audio.removeEventListener("timeupdate", clipGuard);
+      audio.removeEventListener("ended", halt);
       livePlaybackRef.current = false;
       audio.pause();
       setPlaying(false);

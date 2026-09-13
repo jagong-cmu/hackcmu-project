@@ -20,7 +20,39 @@ import { getClientId, getDisplayName } from "../home/identity.ts";
 import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
 import { InstrumentalVolume } from "../media/levels.ts";
 import { useStage } from "./StageContext.tsx";
-import { useRoom } from "../rooms/RoomProvider.tsx";
+import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
+import { playheadFromClock } from "./useSharedClock.ts";
+
+/** Same song-time on both laptops. Never follow a local <audio> that hasn't sought yet. */
+function displayPlayhead(
+  clockPlay: ClockPlay | null,
+  room: RoomState | null,
+  audio: HTMLAudioElement | null | undefined,
+): number {
+  const fromClock = playheadFromClock(clockPlay);
+  if (fromClock != null) return fromClock;
+  if (room?.playAtUnixMs != null && room.songId) {
+    const song = songById(room.songId);
+    if (song) {
+      const together = room.mode === "duet" || room.mode === "chaos";
+      const startSec = together ? song.duetClipStartSec : song.clipStartSec;
+      const durationSec =
+        room.mode === "duet"
+          ? song.duetClipDurationSec
+          : room.mode === "chaos"
+            ? song.chaosDurationSec
+            : song.clipDurationSec;
+      const t = playheadFromClock({
+        songId: room.songId,
+        startSec,
+        durationSec,
+        playAtUnixMs: room.playAtUnixMs,
+      });
+      if (t != null) return t;
+    }
+  }
+  return audio?.currentTime ?? 0;
+}
 
 function isScoringClip(room: RoomState | null, myPlayerId: string | null): boolean {
   if (!room || !myPlayerId || room.mode === "chaos") return false;
@@ -33,6 +65,7 @@ function isScoringClip(room: RoomState | null, myPlayerId: string | null): boole
 
 export function StageLyrics() {
   const { audioRef, room, myPlayerId, reportDuetVoice } = useStage();
+  const { clockPlay } = useRoom();
   const [lrc, setLrc] = useState("");
   const [lrcFailed, setLrcFailed] = useState(false);
   const [t, setT] = useState(0);
@@ -45,6 +78,10 @@ export function StageLyrics() {
   const lines = useMemo(() => parseLrc(lrc), [lrc]);
   const duetOn = room?.mode === "duet" && running;
   const song = room?.songId ? songById(room.songId) : undefined;
+  const clockPlayRef = useRef(clockPlay);
+  const roomRef = useRef(room);
+  clockPlayRef.current = clockPlay;
+  roomRef.current = room;
   const singing =
     room?.status === "turnA" || room?.status === "turnB" || room?.status === "live";
   const windowSec =
@@ -83,7 +120,7 @@ export function StageLyrics() {
     if (!running) return;
     let raf = 0;
     const tick = () => {
-      setT(audioRef.current?.currentTime ?? 0);
+      setT(displayPlayhead(clockPlayRef.current, roomRef.current, audioRef.current));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -153,6 +190,7 @@ export function StagePitch() {
   const melodyRef = useRef(melody);
   const roomRef = useRef(room);
   const myPlayerIdRef = useRef(myPlayerId);
+  const clockPlayRef = useRef(clockPlay);
   const seat = room ? duetSeat(room.players, myPlayerId) : null;
   const scoring = isScoringClip(room, myPlayerId);
   const mine =
@@ -163,6 +201,7 @@ export function StagePitch() {
   melodyRef.current = melody;
   roomRef.current = room;
   myPlayerIdRef.current = myPlayerId;
+  clockPlayRef.current = clockPlay;
   if (clockPlay) {
     clipWindowRef.current = { startSec: clockPlay.startSec, durationSec: clockPlay.durationSec };
   }
@@ -259,15 +298,13 @@ export function StagePitch() {
     if (!audio) return;
     let raf = 0;
     const tick = () => {
-      const t = audio.currentTime;
-      setPlayhead(t);
+      const shown = displayPlayhead(clockPlayRef.current, roomRef.current, audio);
+      setPlayhead(shown);
       const clip = clipWindowRef.current;
-      if (
-        clip &&
-        singingRef.current &&
-        !postedRef.current &&
-        t >= clip.startSec + clip.durationSec - 0.05
-      ) {
+      const heard = audio.currentTime;
+      const pastClip = (t: number) =>
+        Boolean(clip && t >= clip.startSec + clip.durationSec - 0.05);
+      if (singingRef.current && !postedRef.current && (pastClip(heard) || pastClip(shown))) {
         flushRef.current();
       }
       raf = requestAnimationFrame(tick);
@@ -304,7 +341,15 @@ export function StagePitch() {
       const now = performance.now();
       if (now - lastEmitRef.current < 40) return;
       lastEmitRef.current = now;
-      emitRef.current({ hz, clarity, rms });
+      const run = runningRef.current;
+      emitRef.current({
+        hz,
+        clarity,
+        rms,
+        pitch: run?.pitch,
+        tone: run?.tone,
+        overall: run?.overall,
+      });
     };
     const tick = () => {
       const t = audio.currentTime;
@@ -372,10 +417,14 @@ export function StagePitch() {
   }, []);
 
   const opponent = room?.players.find((p) => p.id !== myPlayerId);
+  const singerId = room?.activeSingerId ?? null;
+  const singerLive =
+    singerId && singerId !== myPlayerId ? livePitches[singerId] : undefined;
   const remote = opponent ? livePitches[opponent.id] : undefined;
-  const shownHz = mine ? liveHz : (remote?.hz ?? null);
-  const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
-  const shownRms = mine ? liveRms : (remote?.rms ?? 0);
+  const watchLive = singerLive ?? remote;
+  const shownHz = mine ? liveHz : (watchLive?.hz ?? null);
+  const shownClarity = mine ? liveClarity : (watchLive?.clarity ?? 0);
+  const shownRms = mine ? liveRms : (watchLive?.rms ?? 0);
   const themLive = remote;
   const rankedHidden =
     room?.mode === "ranked" && room.status !== "results" && !matchOver;
