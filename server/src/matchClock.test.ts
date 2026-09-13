@@ -86,21 +86,23 @@ test("rematch skips the song that just played", () => {
     seat(room, "a", "sock-a");
     seat(room, "b", "sock-b");
     maybeArmMatch(fakeIo() as never, room);
-    const first = room.songId;
-    assert.ok(first);
-    const seen = new Set<string>([first]);
+    let prev = room.songId;
+    assert.ok(prev);
+    const seen = new Set<string>([prev]);
     for (let i = 0; i < 8; i++) {
       resetToLobby(room);
       maybeArmMatch(fakeIo() as never, room);
-      assert.notEqual(room.songId, first, "immediate rematch must not repeat");
-      seen.add(room.songId ?? "");
-      first && (room.songId = first); // restore so each rematch still skips `first`? No that's wrong
+      assert.notEqual(room.songId, prev, "next match must not repeat the last song");
+      prev = room.songId;
+      if (prev) seen.add(prev);
     }
-    assert.ok(seen.size >= 2);
+    assert.ok(seen.size >= 2, "ranked should not lock to one demo song");
   } finally {
     clearTimers(room);
   }
 });
+
+test("countdown text is always one decimal", () => {
   assert.equal(formatCountdown(10_000), "10.0");
   assert.equal(formatCountdown(9_040), "9.0");
   assert.equal(formatCountdown(50), "0.1");
