@@ -1,7 +1,8 @@
 import { PitchDetector } from "pitchy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { MelodyFile } from "@karaoke/shared";
+import { songById, type MelodyFile, type RoomState } from "@karaoke/shared";
+import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
 import { parseLrc } from "../lyrics/parseLrc.ts";
@@ -20,7 +21,6 @@ import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts"
 import { InstrumentalVolume } from "../media/levels.ts";
 import { useStage } from "./StageContext.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
-import type { RoomState } from "@karaoke/shared";
 
 function isScoringClip(room: RoomState | null, myPlayerId: string | null): boolean {
   if (!room || !myPlayerId || room.mode === "chaos") return false;
@@ -44,6 +44,19 @@ export function StageLyrics() {
     room?.status === "live";
   const lines = useMemo(() => parseLrc(lrc), [lrc]);
   const duetOn = room?.mode === "duet" && running;
+  const song = room?.songId ? songById(room.songId) : undefined;
+  const singing =
+    room?.status === "turnA" || room?.status === "turnB" || room?.status === "live";
+  const windowSec =
+    room?.mode === "duet" ? song?.duetClipDurationSec : song?.clipDurationSec;
+  useMatchMomentCapture({
+    matchKey:
+      room?.playAtUnixMs && room.songId ? `${room.code}:${room.songId}:${room.playAtUnixMs}` : "",
+    singing: Boolean(singing && room?.mode !== "chaos"),
+    windowMs: (windowSec ?? 20) * 1000,
+    settle: room?.status === "results",
+    reset: !room || room.status === "lobby" || room.mode === "chaos",
+  });
 
   useEffect(() => {
     const id = room?.songId;
@@ -442,6 +455,7 @@ export function StageResults() {
       : null;
   const rankedWinner =
     matchOver.winnerId ?? (room.mode === "ranked" ? "draw" : null);
+  const song = room.songId ? songById(room.songId) : undefined;
 
   return (
     <ResultsModal
@@ -455,6 +469,8 @@ export function StageResults() {
       opponentId={opponent?.id}
       eloDelta={myDelta}
       shared={shared}
+      songTitle={song?.title}
+      songArtist={song?.artist}
       onHome={() => {
         roomLeave();
         navigate("/");

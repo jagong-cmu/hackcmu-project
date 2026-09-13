@@ -11,6 +11,7 @@ import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
+import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import {
   isMusicOnly,
   PITCH_FFT,
@@ -41,6 +42,7 @@ export function Training() {
   const [countMs, setCountMs] = useState<number | null>(null);
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [clipKey, setClipKey] = useState("");
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -51,6 +53,14 @@ export function Training() {
   const endRef = useRef<(() => void) | null>(null);
   const previewRafRef = useRef<number>(0);
   const countTimerRef = useRef<number>(0);
+
+  useMatchMomentCapture({
+    matchKey: clipKey,
+    singing: running,
+    windowMs: (meta?.clipDurationSec ?? 20) * 1000,
+    settle: Boolean(card) || scoring,
+    reset: !clipKey,
+  });
 
   const crepeRef = useRef<LayersModel | null>(null);
 
@@ -309,6 +319,7 @@ export function Training() {
       audio.currentTime = 0;
       void audio.play().catch(() => undefined);
       setRunning(true);
+      setClipKey(crypto.randomUUID());
       setStatus("Follow the melody. Stop whenever — you'll still be scored.");
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -473,6 +484,9 @@ export function Training() {
       {card ? (
         <ResultsModal
           you={card}
+          youName={getDisplayName() || "You"}
+          songTitle={meta?.title}
+          songArtist={meta?.artist}
           onHome={() => navigate("/")}
           onAgain={() => {
             setCard(null);

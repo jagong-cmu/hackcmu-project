@@ -2,8 +2,14 @@ import type { ScoreCard } from "@karaoke/shared";
 import { useEffect, useState } from "react";
 import { ScoreBreakdown, ScoreMeter, scoreBand } from "../scoring/ScoreBars.tsx";
 import { coachLine } from "./coachLine.ts";
+import {
+  composeShareImage,
+  shareFilename,
+} from "./composeShareImage.ts";
 import { ScoreBurst } from "./ScoreBurst.tsx";
+import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
+import { useMatchMoment } from "./useMatchMoment.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
 
@@ -80,6 +86,8 @@ type Props = {
   opponentId?: string;
   eloDelta?: number | null;
   shared?: number | null;
+  songTitle?: string;
+  songArtist?: string;
   onHome?: () => void;
   onRematch?: () => void;
   onAgain?: () => void;
@@ -96,10 +104,16 @@ export function ResultsModal({
   opponentId,
   eloDelta,
   shared,
+  songTitle,
+  songArtist,
   onHome,
   onRematch,
   onAgain,
 }: Props) {
+  const moment = useMatchMoment();
+  const [sheet, setSheet] = useState<{ url: string; blob: Blob } | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
   const locked = Boolean(opponent) && !revealOpponent;
   const youWon = Boolean(winnerId && youId && winnerId === youId);
   const theyWon = Boolean(winnerId && opponentId && winnerId === opponentId);
@@ -138,6 +152,43 @@ export function ResultsModal({
     return () => window.clearTimeout(t);
   }, []);
 
+  useEffect(
+    () => () => {
+      if (sheet?.url) URL.revokeObjectURL(sheet.url);
+    },
+    [sheet?.url],
+  );
+
+  const openShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const blob = await composeShareImage({
+        moment,
+        kicker: title,
+        songTitle: songTitle ?? "",
+        songArtist: songArtist ?? "",
+        youName,
+        youScore: you.silence ? 0 : you.overall,
+        opponentName: opponent ? opponentName : undefined,
+        opponentScore:
+          opponent && revealOpponent ? (opponent.silence ? 0 : opponent.overall) : null,
+        youWon,
+        theyWon,
+        shared,
+        eloDelta: revealOpponent ? eloDelta : null,
+        verdict: showGemini ? gemini : "",
+      });
+      if (sheet?.url) URL.revokeObjectURL(sheet.url);
+      setCopied(false);
+      setSheet({ url: URL.createObjectURL(blob), blob });
+    } catch {
+      setSheet(null);
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <div className="modal-scrim results-scrim">
       <div
@@ -175,7 +226,15 @@ export function ResultsModal({
           </p>
         ) : null}
         {showGemini ? <p className="verdict">{gemini}</p> : null}
+        {moment ? (
+          <button type="button" className="results-moment" onClick={() => void openShare()}>
+            <img src={moment.url} alt="A still from this match" />
+          </button>
+        ) : null}
         <div className="result-actions">
+          <button type="button" className="cta cta-ghost" disabled={sharing} onClick={() => void openShare()}>
+            {sharing ? "Making the card…" : "Share"}
+          </button>
           {onAgain ? (
             <button type="button" className="cta" onClick={onAgain}>
               Sing again
@@ -193,6 +252,28 @@ export function ResultsModal({
           ) : null}
         </div>
       </div>
+      {sheet ? (
+        <ShareSheet
+          url={sheet.url}
+          blob={sheet.blob}
+          filename={shareFilename(songTitle ?? "match")}
+          title={songTitle ? `${title} · ${songTitle}` : title}
+          text={
+            songTitle
+              ? `${title} — ${youName} ${you.silence ? 0 : you.overall}${opponent && revealOpponent ? ` vs ${opponentName} ${opponent.overall}` : ""} on ${songTitle}`
+              : title
+          }
+          copied={copied}
+          onCopied={() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+          }}
+          onClose={() => {
+            URL.revokeObjectURL(sheet.url);
+            setSheet(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

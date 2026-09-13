@@ -2,6 +2,7 @@ import type { ScoreCard } from "@karaoke/shared";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResultsModal, ScoringWait } from "./ResultsModal.tsx";
+import { seedPreviewMoment } from "./matchMoment.ts";
 
 const MOCK: ScoreCard = {
   overall: 87,
@@ -35,6 +36,10 @@ export function ResultsPreview() {
   const [showWait, setShowWait] = useState(wait);
 
   useEffect(() => {
+    void seedPreviewMoment();
+  }, []);
+
+  useEffect(() => {
     if (!wait) return;
     const t = window.setTimeout(() => setShowWait(false), 2800);
     return () => window.clearTimeout(t);
@@ -60,6 +65,8 @@ export function ResultsPreview() {
       youId="a"
       opponentId="b"
       eloDelta={split ? (loss ? -12 : 16) : null}
+      songTitle="Viva La Vida"
+      songArtist="Coldplay"
       onHome={() => navigate("/")}
       onRematch={() => navigate("/")}
     />
