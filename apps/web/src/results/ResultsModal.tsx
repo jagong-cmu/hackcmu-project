@@ -1,12 +1,23 @@
 import type { ScoreCard } from "@karaoke/shared";
 import { useEffect, useState } from "react";
-import { ScoreBreakdown } from "../scoring/ScoreBars.tsx";
-import { formatCountdown } from "../stage/formatCountdown.ts";
+import { ScoreBreakdown, ScoreMeter, scoreBand } from "../scoring/ScoreBars.tsx";
+import { coachLine } from "./coachLine.ts";
+import { ScoreBurst } from "./ScoreBurst.tsx";
+import { useCountUp } from "./useCountUp.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
 
+const WAIT_LINES = [
+  "Reading pitch and tone",
+  "Listening for the high notes",
+  "Checking the vibe",
+  "Counting every wobble",
+  "The booth is still talking",
+];
+
 export function ScoringWait() {
   const [left, setLeft] = useState(SCORE_COUNTDOWN_SEC);
+  const [line, setLine] = useState(0);
 
   useEffect(() => {
     const started = Date.now();
@@ -17,16 +28,37 @@ export function ScoringWait() {
     return () => window.clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setLine((n) => (n + 1) % WAIT_LINES.length);
+    }, 1400);
+    return () => window.clearInterval(id);
+  }, []);
+
   const pct = Math.min(100, ((SCORE_COUNTDOWN_SEC - left) / SCORE_COUNTDOWN_SEC) * 100);
+  const copy = left > 0 ? WAIT_LINES[line] : "Almost there…";
 
   return (
-    <div className="modal-scrim">
-      <div className="results scoring-wait" role="status" aria-live="polite">
+    <div className="modal-scrim results-scrim">
+      <div className="results scoring-wait booth-wait" role="status" aria-live="polite">
+        <div className="booth" aria-hidden="true">
+          <span className="booth-sweep" />
+          <span className="booth-ring" />
+          <span className="booth-ring" />
+          <span className="booth-ring" />
+          <div className="booth-eq">
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
+        </div>
         <h2 id="results-title">Scoring</h2>
-        <p className="scoring-copy">
-          {left > 0
-            ? `Reading pitch and tone · ${formatCountdown(left * 1000)}`
-            : "Almost there…"}
+        <p className="scoring-copy" key={copy}>
+          {copy}
         </p>
         <div className="scoring-track">
           <span style={{ width: `${pct}%` }} />
@@ -69,39 +101,80 @@ export function ResultsModal({
   onAgain,
 }: Props) {
   const locked = Boolean(opponent) && !revealOpponent;
+  const youWon = Boolean(winnerId && youId && winnerId === youId);
+  const theyWon = Boolean(winnerId && opponentId && winnerId === opponentId);
+  const draw = winnerId === "draw";
+  const band = you.silence ? "bad" : scoreBand(you.overall);
+  const ranked = Boolean(winnerId && youId);
+  const coach = coachLine(you, {
+    won: ranked ? youWon : null,
+    draw,
+    shared,
+  });
   const title = you.silence
-    ? "We couldn't hear you."
+    ? "Mic check"
     : shared != null
       ? "Duet locked in"
-      : winnerId === "draw"
+      : draw
         ? "Draw"
-        : winnerId && youId && winnerId === youId
+        : youWon
           ? "You take it"
-          : winnerId && opponentId && winnerId === opponentId
+          : theyWon
             ? "They take it"
-            : "Score";
+            : coach.kicker;
+  const gemini = you.verdict?.trim() ?? "";
+  const showGemini =
+    Boolean(gemini) &&
+    gemini !== coach.line &&
+    gemini !== "We couldn't hear you.";
+
+  const heroTarget = shared != null ? shared : you.overall;
+  const shown = useCountUp(you.silence ? 0 : heroTarget, true);
+  const burstCount = you.silence ? 0 : you.overall >= 80 ? 36 : you.overall >= 55 ? 22 : 0;
+  const [landed, setLanded] = useState(false);
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = window.setTimeout(() => setLanded(true), reduced ? 0 : 1080);
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
-    <div className="modal-scrim">
-      <div className="results" role="dialog" aria-labelledby="results-title">
+    <div className="modal-scrim results-scrim">
+      <div
+        className={`results results-show band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""}`}
+        role="dialog"
+        aria-labelledby="results-title"
+      >
         <h2 id="results-title">{title}</h2>
-        <div className={`score-row ${opponent ? "split" : ""}`}>
-          <ScoreBreakdown name={youName} card={you} />
-          {opponent ? (
-            locked ? (
-              <ScoreBreakdown name={opponentName} card={null} pending />
-            ) : (
-              <ScoreBreakdown name={opponentName} card={opponent} />
-            )
-          ) : null}
+        <div className="results-hero">
+          {burstCount > 0 ? <ScoreBurst count={burstCount} /> : null}
+          <p className="results-hero-score" aria-label={`Score ${heroTarget}`}>
+            {you.silence ? "--" : shown}
+          </p>
+          <p className="results-blurb">{coach.line}</p>
         </div>
+        {opponent ? (
+          <div className="score-row split">
+            <ScoreBreakdown name={youName} card={you} winner={youWon} compact />
+            {locked ? (
+              <ScoreBreakdown name={opponentName} card={null} pending compact />
+            ) : (
+              <ScoreBreakdown name={opponentName} card={opponent} winner={theyWon} compact />
+            )}
+          </div>
+        ) : (
+          <div className="results-subs">
+            <ScoreMeter label="Pitch" value={you.silence ? 0 : you.pitch} />
+            <ScoreMeter label="Tone" value={you.silence ? 0 : you.tone} />
+          </div>
+        )}
         {shared != null ? <p className="shared">Shared score {shared}</p> : null}
         {eloDelta != null && revealOpponent ? (
-          <p className="elo">
+          <p className={`elo ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
             {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : ""}${eloDelta} ELO`}
           </p>
         ) : null}
-        {you.verdict ? <p className="verdict">{you.verdict}</p> : null}
+        {showGemini ? <p className="verdict">{gemini}</p> : null}
         <div className="result-actions">
           {onAgain ? (
             <button type="button" className="cta" onClick={onAgain}>

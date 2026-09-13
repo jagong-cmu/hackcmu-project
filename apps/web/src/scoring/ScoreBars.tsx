@@ -30,19 +30,26 @@ export function ScoreBreakdown({
   card,
   pending,
   compact,
+  winner,
 }: {
   name: string;
   card: ScoreBits | null;
   pending?: boolean;
   compact?: boolean;
+  winner?: boolean;
 }) {
   const pitch = card?.pitch ?? 0;
   const tone = card?.tone ?? 0;
   const overall = card?.overall ?? 0;
   const empty = pending || !card;
   return (
-    <div className={`score-break band-${empty ? "mid" : scoreBand(overall)} ${empty ? "pending" : ""} ${compact ? "compact" : ""}`}>
-      <p className="who">{name}</p>
+    <div
+      className={`score-break band-${empty ? "mid" : scoreBand(overall)} ${empty ? "pending" : ""} ${compact ? "compact" : ""} ${winner ? "winner" : ""}`}
+    >
+      <p className="who">
+        {name}
+        {winner ? <span className="win-tag">Win</span> : null}
+      </p>
       <p className="overall">{empty ? "--" : overall}</p>
       {compact ? null : <ScoreMeter label="Score" value={empty ? 0 : overall} />}
       <ScoreMeter label="Pitch" value={empty ? 0 : pitch} />

@@ -7,6 +7,7 @@ import "./index.css";
 import "./styles.css";
 // Last: the palette and the spectrum accents override both legacy sheets.
 import "./theme/theme.css";
+import "./results/results.css";
 
 registerStageSlots({
   LyricsOverlay: StageLyrics,
