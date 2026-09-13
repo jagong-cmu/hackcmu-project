@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getClientId, getDisplayName, setDisplayName, validName } from "./identity.ts";
+import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
 
@@ -26,17 +26,8 @@ export function Settings() {
       setMsg("Name needs 2–16 characters.");
       return;
     }
-    const saved = setDisplayName(name);
+    const saved = await commitDisplayName(name);
     hello(saved);
-    try {
-      await fetch("/api/player/hello", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: getClientId(), displayName: saved }),
-      });
-    } catch {
-      /* still continue */
-    }
     navigate(next);
   }
 

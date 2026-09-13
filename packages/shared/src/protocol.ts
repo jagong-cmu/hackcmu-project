@@ -49,7 +49,7 @@ export const EloK = 32;
 export const ForfeitEloK = 16;
 export const ForfeitSkipMs = 5000;
 export const CountdownMs = 5000;
-/** Click-track fallback only. Live ranked length is each song's first chorus. */
+/** Click-track fallback only. Live ranked length is each song's 15–20s chorus hook. */
 export const RankedClipMs = 15000;
 export const SwapMs = 5000;
 export const ClockLeadMs = 400;

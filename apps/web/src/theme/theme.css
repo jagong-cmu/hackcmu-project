@@ -1276,6 +1276,63 @@ select:focus {
   box-shadow: 0 0 10px rgba(168, 208, 255, 0.95), 0 0 22px rgba(79, 151, 245, 0.7);
 }
 
+.home-pitch {
+  margin: -4px 0 22px;
+  color: var(--fg-dim);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  max-width: 26rem;
+  line-height: 1.4;
+}
+
+.home-go {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(20rem, 100%);
+}
+.home-name {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  color: var(--fg-dim);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.home-name input {
+  width: 100%;
+  text-align: center;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+}
+.home-name-err {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.home-play { margin-top: 10px; }
+
+.home-more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 22px;
+  margin-top: 40px;
+}
+.home-more a {
+  color: var(--fg-dim);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.home-more a:hover,
+.home-more a:focus-visible {
+  color: var(--fg);
+  outline: none;
+}
+
 /*
  * Home: the ribbon runs straight through the mode names, and no amount of
  * dimming fixes light sitting directly behind type. Mask out the centre column
@@ -1343,6 +1400,11 @@ select:focus {
     margin: 10px 0 16px;
     gap: 10px;
   }
+  .home-pitch {
+    margin: 0 0 16px;
+    font-size: 0.95rem;
+  }
+  .home-more { margin-top: 24px; }
   .home-hero .eyebrow { margin: 8px 0 14px; }
   .home-hero .modes button {
     font-size: clamp(2.1rem, 10vw, 2.8rem);
@@ -1623,6 +1685,10 @@ select:focus {
     text-indent: 0.16em;
   }
   .hero-rule { width: min(22rem, 50vw); margin: 6px 0 10px; }
+  .home-pitch { margin: 0 0 10px; font-size: 0.88rem; }
+  .home-go { gap: 4px; }
+  .home-play { margin-top: 2px; }
+  .home-more { margin-top: 12px; gap: 6px 14px; }
   .home-hero .eyebrow { margin: 4px 0 8px; }
   .home-hero .modes button {
     font-size: clamp(1.45rem, 8vh, 2.2rem);

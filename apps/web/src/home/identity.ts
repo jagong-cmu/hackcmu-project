@@ -35,3 +35,18 @@ export function validName(name: string): boolean {
   const n = name.trim().length;
   return n >= 2 && n <= 16;
 }
+
+/** Persist the name locally and tell Atlas. Socket hello is the caller's job. */
+export async function commitDisplayName(name: string): Promise<string> {
+  const saved = setDisplayName(name);
+  try {
+    await fetch("/api/player/hello", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: getClientId(), displayName: saved }),
+    });
+  } catch {
+    /* still continue */
+  }
+  return saved;
+}

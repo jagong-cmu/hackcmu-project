@@ -122,7 +122,7 @@ export default function TurnOverlay({
       : { title: "Wait", body: `${themName} is singing. Stay quiet — you go next.` };
   } else if (room.mode === "ranked" && room.status === "countdown") {
     guide = mine
-      ? { title: "Your turn", body: "Sing this chorus from the top." }
+      ? { title: "Your turn", body: "Sing this chorus." }
       : { title: "Wait", body: `${themName} sings first. Stay quiet.` };
   } else if (room.mode === "ranked" && room.status === "swap") {
     guide = mine

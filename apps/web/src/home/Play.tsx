@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { DemoRoomCode, type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
@@ -8,7 +8,7 @@ import { PageShell } from "../theme/PageShell.tsx";
 const COPY: Record<string, { title: string; blurb: string; match: string; matchBtn: string }> = {
   ranked: {
     title: "Ranked",
-    blurb: "From the top through the first chorus. You then them. Winner takes ELO.",
+    blurb: "Same 20-second chorus. You then them. Winner takes ELO.",
     match: "We’ll pair you with the next singer waiting in Ranked.",
     matchBtn: "Find a match",
   },
@@ -33,6 +33,7 @@ function playModeOf(mode: string): Mode {
 
 export function Play() {
   const { mode = "ranked" } = useParams();
+  const [params, setParams] = useSearchParams();
   const [code, setCode] = useState("");
   const named = validName(getDisplayName());
   const info = COPY[mode] ?? COPY.ranked;
@@ -52,6 +53,13 @@ export function Play() {
   const playMode = playModeOf(mode);
   const isChaos = playMode === "chaos";
   const inQueue = !isChaos && queuedMode === playMode;
+  const autoQueue = params.get("go") === "1" && !isChaos;
+
+  useEffect(() => {
+    if (!autoQueue || !named || !connected || inQueue) return;
+    hello(getDisplayName());
+    queueJoin(playMode);
+  }, [autoQueue, named, connected, inQueue, playMode, hello, queueJoin]);
 
   function parseCode(raw: string): string | null {
     const c = raw.replace(/\D/g, "").slice(0, 4);
@@ -62,6 +70,13 @@ export function Play() {
     if (named) hello(getDisplayName());
   }
 
+  function stopQueue() {
+    queueLeave();
+    if (autoQueue) setParams({}, { replace: true });
+  }
+
+  const waiting = inQueue || autoQueue;
+
   return (
     <PageShell
       title={info.title}
@@ -69,7 +84,7 @@ export function Play() {
       wide
       className="play-page"
       onHome={() => {
-        if (inQueue) queueLeave();
+        if (inQueue || autoQueue) queueLeave();
         roomLeave();
       }}
     >
@@ -78,21 +93,21 @@ export function Play() {
           <Link to={`/settings?next=/play/${mode}`}>Set your name</Link> first.
         </p>
       ) : null}
-      {!connected ? <p className="dim">Connecting…</p> : null}
+      {!connected && !waiting ? <p className="dim">Connecting…</p> : null}
       {error ? (
         <p className="err">{error.message}</p>
       ) : null}
 
-      {inQueue ? (
+      {waiting ? (
         <div className="play-choices">
           <section className="card play-choice play-waiting">
             <h2>Looking for a singer</h2>
             <p>
               {connected
                 ? `Stay here. The next person who taps “${info.matchBtn}” is your match.`
-                : "Reconnecting — you’ll be put back in the queue automatically."}
+                : "Connecting — you’ll be put in the queue automatically."}
             </p>
-            <button type="button" className="cta cta-ghost" onClick={queueLeave}>
+            <button type="button" className="cta cta-ghost" onClick={stopQueue}>
               Leave queue
             </button>
           </section>

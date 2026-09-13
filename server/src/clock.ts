@@ -94,16 +94,18 @@ const TEST_SONG: SongMeta = {
 };
 
 const RankedDemoSongId = "from-the-start";
-/** First lyric "Don't you notice how" is at 4.59s; 5s earlier would be negative, so start at 0. */
-const RankedDemoStartSec = 0;
-const RankedDemoDurationSec = 20;
+/** Hard cap so a stale meta.json cannot turn Ranked back into a full verse. */
+const RankedClipMaxSec = 20;
 
-/** Ranked: 20s of Laufey's From The Start from the top of the track. Duet: the whole track. */
+/** Ranked: the song's 15–20s chorus hook. Duet: the whole track. */
 function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
   if (kind === "duet") {
     return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
   }
-  return { startSec: RankedDemoStartSec, durationSec: RankedDemoDurationSec };
+  return {
+    startSec: Math.max(0, song.clipStartSec),
+    durationSec: Math.min(RankedClipMaxSec, Math.max(1, song.clipDurationSec)),
+  };
 }
 
 function useTestSong(): boolean {
@@ -219,7 +221,7 @@ export function maybeArmMatch(io: Server, room: Room): void {
 }
 
 /**
- * lobby → countdown 10s → turnA (0:00 through first chorus) → swap 5s → turnB (same) → results.
+ * lobby → countdown 10s → turnA (15–20s chorus hook) → swap 5s → turnB (same) → results.
  * Duet collapses the two turns into one shared `live` block for the whole track.
  */
 export function startMatch(io: Server, room: Room): void {
