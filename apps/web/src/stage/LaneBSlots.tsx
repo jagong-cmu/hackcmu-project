@@ -64,7 +64,7 @@ function isScoringClip(room: RoomState | null, myPlayerId: string | null): boole
 }
 
 export function StageLyrics() {
-  const { audioRef, room, myPlayerId, reportDuetVoice } = useStage();
+  const { audioRef, room, myPlayerId, reportDuetVoice, micStream } = useStage();
   const { clockPlay } = useRoom();
   const [lrc, setLrc] = useState("");
   const [lrcFailed, setLrcFailed] = useState(false);
@@ -84,13 +84,21 @@ export function StageLyrics() {
   roomRef.current = room;
   const singing =
     room?.status === "turnA" || room?.status === "turnB" || room?.status === "live";
+  const recording =
+    room?.status === "countdown" ||
+    room?.status === "turnA" ||
+    room?.status === "turnB" ||
+    room?.status === "swap" ||
+    room?.status === "live";
   const windowSec =
     room?.mode === "duet" ? song?.duetClipDurationSec : song?.clipDurationSec;
   useMatchMomentCapture({
     matchKey:
       room?.playAtUnixMs && room.songId ? `${room.code}:${room.songId}:${room.playAtUnixMs}` : "",
     singing: Boolean(singing && room?.mode !== "chaos"),
+    recording: Boolean(recording && room?.mode !== "chaos"),
     windowMs: (windowSec ?? 20) * 1000,
+    micStream,
     settle: room?.status === "results",
     reset: !room || room.status === "lobby" || room.mode === "chaos",
   });

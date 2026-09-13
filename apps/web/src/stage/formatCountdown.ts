@@ -1,3 +1,5 @@
+import { SwapMs } from "@karaoke/shared";
+
 /** One-decimal countdown, e.g. 10.0 → 0.1. */
 export function formatCountdown(ms: number): string {
   return (Math.max(0, ms) / 1000).toFixed(1);
@@ -13,8 +15,19 @@ export function showCountdownOverlay(msUntilStart: number): boolean {
   return msUntilStart > OverlayHideMs;
 }
 
+/** Ranked swap is only 5s, so the veil stays up until GO. */
+export function showSwapOverlay(msUntilStart: number): boolean {
+  return msUntilStart > 0;
+}
+
 /** Darker at 10s, clearer as it approaches 5s so the stage shows through. */
 export function countdownVeilOpacity(msUntilStart: number): number {
   const t = Math.min(1, Math.max(0, (msUntilStart - OverlayHideMs) / OverlaySpanMs));
+  return 0.28 + t * 0.42;
+}
+
+/** Same fade as the opening veil, compressed into the 5s swap. */
+export function swapVeilOpacity(msUntilStart: number): number {
+  const t = Math.min(1, Math.max(0, msUntilStart / SwapMs));
   return 0.28 + t * 0.42;
 }

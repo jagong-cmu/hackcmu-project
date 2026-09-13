@@ -12,6 +12,7 @@ import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
+import { stopMatchReel } from "../results/matchReel.ts";
 import {
   isMusicOnly,
   PITCH_FFT,
@@ -43,6 +44,8 @@ export function Training() {
   const [camDenied, setCamDenied] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [clipKey, setClipKey] = useState("");
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const clipKeyRef = useRef("");
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -57,7 +60,9 @@ export function Training() {
   useMatchMomentCapture({
     matchKey: clipKey,
     singing: running,
+    recording: running,
     windowMs: (meta?.clipDurationSec ?? 20) * 1000,
+    micStream,
     settle: Boolean(card) || scoring,
     reset: !clipKey,
   });
@@ -193,6 +198,7 @@ export function Training() {
       videoRef.current.srcObject = stream;
       await videoRef.current.play().catch(() => undefined);
     }
+    setMicStream(stream);
 
     const audio = audioRef.current;
     if (!audio) return;
@@ -292,8 +298,10 @@ export function Training() {
       countTimerRef.current = 0;
       cancelAnimationFrame(rafRef.current);
       audio.pause();
+      void stopMatchReel(clipKeyRef.current);
       stream.getTracks().forEach((tr) => tr.stop());
       src.disconnect();
+      setMicStream(null);
       setRunning(false);
       setCountMs(null);
       stopRef.current = null;
@@ -319,7 +327,9 @@ export function Training() {
       audio.currentTime = 0;
       void audio.play().catch(() => undefined);
       setRunning(true);
-      setClipKey(crypto.randomUUID());
+      const key = crypto.randomUUID();
+      clipKeyRef.current = key;
+      setClipKey(key);
       setStatus("Follow the melody. Stop whenever — you'll still be scored.");
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -344,13 +354,15 @@ export function Training() {
     endRef.current = null;
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
-    stream.getTracks().forEach((tr) => tr.stop());
     setRunning(false);
     setCountMs(null);
-    if (!meta || !melody) return;
-
     setScoring(true);
     setStatus("Scoring…");
+    await stopMatchReel(clipKeyRef.current);
+    stream.getTracks().forEach((tr) => tr.stop());
+    setMicStream(null);
+    if (!meta || !melody) return;
+
     const startedAt = Date.now();
 
     // Whole take, from 0:00 — intro silence does not count against the singer.
@@ -446,7 +458,7 @@ export function Training() {
         <p>{getDisplayName() || "You"}</p>
       </div>
 
-      <audio ref={audioRef} preload="auto" />
+      <audio ref={audioRef} className="instrumental" preload="auto" />
 
       <p className="status">{status}</p>
       <div className="ctas">

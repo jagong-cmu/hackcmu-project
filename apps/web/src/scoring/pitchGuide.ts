@@ -255,7 +255,12 @@ export function melodyRange(runs: NoteRun[]): { min: number; max: number } {
   return { min, max };
 }
 
-/** Zoom the staff to notes actually on screen instead of the whole song. */
+/**
+ * Camera-follow zoom: a tight window around the note being sung (and the next
+ * one as it approaches), so live pitch wobble fills the staff. Fitting the
+ * whole song — or even every note in the 2s lookahead — left ~20–35st on
+ * screen and the live bar barely moved.
+ */
 export function windowedMelodyRange(
   runs: NoteRun[],
   tNow: number,
@@ -266,10 +271,27 @@ export function windowedMelodyRange(
   const visible = runs.filter(
     (run) => run.endSec >= tNow - lookbehind && run.startSec <= tNow + lookahead,
   );
-  const base = melodyRange(visible.length ? visible : runs);
-  if (liveMidi == null || !Number.isFinite(liveMidi)) return base;
-  return {
-    min: Math.min(base.min, liveMidi - 1.5),
-    max: Math.max(base.max, liveMidi + 1.5),
-  };
+  const sounding = visible.find((run) => run.startSec <= tNow && run.endSec >= tNow);
+  const upcoming = visible
+    .filter((run) => run.startSec > tNow)
+    .sort((a, b) => a.startSec - b.startSec)[0];
+
+  let center: number;
+  if (sounding && upcoming) {
+    const dt = upcoming.startSec - tNow;
+    const blend = dt < 0.4 ? 1 - dt / 0.4 : 0;
+    center = sounding.midi + (upcoming.midi - sounding.midi) * blend;
+  } else {
+    const live = liveMidi != null && Number.isFinite(liveMidi) ? liveMidi : 57;
+    center = sounding?.midi ?? upcoming?.midi ?? live;
+  }
+
+  const half = 2.55;
+  let min = center - half;
+  let max = center + half;
+  if (liveMidi != null && Number.isFinite(liveMidi)) {
+    min = Math.min(min, liveMidi - 1.25);
+    max = Math.max(max, liveMidi + 1.25);
+  }
+  return { min, max };
 }

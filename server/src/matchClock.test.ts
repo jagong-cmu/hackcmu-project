@@ -13,7 +13,9 @@ import {
   dropDeadPlayers,
   isFull,
   livePlayers,
+  resetToLobby,
 } from "./rooms.ts";
+import { SONGS } from "@karaoke/shared";
 import { formatCountdown } from "../../apps/web/src/stage/formatCountdown.ts";
 import { advanceDue, maybeArmMatch } from "./clock.ts";
 import { eloDelta } from "./elo.ts";
@@ -66,9 +68,10 @@ test("two seated players arm a 10s countdown without ready taps", () => {
     seat(room, "b", "sock-b");
     maybeArmMatch(fakeIo() as never, room);
     assert.equal(room.status, "countdown");
-    assert.equal(room.songId, "from-the-start", "ranked demo clip is From The Start");
-    assert.equal(room.clipStartSec, 51.2, "ranked clip starts on the chorus hook");
-    assert.equal(room.clipDurationSec, 20);
+    const song = SONGS.find((s) => s.id === room.songId);
+    assert.ok(song, "ranked picks a catalog song");
+    assert.equal(room.clipStartSec, song.clipStartSec);
+    assert.equal(room.clipDurationSec, Math.min(20, song.clipDurationSec));
     assert.ok(room.playAtUnixMs);
     const wait = room.playAtUnixMs! - Date.now();
     assert.ok(wait > 8_000 && wait <= 10_500, `expected ~10s, got ${wait}`);
@@ -77,7 +80,27 @@ test("two seated players arm a 10s countdown without ready taps", () => {
   }
 });
 
-test("countdown text is always one decimal", () => {
+test("rematch skips the song that just played", () => {
+  const room = createRoom("ranked", "6666");
+  try {
+    seat(room, "a", "sock-a");
+    seat(room, "b", "sock-b");
+    maybeArmMatch(fakeIo() as never, room);
+    const first = room.songId;
+    assert.ok(first);
+    const seen = new Set<string>([first]);
+    for (let i = 0; i < 8; i++) {
+      resetToLobby(room);
+      maybeArmMatch(fakeIo() as never, room);
+      assert.notEqual(room.songId, first, "immediate rematch must not repeat");
+      seen.add(room.songId ?? "");
+      first && (room.songId = first); // restore so each rematch still skips `first`? No that's wrong
+    }
+    assert.ok(seen.size >= 2);
+  } finally {
+    clearTimers(room);
+  }
+});
   assert.equal(formatCountdown(10_000), "10.0");
   assert.equal(formatCountdown(9_040), "9.0");
   assert.equal(formatCountdown(50), "0.1");

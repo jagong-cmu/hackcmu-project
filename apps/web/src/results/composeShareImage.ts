@@ -243,12 +243,12 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   return blob;
 }
 
-export function shareFilename(songTitle: string): string {
+export function shareFilename(songTitle: string, ext = "png"): string {
   const slug = songTitle
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  return `aria-${slug || "match"}.png`;
+  return `aria-${slug || "match"}.${ext}`;
 }
 
 export function canNativeShare(file: File): boolean {

@@ -44,7 +44,7 @@ export function ModeButton({
   return (
     <button type="button" className="mode" onClick={onSelect}>
       {label}
-      {hint ? <span className="mode-hint">{hint}</span> : null}
+      {hint ? <span className="mode-sub">{hint}</span> : null}
       <span className="sparks" aria-hidden="true">
         {Array.from({ length: SPARKS }, (_, i) => (
           <i key={i} style={sparkStyle(i)} />

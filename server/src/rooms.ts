@@ -238,7 +238,7 @@ export function disposeIfEmpty(room: Room): void {
 export function resetToLobby(room: Room): void {
   clearTimers(room);
   room.status = "lobby";
-  room.songId = null;
+  // Keep songId so the next match can skip repeating the last track.
   room.activeSingerId = null;
   room.playAtUnixMs = null;
   room.songStartedAtMs = null;

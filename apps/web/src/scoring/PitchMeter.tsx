@@ -6,9 +6,9 @@ import { melodyHzAt } from "./scoreClip.ts";
 import {
   TRAIL_SEC,
   createPitchSmoothState,
-  melodyRange,
   segmentMelody,
   smoothLivePitch,
+  windowedMelodyRange,
   type NoteRun,
 } from "./pitchGuide.ts";
 
@@ -22,6 +22,9 @@ type Props = {
 
 const LOOKAHEAD_SEC = 2.0;
 const LOOKBEHIND_SEC = TRAIL_SEC;
+/** Vertical camera follows a shorter window so upcoming leaps don't squash live travel. */
+const VIEW_BEHIND_SEC = 0.45;
+const VIEW_AHEAD_SEC = 0.85;
 const RAIL = 78;
 
 export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0 }: Props) {
@@ -36,7 +39,7 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
   useEffect(() => {
     runsRef.current = melody ? segmentMelody(melody) : [];
     smoothRef.current = createPitchSmoothState();
-    const r = melodyRange(runsRef.current);
+    const r = windowedMelodyRange(runsRef.current, 0, VIEW_BEHIND_SEC, VIEW_AHEAD_SEC);
     viewRef.current = { min: r.min, max: r.max };
   }, [melody]);
 
@@ -96,16 +99,20 @@ function paint(
   ctx.fillRect(0, 0, w, h);
 
   const tNow = props.playheadSec;
-  // Fixed staff: the whole song's range, never a per-window zoom.
-  const min = viewRef.min;
-  const max = viewRef.max;
+  // Zoom onto notes in frame so live pitch travel fills the staff. Edges ease
+  // so a sudden leap does not jump the camera.
+  const tune = windowedMelodyRange(runs, tNow, VIEW_BEHIND_SEC, VIEW_AHEAD_SEC, smooth.midi);
+  const view = viewRef;
+  view.min += (tune.min - view.min) * 0.14;
+  view.max += (tune.max - view.max) * 0.14;
+  const min = view.min;
+  const max = view.max;
   const span = Math.max(1, max - min);
-  const yPad = 28;
+  const yPad = Math.max(8, Math.min(14, h * 0.09));
   const yOf = (midi: number) => {
-    const clamped = Math.min(max, Math.max(min, midi));
-    const t = (clamped - min) / span;
+    const t = (midi - min) / span;
     const y = h - yPad - t * (h - 2 * yPad);
-    return Math.min(h - yPad, Math.max(yPad, y));
+    return Math.min(h - 4, Math.max(4, y));
   };
   const laneH = Math.max(18, Math.min(h * 0.28, ((h - 48) / span) * 0.78));
   const voiceW = Math.max(14, Math.round(h * 0.065));
@@ -167,6 +174,10 @@ function paint(
     nowMs: performance.now(),
   });
 
+  // Stretch live travel around the target so small pitch/tone wobble reads.
+  const around = targetMidi ?? (min + max) / 2;
+  const liveYOf = (midi: number) => yOf(around + (midi - around) * 1.45);
+
   // The head marker rides the smoothed curve so the two cannot disagree.
   let headY: number | null = null;
 
@@ -192,7 +203,7 @@ function paint(
       }
       avg[i] = count ? sum / count : (smooth.trail[i]?.midi ?? 0);
     }
-    if (n > 0) headY = yOf(avg[n - 1]!);
+    if (n > 0) headY = liveYOf(avg[n - 1]!);
 
     const pts: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < n; i++) {
@@ -201,7 +212,7 @@ function paint(
       const x = xOf(p.t);
       const prev = pts[pts.length - 1];
       if (prev && Math.abs(x - prev.x) < 0.75) continue;
-      pts.push({ x, y: yOf(avg[i]!) });
+      pts.push({ x, y: liveYOf(avg[i]!) });
     }
 
     ctx.beginPath();
@@ -233,7 +244,7 @@ function paint(
         ? pitchColor(Math.round(p.midi), 0.25 + 0.7 * alpha)
         : pal.ink(0.16 + 0.45 * alpha);
       ctx.beginPath();
-      ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
+      ctx.arc(xOf(p.t), liveYOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -247,7 +258,7 @@ function paint(
   ctx.lineTo(nowX, h - 8);
   ctx.stroke();
 
-  const y = headY ?? yOf(live.midi);
+  const y = headY ?? liveYOf(live.midi);
   const pillH = Math.max(28, Math.round(laneH * 0.85));
   ctx.save();
   ctx.globalAlpha = live.tracking ? 1 : 0.72;

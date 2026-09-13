@@ -90,7 +90,6 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-const RankedDemoSongId = "from-the-start";
 /** Hard cap so a stale meta.json cannot turn Ranked back into a full verse. */
 const RankedClipMaxSec = 20;
 
@@ -130,15 +129,12 @@ function resolvedMeta(song: SongMeta): SongMeta {
   return metaFromDisk(song.id) ?? song;
 }
 
-/** Ranked always plays the From The Start demo clip. Duet/Chaos stay random. */
-function pickSong(kind: "ranked" | "full" = "full"): SongMeta {
+/** Random catalog pick. Skip the song that just played when we have a choice. */
+function pickSong(avoidId?: string | null): SongMeta {
   const pool = songPool();
   if (pool.length === 0) return TEST_SONG;
-  if (kind === "ranked") {
-    const demo = SONGS.find((s) => s.id === RankedDemoSongId);
-    if (demo) return resolvedMeta(demo);
-  }
-  const song = pool[Math.floor(Math.random() * pool.length)];
+  const choices = avoidId && pool.length > 1 ? pool.filter((s) => s.id !== avoidId) : pool;
+  const song = choices[Math.floor(Math.random() * choices.length)] ?? pool[0];
   if (!song) return TEST_SONG;
   return resolvedMeta(song);
 }
@@ -245,7 +241,7 @@ export function startMatch(io: Server, room: Room): void {
   room.rematchAtMs = null;
 
   const isDuet = room.mode === "duet";
-  const song = pickSong(isDuet ? "full" : "ranked");
+  const song = pickSong(room.songId);
   const window = clipWindow(song, isDuet ? "duet" : "ranked");
   room.songId = song.id;
   room.status = "countdown";
@@ -552,7 +548,7 @@ function playChaosSong(io: Server, room: Room): void {
     stopChaos(io, room);
     return;
   }
-  const song = pickSong("full");
+  const song = pickSong(room.songId);
   const window = clipWindow(song, "duet");
   room.songId = song.id;
   room.status = "live";

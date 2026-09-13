@@ -11,6 +11,7 @@ type Props = {
   url: string;
   blob: Blob;
   filename: string;
+  kind: "video" | "image";
   title: string;
   text: string;
   copied: boolean;
@@ -18,9 +19,19 @@ type Props = {
   onClose: () => void;
 };
 
-export function ShareSheet({ url, blob, filename, title, text, copied, onCopied, onClose }: Props) {
+export function ShareSheet({
+  url,
+  blob,
+  filename,
+  kind,
+  title,
+  text,
+  copied,
+  onCopied,
+  onClose,
+}: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const file = new File([blob], filename, { type: "image/png" });
+  const file = new File([blob], filename, { type: blob.type || (kind === "video" ? "video/webm" : "image/png") });
   const native = canNativeShare(file);
 
   useEffect(() => {
@@ -42,8 +53,12 @@ export function ShareSheet({ url, blob, filename, title, text, copied, onCopied,
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="share-title">Send this to a friend</h2>
-        <img className="share-card" src={url} alt={title} />
+        <h2 id="share-title">{kind === "video" ? "The take" : "Send this to a friend"}</h2>
+        {kind === "video" ? (
+          <video className="share-card" src={url} controls playsInline preload="metadata" />
+        ) : (
+          <img className="share-card" src={url} alt={title} />
+        )}
         <div className="share-actions">
           {native ? (
             <button
@@ -56,18 +71,20 @@ export function ShareSheet({ url, blob, filename, title, text, copied, onCopied,
               Share
             </button>
           ) : null}
-          <button
-            type="button"
-            className="cta cta-ghost"
-            onClick={() => {
-              void copyImage(blob).then((ok) => {
-                if (ok) onCopied();
-                else downloadBlob(blob, filename);
-              });
-            }}
-          >
-            {copied ? "Copied" : "Copy image"}
-          </button>
+          {kind === "image" ? (
+            <button
+              type="button"
+              className="cta cta-ghost"
+              onClick={() => {
+                void copyImage(blob).then((ok) => {
+                  if (ok) onCopied();
+                  else downloadBlob(blob, filename);
+                });
+              }}
+            >
+              {copied ? "Copied" : "Copy image"}
+            </button>
+          ) : null}
           <button type="button" className="cta cta-ghost" onClick={() => downloadBlob(blob, filename)}>
             Download
           </button>

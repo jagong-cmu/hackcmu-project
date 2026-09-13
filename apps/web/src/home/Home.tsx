@@ -7,10 +7,10 @@ import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 const MORE = [
-  { label: "Play with a friend", to: "/play/ranked" },
-  { label: "Training", to: "/training" },
-  { label: "Duet", to: "/play/duet" },
-  { label: "Chaos", to: "/play/chaos" },
+  { label: "Play with a friend", hint: "4-digit room code", to: "/play/ranked" },
+  { label: "Training", hint: "solo, scored", to: "/training" },
+  { label: "Duet", hint: "sing together", to: "/play/duet" },
+  { label: "Chaos", hint: "open lounge", to: "/play/chaos" },
 ];
 
 export function Home() {
@@ -87,17 +87,19 @@ export function Home() {
           </div>
         </form>
 
-        <nav className="home-more" aria-label="More ways to sing">
+        <nav className="home-modes" aria-label="More ways to sing">
           {MORE.map((item) => (
             <Link
               key={item.label}
+              className="home-mode"
               to={item.to}
               onClick={(e) => {
                 e.preventDefault();
                 void go(item.to);
               }}
             >
-              {item.label}
+              <span className="home-mode-label">{item.label}</span>
+              <span className="home-mode-hint">{item.hint}</span>
             </Link>
           ))}
         </nav>

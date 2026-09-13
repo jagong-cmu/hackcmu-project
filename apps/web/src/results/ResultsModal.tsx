@@ -6,10 +6,11 @@ import {
   composeShareImage,
   shareFilename,
 } from "./composeShareImage.ts";
+import { extForMime, waitForCurrentReel } from "./matchReel.ts";
 import { ScoreBurst } from "./ScoreBurst.tsx";
 import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
-import { useMatchMoment } from "./useMatchMoment.ts";
+import { useMatchMoment, useMatchReel, useMatchReelPending } from "./useMatchMoment.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
 
@@ -111,7 +112,15 @@ export function ResultsModal({
   onAgain,
 }: Props) {
   const moment = useMatchMoment();
-  const [sheet, setSheet] = useState<{ url: string; blob: Blob } | null>(null);
+  const reel = useMatchReel();
+  const reelPending = useMatchReelPending();
+  const [sheet, setSheet] = useState<{
+    url: string;
+    blob: Blob;
+    kind: "video" | "image";
+    owned: boolean;
+    filename: string;
+  } | null>(null);
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const locked = Boolean(opponent) && !revealOpponent;
@@ -154,15 +163,28 @@ export function ResultsModal({
 
   useEffect(
     () => () => {
-      if (sheet?.url) URL.revokeObjectURL(sheet.url);
+      if (sheet?.owned && sheet.url) URL.revokeObjectURL(sheet.url);
     },
-    [sheet?.url],
+    [sheet?.url, sheet?.owned],
   );
 
   const openShare = async () => {
     if (sharing) return;
     setSharing(true);
     try {
+      const video = reel ?? (await waitForCurrentReel(4500));
+      if (video) {
+        if (sheet?.owned && sheet.url) URL.revokeObjectURL(sheet.url);
+        setCopied(false);
+        setSheet({
+          url: video.url,
+          blob: video.blob,
+          kind: "video",
+          owned: false,
+          filename: shareFilename(songTitle ?? "match", extForMime(video.mime)),
+        });
+        return;
+      }
       const blob = await composeShareImage({
         moment,
         kicker: title,
@@ -179,9 +201,15 @@ export function ResultsModal({
         eloDelta: revealOpponent ? eloDelta : null,
         verdict: showGemini ? gemini : "",
       });
-      if (sheet?.url) URL.revokeObjectURL(sheet.url);
+      if (sheet?.owned && sheet.url) URL.revokeObjectURL(sheet.url);
       setCopied(false);
-      setSheet({ url: URL.createObjectURL(blob), blob });
+      setSheet({
+        url: URL.createObjectURL(blob),
+        blob,
+        kind: "image",
+        owned: true,
+        filename: shareFilename(songTitle ?? "match"),
+      });
     } catch {
       setSheet(null);
     } finally {
@@ -226,14 +254,19 @@ export function ResultsModal({
           </p>
         ) : null}
         {showGemini ? <p className="verdict">{gemini}</p> : null}
-        {moment ? (
+        {reel || moment ? (
           <button type="button" className="results-moment" onClick={() => void openShare()}>
-            <img src={moment.url} alt="A still from this match" />
+            {moment ? (
+              <img src={moment.url} alt="" />
+            ) : (
+              <video src={reel!.url} muted playsInline preload="metadata" />
+            )}
+            <span className="moment-label">{reel ? "Match video" : reelPending ? "Finishing video…" : "Share"}</span>
           </button>
         ) : null}
         <div className="result-actions">
           <button type="button" className="cta cta-ghost" disabled={sharing} onClick={() => void openShare()}>
-            {sharing ? "Making the card…" : "Share"}
+            {sharing ? (reelPending ? "Finishing video…" : "Making the clip…") : "Share"}
           </button>
           {onAgain ? (
             <button type="button" className="cta" onClick={onAgain}>
@@ -256,7 +289,8 @@ export function ResultsModal({
         <ShareSheet
           url={sheet.url}
           blob={sheet.blob}
-          filename={shareFilename(songTitle ?? "match")}
+          filename={sheet.filename}
+          kind={sheet.kind}
           title={songTitle ? `${title} · ${songTitle}` : title}
           text={
             songTitle
@@ -269,7 +303,7 @@ export function ResultsModal({
             window.setTimeout(() => setCopied(false), 1600);
           }}
           onClose={() => {
-            URL.revokeObjectURL(sheet.url);
+            if (sheet.owned) URL.revokeObjectURL(sheet.url);
             setSheet(null);
           }}
         />

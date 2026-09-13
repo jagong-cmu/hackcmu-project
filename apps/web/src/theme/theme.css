@@ -355,6 +355,19 @@ select:focus {
  * it read as a permanent subtitle and competed with the mode names; beside it,
  * it is an answer to "what is this one" asked by pointing at it.
  */
+.mode-sub {
+  display: block;
+  margin-top: 2px;
+  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  line-height: 1.2;
+  color: var(--fg-dim);
+  text-shadow: none;
+}
+
 .mode-hint {
   position: absolute;
   left: 100%;
@@ -1318,6 +1331,56 @@ select:focus {
 }
 .home-play { margin-top: 10px; }
 
+.home-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: min(22rem, 100%);
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid color-mix(in srgb, var(--edge) 80%, transparent);
+}
+
+.home-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: rgba(12, 19, 32, 0.55);
+  color: var(--fg);
+  text-decoration: none;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.home-mode:hover,
+.home-mode:focus-visible {
+  outline: none;
+  color: var(--fg);
+  border-color: var(--blue-300);
+  background: rgba(18, 28, 46, 0.9);
+  box-shadow: var(--glow-soft);
+}
+
+.home-mode-label {
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.home-mode-hint {
+  color: var(--fg-dim);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
 .home-more {
   display: flex;
   flex-wrap: wrap;
@@ -1408,6 +1471,9 @@ select:focus {
     margin: 0 0 16px;
     font-size: 0.95rem;
   }
+  .home-modes { margin-top: 18px; padding-top: 16px; gap: 8px; }
+  .home-mode { min-height: 48px; }
+  .home-mode-label { font-size: 0.95rem; }
   .home-more { margin-top: 24px; }
   .home-hero .eyebrow { margin: 8px 0 14px; }
   .home-hero .modes button {
@@ -1692,6 +1758,10 @@ select:focus {
   .home-pitch { margin: 0 0 10px; font-size: 0.88rem; }
   .home-go { gap: 4px; }
   .home-play { margin-top: 2px; }
+  .home-modes { margin-top: 10px; padding-top: 10px; gap: 6px; }
+  .home-mode { min-height: 40px; padding: 6px 8px; border-radius: 10px; }
+  .home-mode-label { font-size: 0.88rem; }
+  .home-mode-hint { font-size: 0.7rem; }
   .home-more { margin-top: 12px; gap: 6px 14px; }
   .home-hero .eyebrow { margin: 4px 0 8px; }
   .home-hero .modes button {

@@ -7,10 +7,9 @@ import type { RoomState } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
 import CountdownOverlay from "./CountdownOverlay.tsx";
-import { OverlayHideMs, showCountdownOverlay } from "./formatCountdown.ts";
+import { OverlayHideMs, showCountdownOverlay, showSwapOverlay } from "./formatCountdown.ts";
 
 type Beat =
-  | { kind: "end" }
   | { kind: "turn"; title: string; sub: string }
   | { kind: "together" }
   | { kind: "chaos" }
@@ -50,8 +49,7 @@ export default function TurnOverlay({
     const singer = room.players.find((p) => p.id === room.activeSingerId);
     const mine = Boolean(myPlayerId && room.activeSingerId === myPlayerId);
 
-    if ((prev === "turnA" || prev === "turnB") && status === "swap") {
-      setBeat({ kind: "end" });
+    if (status === "swap") {
       return;
     }
     if (status === "turnA" || status === "turnB") {
@@ -92,8 +90,7 @@ export default function TurnOverlay({
 
   useEffect(() => {
     if (!beat) return;
-    const hold =
-      beat.kind === "end" ? 1600 : beat.kind === "time" ? 1400 : beat.kind === "chaos" ? 2800 : 2200;
+    const hold = beat.kind === "time" ? 1400 : beat.kind === "chaos" ? 2800 : 2200;
     const t = window.setTimeout(() => setBeat(null), hold);
     return () => window.clearTimeout(t);
   }, [beat]);
@@ -108,7 +105,8 @@ export default function TurnOverlay({
   const hasClock = clockPlay != null || room.playAtUnixMs != null;
   const prePlay = hasClock && msUntil > 0;
   const swapping = room.status === "swap";
-  const overlayUp = prePlay && !swapping && showCountdownOverlay(msUntil);
+  const overlayUp =
+    prePlay && (swapping ? showSwapOverlay(msUntil) : showCountdownOverlay(msUntil));
   const go =
     msUntil <= 0 &&
     msUntil > -1100 &&
@@ -143,7 +141,11 @@ export default function TurnOverlay({
   return (
     <>
       {overlayUp ? (
-        <CountdownOverlay remainingMs={msUntil} singing={isSingingTurn(room, myPlayerId)} />
+        <CountdownOverlay
+          remainingMs={msUntil}
+          singing={isSingingTurn(room, myPlayerId)}
+          phase={swapping ? "swap" : "countdown"}
+        />
       ) : null}
 
       {go ? (
@@ -182,14 +184,6 @@ export default function TurnOverlay({
         </div>
       ) : null}
 
-      {beat?.kind === "end" ? (
-        <div className="callout hold" role="status">
-          <p className="callout-kicker">End of turn</p>
-          <p className="callout-title">SWAP</p>
-          <p className="callout-sub">Same chorus. Other singer.</p>
-        </div>
-      ) : null}
-
       {beat?.kind === "time" ? (
         <div className="callout hold" role="status">
           <p className="callout-title">TIME</p>
@@ -197,7 +191,7 @@ export default function TurnOverlay({
         </div>
       ) : null}
 
-      {guide && !overlayUp && !go && beat?.kind !== "end" && beat?.kind !== "time" ? (
+      {guide && !overlayUp && !go && beat?.kind !== "time" ? (
         <div className={`turn-guide ${mine || room.mode !== "ranked" ? "go" : "wait"}`} role="status">
           <strong>{guide.title}</strong>
           <span>{guide.body}</span>
