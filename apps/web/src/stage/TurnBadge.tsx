@@ -15,6 +15,9 @@ export default function TurnBadge({
   duetVoice?: DuetVoiceCue | null;
 }) {
   if (!room) return null;
+  if (room.mode === "chaos") {
+    return <span className="badge them">LOUNGE</span>;
+  }
 
   const singing = room.activeSingerId !== null && room.activeSingerId === myPlayerId;
   const seat = myPlayerId

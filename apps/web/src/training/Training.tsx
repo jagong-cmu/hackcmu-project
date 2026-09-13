@@ -79,13 +79,22 @@ export function Training() {
       setAudioUrl("");
       return;
     }
-    void loadSongPack(songId).then((pack) => {
-      if (cancelled) return;
-      setMeta(pack.meta);
-      setMelody(pack.melody);
-      setLrc(pack.lrc);
-      setAudioUrl(pack.audioUrl);
-    });
+    void loadSongPack(songId)
+      .then((pack) => {
+        if (cancelled) return;
+        setMeta(pack.meta);
+        setMelody(pack.melody);
+        setLrc(pack.lrc);
+        setAudioUrl(pack.audioUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMeta(null);
+        setMelody(null);
+        setLrc("");
+        setAudioUrl("");
+        setStatus("Could not load that song.");
+      });
     return () => {
       cancelled = true;
     };

@@ -50,7 +50,8 @@ import {
   maybeArmMatch,
   advanceDue,
   publicClock,
-  publicScores,
+  revealedScores,
+  emitScoreReady,
   recordScore,
   startChaos,
   stopChaos,
@@ -170,10 +171,10 @@ app.get("/api/rooms/:code", async (req, res) => {
   }
   pruneRoom(room);
   advanceDue(io, room);
-  const scores = publicScores(room);
+  const scores = revealedScores(room);
   const [a, b] = room.players;
-  let winnerId: string | null = null;
-  if (a && b && room.settled) {
+  let winnerId: string | null = room.lastWinnerId;
+  if (winnerId == null && a && b && room.settled) {
     const sa = scores[a.id]?.overall ?? 0;
     const sb = scores[b.id]?.overall ?? 0;
     if (sa > sb) winnerId = a.id;
@@ -220,10 +221,7 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
     .then((enriched) => {
       if (enriched.verdict === card.verdict && enriched.source === card.source) return;
       room.scores.set(player.id, enriched);
-      io.to(room.code).emit(ServerEvents.scoreReady, {
-        playerId: player.id,
-        score: enriched,
-      });
+      emitScoreReady(io, room, player.id, enriched);
     })
     .catch(() => {
       /* DSP scores already shown */
@@ -276,7 +274,7 @@ function seat(socketId: string, room: Room): boolean {
   io.sockets.sockets.get(socketId)?.join(room.code);
 
   if (room.mode === "chaos") {
-    if (wasEmpty) startChaos(io, room);
+    if (wasEmpty) startChaos(io, room, 3000);
     else ensureChaosPlaying(io, room);
     catchUpClock(io, room, socketId);
   } else {
@@ -390,7 +388,7 @@ io.on("connection", (socket) => {
     }
     const name =
       typeof displayName === "string" && displayName.trim()
-        ? displayName.trim().slice(0, 24)
+        ? displayName.trim().slice(0, 16)
         : "Singer";
 
     // Seat the session synchronously. Awaiting Atlas first let a following

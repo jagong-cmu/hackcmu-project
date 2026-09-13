@@ -109,6 +109,17 @@ function pathKeepsRoom(path: string, room: RoomState): boolean {
   return false;
 }
 
+function clocksEqual(a: ClockPlay | null, b: ClockPlay | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.songId === b.songId &&
+    a.startSec === b.startSec &&
+    a.durationSec === b.durationSec &&
+    a.playAtUnixMs === b.playAtUnixMs
+  );
+}
+
 function mergeRoom(prev: RoomState | null, incoming: RoomState): RoomState {
   if (!prev || prev.code !== incoming.code) return incoming;
   if (prev.status === "results" && incoming.status === "lobby") return incoming;
@@ -142,7 +153,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const nameRef = useRef(getDisplayName());
   const wantQueueRef = useRef<Mode | null>(null);
   const roomRef = useRef<RoomState | null>(null);
-  const joinSentRef = useRef(false);
   roomRef.current = room;
 
   const flushQueueRef = useRef<() => void>(() => {});
@@ -167,7 +177,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
     const goToRoom = (code: string) => {
       wantQueueRef.current = null;
-      joinSentRef.current = false;
       setQueuedMode(null);
       setError(null);
       if (!window.location.pathname.startsWith(`/room/${code}`)) {
@@ -177,7 +186,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
     const onConnect = () => {
       setConnected(true);
-      joinSentRef.current = false;
       sayHello();
     };
     const onDisconnect = () => {
@@ -198,13 +206,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         setClockPlay(null);
         setLivePitch(null);
         setLivePitches({});
-      } else if (state.playAtUnixMs && state.songId) {
-        setClockPlay((prev) => ({
-          songId: state.songId!,
-          startSec: prev?.startSec ?? 0,
-          durationSec: prev?.durationSec ?? 1,
-          playAtUnixMs: state.playAtUnixMs!,
-        }));
       }
       if (state.status === "results") {
         setClockPlay(null);
@@ -227,8 +228,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setQueuedMode(mode);
       setError(null);
     };
-    const onClockPlay = (payload: ClockPlay) => setClockPlay(payload);
-    const onScoreReady = ({ playerId, score }: { playerId: string; score: ScoreCard }) => {
+    const onClockPlay = (payload: ClockPlay) => {
+      setClockPlay((prev) => (clocksEqual(prev, payload) ? prev : payload));
+    };
+    const onScoreReady = ({ playerId, score }: { playerId: string; score?: ScoreCard }) => {
+      if (!score) return;
       setScores((prev) => ({ ...prev, [playerId]: score }));
       setMatchOver((prev) =>
         prev ? { ...prev, scores: { ...prev.scores, [playerId]: score } } : prev,
@@ -248,7 +252,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const onError = (payload: SocketError) => {
       setError(payload);
       if (payload.code === "NO_SESSION") {
-        joinSentRef.current = false;
         sayHello();
       }
     };
@@ -310,20 +313,8 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           scores?: Record<string, ScoreCard>;
           matchOver?: MatchOver | null;
         };
-        if (data.clock) setClockPlay(data.clock);
-        else if (
-          data.room?.playAtUnixMs &&
-          data.room.songId &&
-          data.room.status !== "results" &&
-          data.room.status !== "lobby"
-        ) {
-          const roomClock = data.room;
-          setClockPlay((prev) => ({
-            songId: roomClock.songId!,
-            startSec: prev?.startSec ?? 0,
-            durationSec: prev?.durationSec ?? 1,
-            playAtUnixMs: roomClock.playAtUnixMs!,
-          }));
+        if (data.clock) {
+          setClockPlay((prev) => (clocksEqual(prev, data.clock!) ? prev : data.clock!));
         } else if (
           data.room &&
           (data.room.status === "results" || data.room.status === "lobby")
@@ -337,7 +328,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
             socket.emit(ClientEvents.roomLeave);
             socket.emit(ClientEvents.queueLeave);
             wantQueueRef.current = null;
-            joinSentRef.current = false;
             setQueuedMode(null);
             setRoom(null);
             setClockPlay(null);
@@ -351,23 +341,32 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           setRoom((prev) => mergeRoom(prev, data.room!));
           if (data.room.players.length > 0 && path.startsWith("/play") && (!playMode || playMode === data.room.mode)) {
             wantQueueRef.current = null;
-            joinSentRef.current = false;
             setQueuedMode(null);
             navigate(`/room/${data.room.code}`);
           }
         }
         if (data.scores && Object.keys(data.scores).length > 0) {
-          setScores((prev) => ({ ...prev, ...data.scores }));
+          const rankedHidden = data.room?.mode === "ranked" && !data.matchOver;
+          if (!rankedHidden) {
+            setScores((prev) => ({ ...prev, ...data.scores }));
+          }
         }
         if (data.matchOver) {
           setMatchOver((prev) => {
             if (!prev) return data.matchOver!;
-            // A stale isolate can replay match:over with eloDelta 0 after
-            // the live socket already delivered the rated delta.
-            if (prev.eloDelta !== 0 && data.matchOver!.eloDelta === 0) {
-              return { ...data.matchOver!, eloDelta: prev.eloDelta };
-            }
-            return data.matchOver!;
+            const incoming = data.matchOver!;
+            const eloDelta =
+              prev.eloDelta !== 0 && incoming.eloDelta === 0 ? prev.eloDelta : incoming.eloDelta;
+            const scores =
+              Object.keys(incoming.scores).length >= Object.keys(prev.scores).length
+                ? incoming.scores
+                : prev.scores;
+            return {
+              ...incoming,
+              eloDelta,
+              scores,
+              winnerId: incoming.winnerId ?? prev.winnerId,
+            };
           });
         }
       } catch {
@@ -381,7 +380,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, [navigate, room?.code]);
 
   const hello = useCallback((displayName: string) => {
-    const name = displayName.trim().slice(0, 24) || "Singer";
+    const name = displayName.trim().slice(0, 16) || "Singer";
     nameRef.current = name;
     setDisplayName(name);
     socket.emit(ClientEvents.playerHello, { clientId: getClientId(), displayName: name });
@@ -389,7 +388,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const queueJoin = useCallback((mode: Mode) => {
     wantQueueRef.current = mode;
-    joinSentRef.current = false;
     setError(null);
     setQueuedMode(mode);
     socket.emit(ClientEvents.playerHello, {
@@ -401,7 +399,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const queueLeave = useCallback(() => {
     wantQueueRef.current = null;
-    joinSentRef.current = false;
     setQueuedMode(null);
     socket.emit(ClientEvents.queueLeave);
   }, []);

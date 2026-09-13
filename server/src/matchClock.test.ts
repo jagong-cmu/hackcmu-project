@@ -11,10 +11,12 @@ import {
   clearTimers,
   createRoom,
   dropDeadPlayers,
+  isFull,
   livePlayers,
 } from "./rooms.ts";
 import { formatCountdown } from "../../apps/web/src/stage/formatCountdown.ts";
 import { advanceDue, maybeArmMatch } from "./clock.ts";
+import { eloDelta } from "./elo.ts";
 
 function fakeIo() {
   return {
@@ -96,4 +98,19 @@ test("advanceDue starts the clip when playAtUnixMs is reached even if later() di
   } finally {
     clearTimers(room);
   }
+});
+
+test("draw does not move ELO even when ratings differ", () => {
+  assert.deepEqual(eloDelta(1400, 1000, 0.5), { a: 0, b: 0 });
+  assert.deepEqual(eloDelta(1000, 1000, 0.5), { a: 0, b: 0 });
+});
+
+test("ranked room stays full while a disconnected seat is still on the roster", () => {
+  const room = createRoom("ranked", "7777");
+  seat(room, "a", "sock-a");
+  const b = seat(room, "b", "sock-b");
+  b.connected = false;
+  assert.equal(livePlayers(room).length, 1);
+  assert.equal(isFull(room), true);
+  clearTimers(room);
 });

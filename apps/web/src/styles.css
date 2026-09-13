@@ -222,6 +222,8 @@
 .pitch-stage {
   position: relative;
   flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
 }
 .hit-callout {
   position: absolute;
@@ -281,6 +283,13 @@
   aspect-ratio: 4 / 3;
   max-height: none;
   height: 100%;
+}
+.stage-chaos .tile .placeholder {
+  place-items: end center;
+  padding-bottom: 2.8rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
 }
 
 .stage-dock {

@@ -51,9 +51,21 @@ export async function loadSongPack(id: string): Promise<{
 }> {
   const base = `/songs/${id}`;
   const [meta, melody, lrc] = await Promise.all([
-    fetch(`${base}/meta.json`).then((r) => r.json() as Promise<SongMeta>),
-    fetch(`${base}/melody.json`).then((r) => r.json() as Promise<MelodyFile>),
-    fetch(`${base}/lyrics.lrc`).then((r) => r.text()),
+    readJson<SongMeta>(`${base}/meta.json`),
+    readJson<MelodyFile>(`${base}/melody.json`),
+    readText(`${base}/lyrics.lrc`),
   ]);
   return { meta, melody, lrc, audioUrl: `${base}/instrumental.mp3` };
+}
+
+async function readJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+async function readText(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.text();
 }

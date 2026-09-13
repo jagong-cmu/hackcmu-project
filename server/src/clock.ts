@@ -178,6 +178,20 @@ export function publicScores(room: Room): Record<string, ScoreCard> {
   return scores;
 }
 
+/** Ranked hides numbers until the match is settled so Player B cannot read A's card (PRD A4). */
+export function revealedScores(room: Room): Record<string, ScoreCard> {
+  if (room.mode === "ranked" && !room.settled) return {};
+  return publicScores(room);
+}
+
+export function emitScoreReady(io: Server, room: Room, playerId: string, score: ScoreCard): void {
+  if (room.mode === "ranked" && !room.settled) {
+    io.to(room.code).emit(ServerEvents.scoreReady, { playerId, received: true });
+    return;
+  }
+  io.to(room.code).emit(ServerEvents.scoreReady, { playerId, score });
+}
+
 /**
  * Arm the shared clock. Clients start their local audio at `playAtUnixMs` and
  * re-seek if they drift past MaxDriftSec.
@@ -356,7 +370,7 @@ export function recordScore(
   score: ScoreCard,
 ): boolean {
   room.scores.set(playerId, score);
-  io.to(room.code).emit(ServerEvents.scoreReady, { playerId, score });
+  emitScoreReady(io, room, playerId, score);
   void saveRoomSnap(room);
 
   if (scoresAreIn(room) && (room.status === "results" || room.status === "live")) {
@@ -372,8 +386,9 @@ export async function finishMatch(
   io: Server,
   room: Room,
   forfeit?: ForfeitInfo,
+  seated: Player[] = room.players.slice(),
 ): Promise<void> {
-  const hydrated = await ensureRoom(room.code);
+  const hydrated = forfeit ? undefined : await ensureRoom(room.code);
   if (hydrated) {
     for (const [id, card] of hydrated.scores) {
       if (!room.scores.has(id)) room.scores.set(id, card);
@@ -388,7 +403,7 @@ export async function finishMatch(
   clearTimers(room);
 
   const scores: Record<string, ScoreCard> = {};
-  for (const player of room.players) {
+  for (const player of seated) {
     scores[player.id] = room.scores.get(player.id) ?? { ...STUB_SCORE };
   }
 
@@ -396,7 +411,7 @@ export async function finishMatch(
   if (forfeit) {
     winnerId = forfeit.winnerId;
   } else {
-    const [a, b] = room.players;
+    const [a, b] = seated;
     if (a && b) {
       const sa = scores[a.id]?.overall ?? 0;
       const sb = scores[b.id]?.overall ?? 0;
@@ -409,7 +424,7 @@ export async function finishMatch(
   const rateRanked =
     room.mode === "ranked" && (!forfeit || !forfeit.underMinimum);
   if (rateRanked) {
-    const [a, b] = room.players;
+    const [a, b] = seated;
     const sa = a ? scores[a.id]?.overall ?? 0 : 0;
     const sb = b ? scores[b.id]?.overall ?? 0 : 0;
     const k = forfeit ? ForfeitEloK : EloK;
@@ -429,7 +444,7 @@ export async function finishMatch(
     room.lastEloDelta = local.a;
     if (a && b) {
       const filled = new Map<string, ScoreCard>();
-      for (const player of room.players) {
+      for (const player of seated) {
         const card = scores[player.id];
         if (card) filled.set(player.id, card);
       }
@@ -438,7 +453,7 @@ export async function finishMatch(
           code: room.code,
           mode: room.mode,
           songId: room.songId,
-          players: room.players,
+          players: seated,
           scores: filled,
           forfeit: Boolean(forfeit),
           outcome,
@@ -464,6 +479,7 @@ export async function finishMatch(
 
   room.status = "results";
   room.playAtUnixMs = null;
+  room.lastWinnerId = winnerId;
 
   io.to(room.code).emit(ServerEvents.matchOver, {
     scores,
@@ -509,11 +525,18 @@ export function forfeitFor(io: Server, room: Room, leaver: Player): void {
   const survivor = room.players.find((p) => p.id !== leaver.id && p.connected);
   const elapsed =
     room.matchStartedAtMs === null ? 0 : Date.now() - room.matchStartedAtMs;
+  const seated = room.players.slice();
+  room.status = "results";
 
-  void finishMatch(io, room, {
-    winnerId: survivor?.id ?? null,
-    underMinimum: elapsed < ForfeitSkipMs,
-  });
+  void finishMatch(
+    io,
+    room,
+    {
+      winnerId: survivor?.id ?? null,
+      underMinimum: elapsed < ForfeitSkipMs,
+    },
+    seated,
+  );
 }
 
 // ---------------------------------------------------------------------------

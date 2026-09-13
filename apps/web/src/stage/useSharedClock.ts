@@ -28,6 +28,8 @@ export type SharedClock = {
 
 export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const primedRef = useRef(false);
+  const livePlaybackRef = useRef(false);
   const [blocked, setBlocked] = useState(false);
   const [playing, setPlaying] = useState(false);
 
@@ -37,11 +39,20 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
     const audio = audioRef.current;
     if (!audio) return;
     audio.muted = false;
+    // A click on the pitch staff (or anywhere) must not hitch a clip that is
+    // already rolling — the old play-then-pause prime stopped the song.
+    if (!audio.paused || primedRef.current || livePlaybackRef.current) {
+      primedRef.current = true;
+      setBlocked(false);
+      return;
+    }
     void audio
       .play()
       .then(() => {
-        audio.pause();
+        primedRef.current = true;
         setBlocked(false);
+        if (livePlaybackRef.current) return;
+        audio.pause();
       })
       .catch(() => {
         /* Nothing loaded yet; the real play attempt will report. */
@@ -52,13 +63,17 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
     const audio = audioRef.current;
     if (!audio || !clockPlay?.songId) return;
 
-    const { songId, startSec, durationSec, playAtUnixMs } = clockPlay;
+    const songId = clockPlay.songId;
+    const startSec = clockPlay.startSec;
+    const durationSec = clockPlay.durationSec;
+    const playAtUnixMs = clockPlay.playAtUnixMs;
     const src = `/songs/${songId}/instrumental.mp3`;
     if (!audio.src.endsWith(src)) audio.src = src;
     audio.volume = InstrumentalVolume;
     audio.pause();
     audio.currentTime = startSec;
     setPlaying(false);
+    livePlaybackRef.current = false;
 
     /** Where the playhead should be, in song seconds, at a given server time. */
     const expectedAt = (serverMs: number) => startSec + (serverMs - playAtUnixMs) / 1000;
@@ -77,18 +92,24 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
       if (target >= startSec + durationSec) return;
 
       audio.currentTime = target;
+      livePlaybackRef.current = true;
       void audio
         .play()
         .then(() => {
+          primedRef.current = true;
           setBlocked(false);
           setPlaying(true);
         })
-        .catch(() => setBlocked(true));
+        .catch(() => {
+          livePlaybackRef.current = false;
+          setBlocked(true);
+        });
 
       driftTimer = window.setInterval(() => {
         const want = expectedAt(serverNow());
         const end = startSec + durationSec;
         if (want >= end) {
+          livePlaybackRef.current = false;
           audio.pause();
           audio.currentTime = end;
           setPlaying(false);
@@ -105,6 +126,7 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
 
       const remainingMs = (startSec + durationSec - target) * 1000;
       stopTimer = window.setTimeout(() => {
+        livePlaybackRef.current = false;
         audio.pause();
         audio.currentTime = startSec + durationSec;
         setPlaying(false);
@@ -134,10 +156,11 @@ export function useSharedClock(clockPlay: ClockPlay | null): SharedClock {
       if (startTimer) clearTimeout(startTimer);
       if (driftTimer) clearInterval(driftTimer);
       if (stopTimer) clearTimeout(stopTimer);
+      livePlaybackRef.current = false;
       audio.pause();
       setPlaying(false);
     };
-  }, [clockPlay]);
+  }, [clockPlay?.songId, clockPlay?.startSec, clockPlay?.durationSec, clockPlay?.playAtUnixMs]);
 
   return { audioRef, blocked, unlock, playing };
 }

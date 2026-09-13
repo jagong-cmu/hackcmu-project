@@ -13,13 +13,25 @@ export function Leaderboard() {
 
   useEffect(() => {
     void Promise.all([
-      fetch("/api/leaderboard/ranked").then((r) => r.json()),
-      fetch("/api/leaderboard/duet").then((r) => r.json()),
-    ]).then(([a, b]) => {
-      setMongo(Boolean(a.mongo && b.mongo));
-      setRanked(a.rows ?? []);
-      setDuet(b.rows ?? []);
-    });
+      fetch("/api/leaderboard/ranked").then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      }),
+      fetch("/api/leaderboard/duet").then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      }),
+    ])
+      .then(([a, b]) => {
+        setMongo(Boolean(a.mongo && b.mongo));
+        setRanked(a.rows ?? []);
+        setDuet(b.rows ?? []);
+      })
+      .catch(() => {
+        setMongo(false);
+        setRanked([]);
+        setDuet([]);
+      });
   }, []);
 
   return (

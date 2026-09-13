@@ -1,4 +1,6 @@
-import type { ScoreCard } from "@karaoke/shared";
+import { ScorePostPath, type ScoreCard } from "@karaoke/shared";
+
+const ATTEMPTS = 3;
 
 export async function postTurnScore(
   roomId: string,
@@ -15,10 +17,21 @@ export async function postTurnScore(
     elapsedMs?: number;
   },
 ) {
-  const res = await fetch(`/api/turns/${encodeURIComponent(roomId)}/score`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  const path = ScorePostPath.replace(":roomId", encodeURIComponent(roomId));
+  let lastError: unknown;
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`score post ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }

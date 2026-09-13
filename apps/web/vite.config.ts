@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 
-const SERVER_ORIGIN = "http://127.0.0.1:8080";
+const SERVER_ORIGIN = process.env.KARAOKE_SERVER_ORIGIN || "http://127.0.0.1:8080";
 
 export default defineConfig({
   plugins: [react()],

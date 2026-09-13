@@ -34,6 +34,7 @@ function isScoringClip(room: RoomState | null, myPlayerId: string | null): boole
 export function StageLyrics() {
   const { audioRef, room, myPlayerId, reportDuetVoice } = useStage();
   const [lrc, setLrc] = useState("");
+  const [lrcFailed, setLrcFailed] = useState(false);
   const [t, setT] = useState(0);
   const running =
     room?.status === "countdown" ||
@@ -48,12 +49,18 @@ export function StageLyrics() {
     const id = room?.songId;
     if (!id) {
       setLrc("");
+      setLrcFailed(false);
       return;
     }
     let cancelled = false;
-    void loadSongPack(id).then((pack) => {
-      if (!cancelled) setLrc(pack.lrc);
-    });
+    setLrcFailed(false);
+    void loadSongPack(id)
+      .then((pack) => {
+        if (!cancelled) setLrc(pack.lrc);
+      })
+      .catch(() => {
+        if (!cancelled) setLrcFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -88,7 +95,7 @@ export function StageLyrics() {
   if (!lrc) {
     return (
       <div className="lyrics">
-        <p className="lyrics-now">Loading lyrics…</p>
+        <p className="lyrics-now">{lrcFailed ? "Lyrics unavailable" : "Loading lyrics…"}</p>
       </div>
     );
   }
@@ -111,7 +118,7 @@ export function StageLyrics() {
 
 export function StagePitch() {
   const { audioRef, micStream, room, myPlayerId, duetVoice } = useStage();
-  const { clockPlay, livePitches, emitPitchLive, scores } = useRoom();
+  const { clockPlay, livePitches, emitPitchLive, scores, matchOver } = useRoom();
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [liveHz, setLiveHz] = useState<number | null>(null);
@@ -122,6 +129,7 @@ export function StagePitch() {
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
   const postedRef = useRef(false);
+  const postingRef = useRef(false);
   const scoringRef = useRef(false);
   const meterRef = useRef(false);
   const emitRef = useRef(emitPitchLive);
@@ -179,9 +187,9 @@ export function StagePitch() {
     const r = roomRef.current;
     const mel = melodyRef.current;
     const clip = clipWindowRef.current;
-    if (!r || !mel || !clip || postedRef.current || !singingRef.current) return;
+    if (!r || !mel || !clip || postedRef.current || postingRef.current || !singingRef.current) return;
     singingRef.current = false;
-    postedRef.current = true;
+    postingRef.current = true;
     const duetSeatNow = duetSeat(r.players, myPlayerIdRef.current);
     const windows =
       r.mode === "duet" && duetSeatNow
@@ -200,7 +208,14 @@ export function StagePitch() {
       mode: r.mode,
       songId: r.songId ?? undefined,
       lyrics: lrcRef.current.slice(0, 600),
-    });
+    })
+      .then(() => {
+        postedRef.current = true;
+      })
+      .catch(() => {
+        postingRef.current = false;
+        singingRef.current = true;
+      });
   };
   const flushRef = useRef(flushScore);
   flushRef.current = flushScore;
@@ -211,11 +226,16 @@ export function StagePitch() {
     const id = room?.songId;
     if (!id) return;
     let cancelled = false;
-    void loadSongPack(id).then((pack) => {
-      if (cancelled) return;
-      setMelody(pack.melody);
-      lrcRef.current = pack.lrc;
-    });
+    void loadSongPack(id)
+      .then((pack) => {
+        if (cancelled) return;
+        setMelody(pack.melody);
+        lrcRef.current = pack.lrc;
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMelody(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -271,7 +291,7 @@ export function StagePitch() {
       const now = performance.now();
       if (now - lastEmitRef.current < 40) return;
       lastEmitRef.current = now;
-      emitRef.current({ hz, clarity, rms, ...runningRef.current });
+      emitRef.current({ hz, clarity, rms });
     };
     const tick = () => {
       const t = audio.currentTime;
@@ -319,6 +339,7 @@ export function StagePitch() {
       framesRef.current = [];
       postedRef.current = false;
       singingRef.current = true;
+      postingRef.current = false;
       lastScoreAtRef.current = 0;
       runningRef.current = null;
       setMineLive(null);
@@ -343,17 +364,20 @@ export function StagePitch() {
   const shownClarity = mine ? liveClarity : (remote?.clarity ?? 0);
   const shownRms = mine ? liveRms : (remote?.rms ?? 0);
   const themLive = remote;
+  const rankedHidden =
+    room?.mode === "ranked" && room.status !== "results" && !matchOver;
   const youCard: ScoreBits | null =
     (myPlayerId ? scores[myPlayerId] : undefined) ?? mineLive;
-  const themCard: ScoreBits | null =
-    (opponent ? scores[opponent.id] : undefined) ??
-    (themLive && themLive.overall != null
-      ? {
-          pitch: themLive.pitch ?? 0,
-          tone: themLive.tone ?? 0,
-          overall: themLive.overall,
-        }
-      : null);
+  const themCard: ScoreBits | null = rankedHidden
+    ? null
+    : ((opponent ? scores[opponent.id] : undefined) ??
+      (themLive && themLive.overall != null
+        ? {
+            pitch: themLive.pitch ?? 0,
+            tone: themLive.tone ?? 0,
+            overall: themLive.overall,
+          }
+        : null));
   const youSinging =
     room?.mode === "duet"
       ? singingNow(duetVoice, seat).me

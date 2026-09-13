@@ -47,6 +47,7 @@ type RoomSnap = {
   songStartedAtMs: number | null;
   matchStartedAtMs: number | null;
   lastEloDelta: number;
+  lastWinnerId?: string | null;
   settled: boolean;
   rematchAtMs: number | null;
   scores: Record<string, ScoreCard>;
@@ -205,6 +206,7 @@ export async function saveRoomSnap(room: Room): Promise<void> {
         songStartedAtMs: room.songStartedAtMs,
         matchStartedAtMs: room.matchStartedAtMs,
         lastEloDelta: room.lastEloDelta,
+        lastWinnerId: room.lastWinnerId,
         settled: room.settled,
         rematchAtMs: room.rematchAtMs,
         scores,
@@ -244,6 +246,7 @@ function applySnap(room: Room, snap: RoomSnap): void {
     room.songStartedAtMs = snap.songStartedAtMs;
     room.matchStartedAtMs = snap.matchStartedAtMs;
     room.lastEloDelta = snap.lastEloDelta;
+    if (snap.lastWinnerId !== undefined) room.lastWinnerId = snap.lastWinnerId;
     if (snap.rematchAtMs != null) room.rematchAtMs = snap.rematchAtMs;
   }
   if (snap.settled) room.settled = true;

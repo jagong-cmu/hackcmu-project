@@ -58,7 +58,12 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
 
   return (
     <div ref={wrapRef} className="pitch-guide">
-      <canvas ref={canvasRef} className="pitch-meter" aria-label="Pitch guide" />
+      <canvas
+        ref={canvasRef}
+        className="pitch-meter"
+        aria-label="Pitch guide"
+        draggable={false}
+      />
     </div>
   );
 }

@@ -54,6 +54,8 @@ export type Room = {
 
   /** First-seated player's ELO delta; Lane B fills this before match:over. */
   lastEloDelta: number;
+  /** Settled winner (or null for a draw). Survives the loser being removed. */
+  lastWinnerId: string | null;
 
   /** True once match:over has been emitted, so late POSTs cannot double-settle. */
   settled: boolean;
@@ -85,6 +87,7 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     scores: new Map(),
     timers: new Set(),
     lastEloDelta: 0,
+    lastWinnerId: null,
     settled: false,
     rematchAtMs: null,
   };
@@ -180,7 +183,10 @@ export function removePlayer(room: Room, playerId: string): Player | undefined {
 }
 
 export function isFull(room: Room): boolean {
-  return livePlayers(room).length >= capacityFor(room.mode);
+  // Chaos can walk in/out, so only live bodies count. Ranked/Duet keep the
+  // seated roster so a disconnect mid-match cannot free a third chair.
+  if (room.mode === "chaos") return livePlayers(room).length >= capacityFor(room.mode);
+  return room.players.length >= capacityFor(room.mode);
 }
 
 /**
@@ -239,6 +245,7 @@ export function resetToLobby(room: Room): void {
   room.matchStartedAtMs = null;
   room.scores.clear();
   room.lastEloDelta = 0;
+  room.lastWinnerId = null;
   room.settled = false;
   room.rematchAtMs = null;
   for (const player of room.players) player.ready = false;
