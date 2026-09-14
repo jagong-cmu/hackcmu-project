@@ -7,10 +7,10 @@ import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 
 const MORE = [
-  { label: "Play with a friend", hint: "4-digit room code", to: "/play/ranked" },
+  { label: "Play with a friend", hint: "create or join a room", to: "/play/ranked" },
   { label: "Training", hint: "solo, scored", to: "/training" },
-  { label: "Duet", hint: "sing together", to: "/play/duet" },
-  { label: "Chaos", hint: "open lounge", to: "/play/chaos" },
+  { label: "Duet", hint: "create or join a room", to: "/play/duet" },
+  { label: "Chaos", hint: "create or join a lounge", to: "/play/chaos" },
 ];
 
 export function Home() {

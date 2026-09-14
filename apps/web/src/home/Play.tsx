@@ -1,28 +1,36 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
-import { DemoRoomCode, type Mode } from "@karaoke/shared";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
 
-const COPY: Record<string, { title: string; blurb: string; match: string; matchBtn: string }> = {
+const COPY: Record<
+  string,
+  {
+    title: string;
+    blurb: string;
+    create: string;
+    join: string;
+  }
+> = {
   ranked: {
     title: "Ranked",
     blurb: "Same 20-second chorus. You then them. Winner takes ELO.",
-    match: "We’ll pair you with the next singer waiting in Ranked.",
-    matchBtn: "Find a match",
+    create: "Start a private match and send the 4-digit code to a friend.",
+    join: "Type the code your friend sent you.",
   },
   duet: {
     title: "Duet",
     blurb: "Sing the whole song together. One shared score. No ELO.",
-    match: "We’ll pair you with the next singer waiting for a duet.",
-    matchBtn: "Find a partner",
+    create: "Start a private duet and send the 4-digit code to a friend.",
+    join: "Type the code your friend sent you.",
   },
   chaos: {
     title: "Chaos",
     blurb: "Walk into a lounge. Cameras and lyrics. No score.",
-    match: "Jump in. You’ll be seated automatically. When a lounge fills, a new one opens.",
-    matchBtn: "Join a lounge",
+    create: "Make a private lounge and send the 4-digit code to a friend.",
+    join: "Type the lounge code your friend sent you.",
   },
 };
 
@@ -33,7 +41,8 @@ function playModeOf(mode: string): Mode {
 
 export function Play() {
   const { mode = "ranked" } = useParams();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
   const [code, setCode] = useState("");
   const named = validName(getDisplayName());
   const info = COPY[mode] ?? COPY.ranked;
@@ -72,7 +81,15 @@ export function Play() {
 
   function stopQueue() {
     queueLeave();
-    if (autoQueue) setParams({}, { replace: true });
+    navigate("/");
+  }
+
+  function joinRoom(raw: string) {
+    const c = parseCode(raw);
+    if (!c) return;
+    announce();
+    if (isChaos) chaosJoin(c);
+    else roomJoin(c);
   }
 
   const waiting = inQueue || autoQueue;
@@ -104,7 +121,7 @@ export function Play() {
             <h2>Looking for a singer</h2>
             <p>
               {connected
-                ? `Stay here. The next person who taps “${info.matchBtn}” is your match.`
+                ? "Stay here. The next person who taps Play is your match."
                 : "Connecting — you’ll be put in the queue automatically."}
             </p>
             <button type="button" className="cta cta-ghost" onClick={stopQueue}>
@@ -115,32 +132,11 @@ export function Play() {
       ) : (
         <div className="play-choices">
           <section className="card play-choice">
-            <h2>{isChaos ? "Public lounge" : "Random match"}</h2>
-            <p>{info.match}</p>
+            <h2>Create a room</h2>
+            <p>{info.create}</p>
             <button
               type="button"
               className="cta"
-              disabled={!named || !connected}
-              onClick={() => {
-                announce();
-                if (isChaos) chaosJoin();
-                else queueJoin(playMode);
-              }}
-            >
-              {info.matchBtn}
-            </button>
-          </section>
-
-          <section className="card play-choice">
-            <h2>{isChaos ? "Private lounge" : "Sing with a friend"}</h2>
-            <p>
-              {isChaos
-                ? "Make a 4-digit code and send it, or join one a friend already made."
-                : "Create a room and send the code, or type theirs below."}
-            </p>
-            <button
-              type="button"
-              className="cta cta-ghost"
               disabled={!named || !connected}
               onClick={() => {
                 announce();
@@ -149,21 +145,22 @@ export function Play() {
             >
               Create a room
             </button>
+          </section>
+
+          <section className="card play-choice">
+            <h2>Join a room</h2>
+            <p>{info.join}</p>
             <form
               className="code-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                const c = parseCode(code);
-                if (!c) return;
-                announce();
-                if (isChaos) chaosJoin(c);
-                else roomJoin(c);
+                joinRoom(code);
               }}
             >
               <input
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="0000"
+                placeholder="code"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 aria-label="Room code"
@@ -172,19 +169,6 @@ export function Play() {
                 Join
               </button>
             </form>
-            {mode === "ranked" ? (
-              <button
-                type="button"
-                className="play-hint"
-                disabled={!named || !connected}
-                onClick={() => {
-                  announce();
-                  roomJoin(DemoRoomCode);
-                }}
-              >
-                Or jump into the public demo room {DemoRoomCode}
-              </button>
-            ) : null}
           </section>
         </div>
       )}
