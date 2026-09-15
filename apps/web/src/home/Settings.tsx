@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
+import { identifyPlayer } from "../analytics/posthog.ts";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export function Settings() {
     }
     const saved = await commitDisplayName(name);
     hello(saved);
+    identifyPlayer();
     navigate(next);
   }
 

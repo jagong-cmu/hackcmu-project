@@ -36,3 +36,12 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash-lite
+      # PostHog Cloud free project token. VITE_ keys must exist at build time.
+      - key: VITE_PUBLIC_POSTHOG_KEY
+        sync: false
+      - key: VITE_PUBLIC_POSTHOG_HOST
+        value: https://us.i.posthog.com
+      - key: POSTHOG_API_KEY
+        sync: false
+      - key: POSTHOG_HOST
+        value: https://us.i.posthog.com

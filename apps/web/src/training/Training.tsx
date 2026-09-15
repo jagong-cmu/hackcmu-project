@@ -23,6 +23,7 @@ import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { PageShell } from "../theme/PageShell.tsx";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
 import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
+import { capture } from "../analytics/posthog.ts";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -199,6 +200,8 @@ export function Training() {
       await videoRef.current.play().catch(() => undefined);
     }
     setMicStream(stream);
+
+    capture("training started", { song_id: meta.id });
 
     const audio = audioRef.current;
     if (!audio) return;
