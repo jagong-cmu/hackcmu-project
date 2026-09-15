@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
+import { useAuth } from "./AuthProvider.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
 
 export function Settings() {
   const navigate = useNavigate();
   const { hello } = useRoom();
+  const { configured, user, signOut } = useAuth();
   const [params] = useSearchParams();
   const next = params.get("next") || "/";
   const [name, setName] = useState(getDisplayName());
@@ -48,6 +50,24 @@ export function Settings() {
         <button type="submit" className="cta">
           Save name
         </button>
+        {configured && user ? (
+          <div className="settings-account">
+            <p className="dim">{user.email}</p>
+            <button
+              type="button"
+              className="cta cta-ghost"
+              onClick={() => {
+                void signOut().then(() => navigate("/"));
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        ) : configured ? (
+          <p className="dim">
+            <Link to="/">Sign in</Link> to keep this name and your ELO.
+          </p>
+        ) : null}
       </form>
       <p className="dim">
         {mongo == null

@@ -1,6 +1,10 @@
+import { getSupabase } from "./supabase.ts";
+
 const NAME = "karaoke.displayName";
 const ID = "karaoke.clientId";
 const COLOR = "karaoke.avatarColor";
+const GUEST = "karaoke.guestClientId";
+const AUTH = "karaoke.authUserId";
 
 const COLORS = ["#e8c36a", "#c4312e", "#7eb8c9", "#d9783a", "#b86b9a", "#6dbf8b"];
 
@@ -36,9 +40,42 @@ export function validName(name: string): boolean {
   return n >= 2 && n <= 16;
 }
 
+/** Point ELO / sockets at the signed-in Supabase user, keeping the guest id. */
+export function bindAccount(userId: string, displayName: string): string {
+  const current = localStorage.getItem(ID);
+  const authId = localStorage.getItem(AUTH);
+  if (current && current !== userId && authId !== current) {
+    localStorage.setItem(GUEST, current);
+  }
+  localStorage.setItem(AUTH, userId);
+  localStorage.setItem(ID, userId);
+  if (validName(displayName)) return setDisplayName(displayName);
+  const existing = getDisplayName();
+  if (validName(existing)) return existing;
+  return setDisplayName("Singer");
+}
+
+export function unbindAccount(): void {
+  localStorage.removeItem(AUTH);
+  const guest = localStorage.getItem(GUEST);
+  if (guest) localStorage.setItem(ID, guest);
+  else {
+    localStorage.removeItem(ID);
+    getClientId();
+  }
+}
+
 /** Persist the name locally and tell Atlas. Socket hello is the caller's job. */
 export async function commitDisplayName(name: string): Promise<string> {
   const saved = setDisplayName(name);
+  const sb = getSupabase();
+  if (sb && localStorage.getItem(AUTH)) {
+    try {
+      await sb.auth.updateUser({ data: { display_name: saved } });
+    } catch {
+      /* still continue */
+    }
+  }
   try {
     await fetch("/api/player/hello", {
       method: "POST",
