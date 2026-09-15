@@ -12,3 +12,4 @@ server/dist/
 .vscode/
 .vercel
 .vercel/.env*.local
+supabase/.temp/
