@@ -1363,6 +1363,54 @@ select:focus {
 }
 .home-play { margin-top: 10px; }
 
+.home-account {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.home-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(20rem, 100%);
+}
+.home-auth .tabs {
+  margin: 0 0 4px;
+}
+.home-auth label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  color: var(--fg-dim);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+.home-auth input {
+  width: 100%;
+  text-align: left;
+  font-size: 1.05rem;
+}
+.home-auth .cta {
+  margin-top: 6px;
+  max-width: none;
+}
+
+.settings-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--edge-soft);
+}
+.settings-account .dim {
+  margin: 0;
+  word-break: break-all;
+}
+
 .home-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
