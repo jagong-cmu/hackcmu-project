@@ -26,6 +26,7 @@ import {
   upsertPlayer,
 } from "./db.ts";
 import { eloDelta, kForMatch, outcomeFromScores } from "./elo.ts";
+import { getArenaStats, trackMatchCompleted, trackTrainingCompleted } from "./analytics.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -167,6 +168,13 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
         createdAt: new Date(),
       });
     }
+    void trackMatchCompleted({
+      mode: "duet",
+      songId: turn.songId,
+      roomCode: turn.roomId,
+      forfeit: Boolean(turn.forfeit),
+      distinctId: a.clientId,
+    }).catch(() => undefined);
     return {
       complete: true,
       mode: "duet",
@@ -199,6 +207,14 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
   } else {
     delta = eloDelta(1000, 1000, outcome, kForMatch({ forfeit: Boolean(turn.forfeit) }));
   }
+
+  void trackMatchCompleted({
+    mode: turn.mode,
+    songId: turn.songId,
+    roomCode: turn.roomId,
+    forfeit: Boolean(turn.forfeit),
+    distinctId: a.clientId,
+  }).catch(() => undefined);
 
   return {
     complete: true,
@@ -276,7 +292,16 @@ export function registerLaneBRoutes(app: Express): void {
     const db = await getDb();
     let player = null;
     if (db) player = await upsertPlayer(db, body.clientId, body.displayName || "Singer");
+    void trackTrainingCompleted({
+      songId: typeof body.songId === "string" ? body.songId : undefined,
+      distinctId: body.clientId,
+      overall: score.overall,
+    }).catch(() => undefined);
     res.json({ ok: true, score, mongo: Boolean(db), player });
+  });
+
+  app.get("/api/stats", async (_req: Request, res: Response) => {
+    res.json(await getArenaStats());
   });
 
   app.get("/api/leaderboard/ranked", async (_req: Request, res: Response) => {

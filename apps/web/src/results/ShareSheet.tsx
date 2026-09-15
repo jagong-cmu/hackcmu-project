@@ -6,6 +6,7 @@ import {
   downloadBlob,
   nativeShare,
 } from "./composeShareImage.ts";
+import { capture } from "../analytics/posthog.ts";
 
 type Props = {
   url: string;
@@ -66,6 +67,7 @@ export function ShareSheet({
               className="cta"
               onClick={() => {
                 void nativeShare(file, title, text);
+                capture("share clicked", { kind, method: "native" });
               }}
             >
               Share
@@ -80,12 +82,20 @@ export function ShareSheet({
                   if (ok) onCopied();
                   else downloadBlob(blob, filename);
                 });
+                capture("share clicked", { kind, method: "copy" });
               }}
             >
               {copied ? "Copied" : "Copy image"}
             </button>
           ) : null}
-          <button type="button" className="cta cta-ghost" onClick={() => downloadBlob(blob, filename)}>
+          <button
+            type="button"
+            className="cta cta-ghost"
+            onClick={() => {
+              downloadBlob(blob, filename);
+              capture("share clicked", { kind, method: "download" });
+            }}
+          >
             Download
           </button>
           <button type="button" className="cta cta-ghost" onClick={onClose}>

@@ -33,6 +33,7 @@ import {
 import { ensureRoom, saveRoomSnap } from "./liveState.ts";
 import { persistSeatedMatch } from "./judge.ts";
 import { eloDelta, outcomeFromScores } from "./elo.ts";
+import { trackMatchStarted, trackSongPlayed } from "./analytics.ts";
 
 const songDirs = [
   path.resolve(process.cwd(), "apps/web/public/songs"),
@@ -253,6 +254,18 @@ export function startMatch(io: Server, room: Room): void {
   const goAt = Date.now() + MatchCountdownMs;
   scheduleClip(io, room, goAt);
   broadcastState(io, room);
+  trackMatchStarted({
+    mode: room.mode,
+    songId: song.id,
+    roomCode: room.code,
+    distinctId: room.players[0]?.clientId,
+  }).catch(() => undefined);
+  trackSongPlayed({
+    mode: room.mode,
+    songId: song.id,
+    roomCode: room.code,
+    distinctId: room.players[0]?.clientId,
+  }).catch(() => undefined);
 
   later(room, MatchCountdownMs, () => beginClip(io, room));
 }
@@ -559,6 +572,11 @@ function playChaosSong(io: Server, room: Room): void {
   const playAt = Date.now() + ClockLeadMs;
   scheduleClip(io, room, playAt);
   broadcastState(io, room);
+  trackSongPlayed({
+    mode: "chaos",
+    songId: song.id,
+    roomCode: room.code,
+  }).catch(() => undefined);
 
   later(room, ClockLeadMs + window.durationSec * 1000, () =>
     playChaosSong(io, room),

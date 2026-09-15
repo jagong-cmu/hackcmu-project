@@ -67,6 +67,13 @@ import {
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
+import {
+  posthogConfigured,
+  trackChaosJoined,
+  trackQueueJoined,
+  trackRoomCreated,
+  trackScoreSubmitted,
+} from "./analytics.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -121,6 +128,7 @@ app.get("/api/health", async (_req, res) => {
     mongo: Boolean(db),
     mongoConfigured: mongoConfigured(),
     gemini: Boolean(process.env.GEMINI_API_KEY?.trim()),
+    posthog: posthogConfigured(),
   });
 });
 
@@ -213,6 +221,7 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
 
   const card = clampCard(score as ScoreCard);
   const settled = recordScore(io, room, player.id, card);
+  void trackScoreSubmitted({ distinctId: clientId, roomCode: room.code }).catch(() => undefined);
   res.json({ ok: true, settled, score: card });
   void enrichScore(
     score as ScoreCard,
@@ -451,6 +460,8 @@ io.on("connection", (socket) => {
     const mode = ((payload ?? {}) as { mode?: Mode }).mode ?? "ranked";
     if (!isQueueMode(mode)) return fail(socket, "BAD_MODE", "ranked or duet only");
 
+    void trackQueueJoined({ mode, distinctId: session.clientId });
+
     const waiting: Waiting = {
       socketId: socket.id,
       clientId: session.clientId,
@@ -532,6 +543,7 @@ io.on("connection", (socket) => {
 
     const room = createRoom(mode);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
+    void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId });
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
   });
 
@@ -587,12 +599,14 @@ io.on("connection", (socket) => {
       if (!raw) {
         room = findOpenPublicChaosLounge();
         if (seat(socket.id, room)) {
+          trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
           socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
           return;
         }
       }
       return fail(socket, "ROOM_FULL", "lounge is full");
     }
+    trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
   });
 
@@ -695,6 +709,7 @@ setInterval(() => {
 function logBoot(): void {
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
   console.log(`[lane-a] livekit: ${lk}`);
+  console.log(`[lane-a] posthog: ${posthogConfigured() ? "configured" : "off"}`);
   console.log(`[lane-a] demo room ${DemoRoomCode} is live; Chaos lounges spawn on join`);
   if (process.env.USE_TEST_SONG === "1") {
     console.log("[lane-a] USE_TEST_SONG=1 — serving /songs/_test click track");
