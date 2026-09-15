@@ -6,6 +6,8 @@ const SERVER_ORIGIN = process.env.KARAOKE_SERVER_ORIGIN || "http://127.0.0.1:808
 
 export default defineConfig({
   plugins: [react()],
+  // Repo-root `.env` (see `.env.example`) so VITE_PUBLIC_POSTHOG_KEY is visible.
+  envDir: fileURLToPath(new URL("../..", import.meta.url)),
   resolve: {
     alias: {
       "@karaoke/shared": fileURLToPath(

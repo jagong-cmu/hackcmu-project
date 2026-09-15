@@ -5,6 +5,7 @@ import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { ModeButton } from "./ModeButton.tsx";
 import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
+import { capture, identifyPlayer } from "../analytics/posthog.ts";
 
 const MORE = [
   { label: "Play with a friend", hint: "create or join a room", to: "/play/ranked" },
@@ -27,21 +28,27 @@ export function Home() {
     }
     const saved = await commitDisplayName(name);
     hello(saved);
+    identifyPlayer();
     return saved;
   }
 
   async function play(e?: FormEvent) {
     e?.preventDefault();
     if (!(await saveName())) return;
+    capture("mode selected", { mode: "ranked", via: "play" });
     navigate("/play/ranked?go=1");
   }
 
   async function go(to: string) {
+    const mode =
+      to.includes("training") ? "training" : to.includes("duet") ? "duet" : to.includes("chaos") ? "chaos" : "ranked";
     if (named) {
       await saveName();
+      capture("mode selected", { mode, via: "home" });
       navigate(to);
       return;
     }
+    capture("mode selected", { mode, via: "home" });
     navigate(`/settings?next=${to}`);
   }
 
@@ -53,6 +60,7 @@ export function Home() {
       <nav className="home-nav">
         <Link to="/settings">Settings</Link>
         <Link to="/leaderboard">Board</Link>
+        <Link to="/stats">Stats</Link>
       </nav>
 
       <div className="home-hero">
