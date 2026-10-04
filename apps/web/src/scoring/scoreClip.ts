@@ -14,6 +14,9 @@ export function melodyHzAt(melody: MelodyFile, timeSec: number): number | null {
   return hz == null ? null : hz;
 }
 
+/** Share of the clip's melody you must sing before pitch stops being scaled down. */
+const FullCoverage = 0.6;
+
 function std(values: number[]): number {
   if (values.length < 2) return 0;
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -42,6 +45,9 @@ export function scoreContour(
   const errors: number[] = [];
   const residuals: number[] = [];
   const clarities: number[] = [];
+  // Melody samples with any sung pitch. Counted by time, not frames, because
+  // the frame rate follows the display (60, 120, or throttled lower).
+  const sungSamples = new Set<number>();
   let melodyVoiced = 0;
 
   const step = 1 / melody.sampleRateHz;
@@ -63,6 +69,7 @@ export function scoreContour(
     residual -= 12 * Math.round(residual / 12);
     residuals.push(residual);
     clarities.push(f.clarity);
+    sungSamples.add(Math.round((f.timeSec - melody.startSec) * melody.sampleRateHz));
   }
 
   // ~5 pitched frames is a real take. The old 12% coverage gate marked short
@@ -80,7 +87,11 @@ export function scoreContour(
   }
 
   const mae = errors.reduce((a, b) => a + b, 0) / errors.length;
-  const pitch = centsToPitch(mae);
+  // Accuracy alone rewards stopping early: one in-tune second outscored a
+  // whole chorus sung slightly off. Full credit from 60% of the melody sung,
+  // so breaths and missed frames in a real take cost nothing.
+  const coverage = melodyVoiced > 0 ? sungSamples.size / melodyVoiced : 1;
+  const pitch = Math.round(centsToPitch(mae) * Math.min(1, coverage / FullCoverage));
 
   const successive: number[] = [];
   for (let i = 1; i < residuals.length; i++) {
