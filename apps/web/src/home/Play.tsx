@@ -90,7 +90,7 @@ export function Play() {
   function leave() {
     if (isChaos) roomLeave();
     else queueLeave();
-    navigate("/");
+    navigate("/play");
   }
 
   function joinRoom(raw: string) {

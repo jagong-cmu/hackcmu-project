@@ -7,12 +7,6 @@ import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { capture, identifyPlayer } from "../analytics/posthog.ts";
 
-const MORE = [
-  { label: "Private room", hint: "invite a friend", to: "/play/ranked", mode: "private" },
-  { label: "Training", hint: "solo, scored", to: "/training", mode: "training" },
-  { label: "Duet", hint: "find a duet partner", to: "/play/duet?go=1", mode: "duet" },
-  { label: "Chaos", hint: "drop into a lounge", to: "/play/chaos?go=1", mode: "chaos" },
-];
 
 export function Home() {
   const navigate = useNavigate();
@@ -35,18 +29,8 @@ export function Home() {
   async function play(e?: FormEvent) {
     e?.preventDefault();
     if (!(await saveName())) return;
-    capture("mode selected", { mode: "ranked", via: "play" });
-    navigate("/play/ranked?go=1");
-  }
-
-  async function go(to: string, mode: string) {
-    capture("mode selected", { mode, via: "home" });
-    if (named) {
-      await saveName();
-      navigate(to);
-      return;
-    }
-    navigate(`/settings?next=${encodeURIComponent(to)}`);
+    capture("play pressed", {});
+    navigate("/play");
   }
 
   return (
@@ -88,26 +72,10 @@ export function Home() {
           {msg ? <p className="err home-name-err">{msg}</p> : null}
 
           <div className="modes home-play">
-            <ModeButton label="Play" hint="ranked 1v1" onSelect={() => void play()} />
+            <ModeButton label="Play" hint="pick a mode" onSelect={() => void play()} />
           </div>
         </form>
 
-        <nav className="home-modes" aria-label="More ways to sing">
-          {MORE.map((item) => (
-            <Link
-              key={item.label}
-              className="home-mode"
-              to={item.to}
-              onClick={(e) => {
-                e.preventDefault();
-                void go(item.to, item.mode);
-              }}
-            >
-              <span className="home-mode-label">{item.label}</span>
-              <span className="home-mode-hint">{item.hint}</span>
-            </Link>
-          ))}
-        </nav>
       </div>
     </main>
   );
