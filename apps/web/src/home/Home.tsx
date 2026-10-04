@@ -8,10 +8,10 @@ import { useRoom } from "../rooms/RoomProvider.tsx";
 import { capture, identifyPlayer } from "../analytics/posthog.ts";
 
 const MORE = [
-  { label: "Play with a friend", hint: "create or join a room", to: "/play/ranked" },
-  { label: "Training", hint: "solo, scored", to: "/training" },
-  { label: "Duet", hint: "create or join a room", to: "/play/duet" },
-  { label: "Chaos", hint: "create or join a lounge", to: "/play/chaos" },
+  { label: "Private room", hint: "invite a friend", to: "/play/ranked", mode: "private" },
+  { label: "Training", hint: "solo, scored", to: "/training", mode: "training" },
+  { label: "Duet", hint: "find a duet partner", to: "/play/duet?go=1", mode: "duet" },
+  { label: "Chaos", hint: "drop into a lounge", to: "/play/chaos?go=1", mode: "chaos" },
 ];
 
 export function Home() {
@@ -39,17 +39,14 @@ export function Home() {
     navigate("/play/ranked?go=1");
   }
 
-  async function go(to: string) {
-    const mode =
-      to.includes("training") ? "training" : to.includes("duet") ? "duet" : to.includes("chaos") ? "chaos" : "ranked";
+  async function go(to: string, mode: string) {
+    capture("mode selected", { mode, via: "home" });
     if (named) {
       await saveName();
-      capture("mode selected", { mode, via: "home" });
       navigate(to);
       return;
     }
-    capture("mode selected", { mode, via: "home" });
-    navigate(`/settings?next=${to}`);
+    navigate(`/settings?next=${encodeURIComponent(to)}`);
   }
 
   return (
@@ -103,7 +100,7 @@ export function Home() {
               to={item.to}
               onClick={(e) => {
                 e.preventDefault();
-                void go(item.to);
+                void go(item.to, item.mode);
               }}
             >
               <span className="home-mode-label">{item.label}</span>
