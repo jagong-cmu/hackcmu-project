@@ -475,6 +475,22 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
 }
+/* The match video is still rendering its results outro. */
+.moment-pending {
+  display: block;
+  aspect-ratio: 16 / 9;
+  background:
+    linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--blue-300) 18%, transparent) 50%, transparent 70%)
+      0 0 / 200% 100%,
+    color-mix(in srgb, var(--blue-800) 40%, var(--ink));
+  animation: moment-sheen 1.4s linear infinite;
+}
+@keyframes moment-sheen {
+  to { background-position: -200% 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moment-pending { animation: none; }
+}
 .moment-label {
   display: block;
   padding: 6px 8px 8px;

@@ -13,7 +13,7 @@ import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
-import { stopMatchReel } from "../results/matchReel.ts";
+import { holdMatchReel, stopMatchReel } from "../results/matchReel.ts";
 import {
   isMusicOnly,
   PITCH_FFT,
@@ -362,7 +362,8 @@ export function Training() {
     setCountMs(null);
     setScoring(true);
     setStatus("Scoring…");
-    await stopMatchReel(clipKeyRef.current);
+    // Hold, not stop: the video waits for the score card and closes on it.
+    holdMatchReel(clipKeyRef.current);
     stream.getTracks().forEach((tr) => tr.stop());
     setMicStream(null);
     if (!meta || !melody) return;
