@@ -579,9 +579,12 @@ export function StageResults() {
       : null;
   // Private (code) rooms are friendly: same match, no ELO either way.
   const friendly = room.mode === "ranked" && room.rated === false;
+  // eloDelta is seat A's. The server names seat A (`seatAId`): room.players
+  // can be reordered by a results-phase reconnect, so it is only a fallback.
+  const seatAId = matchOver.seatAId ?? room.players[0]?.id;
   const myDelta =
     room.mode === "ranked" && !friendly
-      ? room.players[0]?.id === myPlayerId
+      ? seatAId === myPlayerId
         ? matchOver.eloDelta
         : -matchOver.eloDelta
       : null;

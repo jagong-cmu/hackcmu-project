@@ -18,6 +18,8 @@ export type MatchOver = {
   rated?: boolean;
   /** Client-side tag: the room's matchId when this result arrived. */
   matchId?: number | null;
+  /** Ranked: the match's seat A, which `eloDelta` is relative to (not room.players[0]). */
+  seatAId?: string | null;
 };
 
 export function mergeMatchOver(prev: MatchOver | null, incoming: MatchOver): MatchOver {
@@ -40,5 +42,6 @@ export function mergeMatchOver(prev: MatchOver | null, incoming: MatchOver): Mat
     rated: incoming.rated ?? prev.rated,
     forfeit: incoming.forfeit ?? prev.forfeit,
     matchId: incoming.matchId ?? prev.matchId,
+    seatAId: incoming.seatAId ?? prev.seatAId,
   };
 }

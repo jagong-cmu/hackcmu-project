@@ -47,6 +47,11 @@ test("fields the poll does send win", () => {
   assert.equal(merged.winnerId, "b");
 });
 
+test("seat A (for the ELO sign) survives a poll that lacks it", () => {
+  const merged = mergeMatchOver({ ...socket, seatAId: "a" }, { scores: {}, winnerId: "a", eloDelta: 0, matchId: 42 });
+  assert.equal(merged.seatAId, "a");
+});
+
 test("a different match replaces everything", () => {
   const next: MatchOver = { scores: {}, winnerId: null, eloDelta: 12, matchId: 99 };
   assert.deepEqual(mergeMatchOver(socket, next), next);

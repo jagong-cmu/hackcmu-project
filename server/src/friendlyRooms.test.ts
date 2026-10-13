@@ -23,17 +23,27 @@ const {
   clearTimers,
   createRoom,
   awaitingSettlement,
+  disposeIfEmpty,
   forfeitWouldRate,
+  getRoom,
+  heldSeatId,
   livePlayers,
   matchInProgress,
   removePlayer,
   resetToLobby,
   toPublic,
 } = await import("./rooms.ts");
-const { applySnap, claimScore, loadSnap, saveRoomSnap, snapFromRoom } = await import("./liveState.ts");
-const { finishMatch, forfeitFor, handleRematchRequest, recordScore, settleIfScoresIn } = await import(
-  "./clock.ts"
-);
+const { applySnap, claimScore, claimSettlement, loadSnap, publishSettlement, saveRoomSnap, snapFromRoom } =
+  await import("./liveState.ts");
+const {
+  currentResult,
+  finishMatch,
+  forfeitFor,
+  handleRematchRequest,
+  recordScore,
+  setSettleTimingForTests,
+  settleIfScoresIn,
+} = await import("./clock.ts");
 const { persistSeatedMatch } = await import("./judge.ts");
 const { eloDelta } = await import("./elo.ts");
 const { getArenaStats } = await import("./analytics.ts");
@@ -63,6 +73,7 @@ beforeEach(async () => {
 afterEach(async () => {
   for (const r of made) clearTimers(r);
   made.length = 0;
+  setSettleTimingForTests();
   await setDbForTests(undefined);
 });
 
@@ -504,11 +515,15 @@ test("the losing seat cannot dodge with report-then-leave during results: rated 
 });
 
 test("a seat leaving during results with no card of its own settles on the empty-score fallback", async () => {
+  setSettleTimingForTests({ leaverGraceMs: 60 });
   const room = resultsRoom();
   room.scores.delete(B); // B never posted, then leaves; A's 87 is in
   await saveRoomSnap(room);
   const h = leaveHarness(room);
   h.disconnect("sock-b");
+  // Its POST may still be in flight: not settled on the spot, only after the grace.
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(overs(h.io).length, 0, "waits the leaver's grace first");
   await until(() => overs(h.io).length === 1);
   const [over] = overs(h.io);
   assert.equal(over?.payload.scores[B]?.overall, 0);
@@ -577,4 +592,172 @@ test("safety:leave still needs a report or block first", async () => {
   const ack = await h.safety.leave("sock-a");
   assert.equal(ack.ok, false);
   assert.equal(h.ejected.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Settlement correctness (hardening-log entry 9)
+// ---------------------------------------------------------------------------
+
+/** The match roster startMatch records (Room.matchSeats), from the seated players. */
+function withRoster(room: Room): Room {
+  room.matchSeats = {
+    matchId: room.matchId!,
+    seats: room.players.map(({ id, clientId, displayName, elo }) => ({ id, clientId, displayName, elo })),
+  };
+  return room;
+}
+
+test("#1 a seat that leaves on results with its card still in flight keeps its real score", async () => {
+  setSettleTimingForTests({ leaverGraceMs: 2000 });
+  const room = withRoster(resultsRoom());
+  room.scores.delete(B); // B posted at its clip end; the POST has not landed yet
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  h.disconnect("sock-b"); // ...and B's leave is handled first
+  assert.equal(room.players.length, 1);
+  assert.equal(heldSeatId(room, "cid-b"), B, "the score route still knows B's seat");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(overs(h.io).length, 0, "not settled with B as a silent 0");
+
+  const posted = await recordScore(h.io as never, room, B, card(99, 99), MATCH);
+  assert.deepEqual(posted, { ok: true, settled: true });
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.scores[B]?.overall, 99, "B's real card counts");
+  assert.equal(over?.payload.winnerId, B);
+  assert.equal(over?.payload.seatAId, A);
+  assert.equal(over?.payload.eloDelta, -16, "seat A's delta");
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo + 16);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo - 16);
+});
+
+test("#1 the seat still here posting does not settle over a leaver's in-flight card", async () => {
+  setSettleTimingForTests({ leaverGraceMs: 2000 });
+  const room = withRoster(resultsRoom());
+  room.scores.clear();
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  h.disconnect("sock-b");
+  assert.deepEqual(await recordScore(h.io as never, room, A, card(60, 60), MATCH), { ok: true, settled: false });
+  assert.deepEqual(await recordScore(h.io as never, room, B, card(80, 80), MATCH), { ok: true, settled: true });
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.deepEqual([over?.payload.scores[A]?.overall, over?.payload.scores[B]?.overall], [60, 80]);
+  assert.equal(over?.payload.winnerId, B);
+});
+
+test("#2 a leave seen on another isolate: it settles with both seats, ELO persisted once, real delta", async () => {
+  const iso1 = withRoster(resultsRoom());
+  iso1.scores.clear();
+  await saveRoomSnap(iso1);
+  assert.equal(await claimScore(iso1, A, card(90, 80)), "claimed");
+  iso1.scores.set(A, card(90, 80));
+  const iso2 = await isolateFromSnap(iso1.code);
+  assert.equal(iso2.matchSeats?.matchId, MATCH, "the roster travels in the snapshot");
+
+  // B leaves on iso1 during the score wait; iso1's snapshot no longer lists B.
+  removePlayer(iso1, B);
+  await saveRoomSnap(iso1);
+  for (const p of iso2.players) p.lastSeenMs = Date.now() - 60_000;
+  applySnap(iso2, (await loadSnap(iso1.code))!);
+  assert.ok(iso2.players.some((p) => p.id === B), "the snapshot merge keeps the match's seat");
+
+  // Even an isolate that already lost the seat settles with both.
+  removePlayer(iso2, B);
+  const io2 = recordingIo();
+  await finishMatch(io2 as never, iso2);
+  const [over] = overs(io2);
+  assert.equal(over?.payload.rated, true);
+  assert.equal(over?.payload.eloDelta, 16);
+  assert.equal(over?.payload.seatAId, A);
+  assert.equal(over?.payload.scores[B]?.overall, 0, "B never posted: the empty-score fallback");
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo - 16);
+  assert.equal(await db.collection("matches").countDocuments({}), 1);
+});
+
+test("#2 safety net: a one-seat settlement never reports a rated result or a delta it did not persist", async () => {
+  const room = resultsRoom(); // no roster (an older snapshot), and one seat is gone
+  removePlayer(room, B);
+  const io = recordingIo();
+  await finishMatch(io as never, room);
+  const [over] = overs(io);
+  assert.equal(over?.payload.rated, false);
+  assert.equal(over?.payload.eloDelta, 0);
+  assert.equal(await db.collection("matches").countDocuments({}), 0);
+  assert.equal(await playerDoc("cid-a"), null);
+});
+
+test("#8 a claimed but unpublished settlement is not 'settled' on other isolates", async () => {
+  const iso1 = withRoster(resultsRoom());
+  await saveRoomSnap(iso1);
+  const iso2 = await isolateFromSnap(iso1.code);
+  assert.equal(await claimSettlement(iso1), "won");
+  iso1.settled = true;
+  await saveRoomSnap(iso1); // the winner's snapshot says settled before its result is out
+  applySnap(iso2, (await loadSnap(iso1.code))!);
+  assert.equal(iso2.settled, false, "a claim alone is not a result");
+  assert.equal(currentResult(iso2), null, "so GET /api/rooms reports no matchOver");
+
+  const scores = { [A]: card(90, 80), [B]: card(50, 50) };
+  await publishSettlement(iso1, MATCH, { scores, winnerId: A, eloDelta: 16, rated: true, seatAId: A });
+  applySnap(iso2, (await loadSnap(iso1.code))!);
+  assert.equal(iso2.settled, true);
+  assert.deepEqual(currentResult(iso2), {
+    matchId: MATCH,
+    scores,
+    winnerId: A,
+    eloDelta: 16,
+    rated: true,
+    seatAId: A,
+  });
+  assert.equal(iso2.lastWinnerId, A);
+  assert.equal(iso2.lastEloDelta, 16);
+});
+
+test("#9 seat A stays seat A after a results-phase reconnect: seatAId and ELO by id", async () => {
+  setSettleTimingForTests({ leaverGraceMs: 2000 });
+  const room = withRoster(resultsRoom()); // A 87 in, B still posting
+  room.scores.delete(B);
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  h.disconnect("sock-a");
+  assert.deepEqual(room.players.map((p) => p.id), [B]);
+  addPlayer(room, { id: A, clientId: "cid-a", displayName: "Alice", socketId: "sock-a2" });
+  assert.deepEqual(room.players.map((p) => p.id), [A, B], "back in seat A, not appended");
+
+  // An isolate that appended anyway (or any reorder) still settles by the roster.
+  room.players.reverse();
+  await recordScore(h.io as never, room, B, card(50, 50), MATCH);
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.seatAId, A);
+  assert.equal(over?.payload.winnerId, A);
+  assert.equal(over?.payload.eloDelta, 16, "relative to seat A, not room.players[0]");
+  assert.equal(room.players.find((p) => p.id === A)?.elo, StartingElo + 16);
+  assert.equal(room.players.find((p) => p.id === B)?.elo, StartingElo - 16);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+});
+
+test("#12 both seats leave during the score wait: the room is kept and the match still settles", async () => {
+  setSettleTimingForTests({ leaverGraceMs: 50 });
+  const room = withRoster(resultsRoom());
+  room.scores.delete(B);
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  h.disconnect("sock-a");
+  h.disconnect("sock-b");
+  assert.equal(room.players.length, 0);
+  await saveRoomSnap(room); // leaveCurrentRoom's broadcastState
+  disposeIfEmpty(room);
+  assert.equal(getRoom(room.code), room, "kept until it settles");
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.winnerId, A);
+  assert.equal(over?.payload.rated, true);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo - 16);
+  assert.equal(await db.collection("matches").countDocuments({}), 1);
+  disposeIfEmpty(room);
+  assert.equal(getRoom(room.code), undefined, "disposed once settled");
 });

@@ -93,8 +93,32 @@ export type Room = {
    * score wait, so the match still settles with both seats. Cleared per match.
    */
   settleSeats: { matchId: number; seats: Player[] } | null;
+  /**
+   * The match roster as it stood when the match began (seat order, public id,
+   * identity, rating then). In the snapshot, so any isolate can settle the
+   * match with both seats even after one left (or was dropped by a snapshot
+   * merge). Keyed by matchId; ignored for any other match.
+   */
+  matchSeats: { matchId: number; seats: MatchSeat[] } | null;
   /** Settled winner (or null for a draw). Survives the loser being removed. */
   lastWinnerId: string | null;
+  /**
+   * The settled result for `result.matchId` (what match:over carried). Only a
+   * result for the current matchId means "settled" to clients (GET /api/rooms).
+   */
+  result: MatchResult | null;
+  /**
+   * This isolate only: the matchId finishMatch is settling (or settled) here.
+   * Set synchronously on entry, so overlapping local calls (score-wait timer,
+   * last POST, a leave) emit match:over once.
+   */
+  settlingMatchId: number | null;
+  /**
+   * This isolate only: when the score wait for `matchId` settles at the
+   * latest. One wait per match (awaitScores is idempotent); a leaver's grace
+   * can only bring it forward. advanceDue settles past it if the timer died.
+   */
+  scoreWait: { matchId: number; dueAtMs: number } | null;
 
   /** True once match:over has been emitted, so late POSTs cannot double-settle. */
   settled: boolean;
@@ -103,6 +127,22 @@ export type Room = {
   rematch: RematchOffer | null;
   /** Why the last rematch offer closed without a match. Kept for client messaging. */
   rematchLapse: RematchLapse | null;
+};
+
+/** One seat of a match's roster (Room.matchSeats). */
+export type MatchSeat = { id: string; clientId: string; displayName: string; elo: number };
+
+/** A settled match: the match:over payload plus the match it settles. */
+export type MatchResult = {
+  matchId: number;
+  scores: Record<string, ScoreCard>;
+  winnerId: string | null;
+  /** ELO change for seat A (`seatAId`); seat B moved by the negation. */
+  eloDelta: number;
+  forfeit?: boolean;
+  rated?: boolean;
+  /** Public id of the first seat of the match, which `eloDelta` is relative to. */
+  seatAId?: string | null;
 };
 
 const rooms = new Map<string, Room>();
@@ -135,7 +175,11 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     timers: new Set(),
     lastEloDelta: 0,
     settleSeats: null,
+    matchSeats: null,
     lastWinnerId: null,
+    result: null,
+    settlingMatchId: null,
+    scoreWait: null,
     settled: false,
     rematch: null,
     rematchLapse: null,
@@ -241,7 +285,11 @@ export function addPlayer(
     connected: true,
     lastSeenMs: Date.now(),
   };
-  room.players.push(seated);
+  // Back during the same match (e.g. a results-phase reconnect): take the
+  // original seat, so seat A stays seat A for settlement and the client.
+  const seatIndex = currentMatchSeats(room)?.findIndex((s) => s.clientId === player.clientId) ?? -1;
+  if (seatIndex >= 0) room.players.splice(Math.min(seatIndex, room.players.length), 0, seated);
+  else room.players.push(seated);
   return seated;
 }
 
@@ -303,9 +351,14 @@ export function later(room: Room, ms: number, fn: () => void): NodeJS.Timeout {
   return timer;
 }
 
-/** Drop a room once the last player leaves, unless it is 0000. */
+/**
+ * Drop a room once the last player leaves, unless it is 0000. A room on its
+ * score wait is kept until it settles (both seats may leave before their
+ * cards land); the sweep disposes it after.
+ */
 export function disposeIfEmpty(room: Room): void {
   if (room.persistent || room.players.length > 0) return;
+  if (awaitingSettlement(room)) return;
   clearTimers(room);
   rooms.delete(room.code);
 }
@@ -325,7 +378,10 @@ export function resetToLobby(room: Room): void {
   room.scores.clear();
   room.lastEloDelta = 0;
   room.settleSeats = null;
+  room.matchSeats = null;
   room.lastWinnerId = null;
+  room.result = null;
+  room.scoreWait = null;
   room.settled = false;
   room.rematch = null;
   room.rematchLapse = null;
@@ -357,16 +413,61 @@ export function awaitingSettlement(room: Room): boolean {
   return room.mode !== "chaos" && room.status === "results" && !room.settled && room.matchId != null;
 }
 
+/** The current match's roster (startMatch), or null (no match, or an older snapshot). */
+export function currentMatchSeats(room: Room): MatchSeat[] | null {
+  const held = room.matchSeats;
+  if (!held || room.matchId == null || held.matchId !== room.matchId) return null;
+  return held.seats;
+}
+
 /**
- * The seats a settlement counts. Normally whoever is seated; if a seat left
- * during the score wait, the roster as it stood then (clock.ts forfeitFor).
+ * The seats a settlement counts, in match seat order (seat A first). With
+ * the match roster: each seat's live Player here if seated, else the one
+ * forfeitFor held, else one rebuilt from the roster (it left on another
+ * isolate). Without one: the roster held at a score-wait leave, else whoever
+ * is seated.
  */
 export function seatsForSettlement(room: Room): Player[] {
-  const held = room.settleSeats;
-  if (held && held.matchId === room.matchId && held.seats.length >= room.players.length) {
-    return held.seats.slice();
+  const held = room.settleSeats && room.settleSeats.matchId === room.matchId ? room.settleSeats.seats : null;
+  const roster = currentMatchSeats(room);
+  if (roster && roster.length >= 2) {
+    return roster.map(
+      (seat) =>
+        room.players.find((p) => p.id === seat.id) ??
+        held?.find((p) => p.id === seat.id) ?? {
+          ...seat,
+          socketId: "pending",
+          ready: false,
+          connected: false,
+          lastSeenMs: 0,
+        },
+    );
   }
+  if (held && held.length >= room.players.length) return held.slice();
   return room.players.slice();
+}
+
+/**
+ * The public seat id a clientId sang under in the current match, even if it
+ * is no longer seated: only while the match awaits settlement, so a leaver's
+ * in-flight card still counts.
+ */
+export function heldSeatId(room: Room, clientId: string): string | undefined {
+  if (!awaitingSettlement(room)) return undefined;
+  const fromRoster = currentMatchSeats(room)?.find((s) => s.clientId === clientId);
+  if (fromRoster) return fromRoster.id;
+  const held = room.settleSeats && room.settleSeats.matchId === room.matchId ? room.settleSeats.seats : [];
+  return held.find((p) => p.clientId === clientId)?.id;
+}
+
+/** Seat index (0 = A, 1 = B) of `playerId` in the current match. */
+export function matchSeatIndex(room: Room, playerId: string): number {
+  const roster = currentMatchSeats(room);
+  if (roster) return roster.findIndex((s) => s.id === playerId);
+  const live = room.players.findIndex((p) => p.id === playerId);
+  if (live !== -1) return live;
+  const held = room.settleSeats && room.settleSeats.matchId === room.matchId ? room.settleSeats.seats : [];
+  return held.findIndex((p) => p.id === playerId);
 }
 
 /**

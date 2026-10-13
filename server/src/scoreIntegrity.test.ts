@@ -23,7 +23,7 @@ const express = (await import("express")).default;
 const { ServerEvents } = await import("@karaoke/shared");
 const { registerScoreRoute } = await import("./scoreRoute.ts");
 const { jsonErrors } = await import("./hardening.ts");
-const { addPlayer, clearTimers, createRoom } = await import("./rooms.ts");
+const { addPlayer, clearTimers, createRoom, removePlayer } = await import("./rooms.ts");
 const { publicPlayerId } = await import("./publicId.ts");
 const { ScoreEarlyGraceMs, scoreRejection } = await import("./clock.ts");
 
@@ -238,4 +238,35 @@ test("scoreRejection: chaos and non-singers are refused", () => {
   const room = roomIn("results");
   assert.equal(scoreRejection(room, "p_stranger")?.code, "NOT_A_SINGER");
   assert.equal(scoreRejection(room, A), null);
+});
+
+/** The match roster startMatch records (Room.matchSeats). */
+function withRoster(room: Room): Room {
+  room.matchSeats = {
+    matchId: room.matchId!,
+    seats: room.players.map(({ id, clientId, displayName, elo }) => ({ id, clientId, displayName, elo })),
+  };
+  return room;
+}
+
+test("a seat that left during the score wait may still post its card (it still counts)", async () => {
+  const room = withRoster(roomIn("results"));
+  removePlayer(room, B); // Bob's leave was handled before his clip-end POST landed
+  const posted = await postScore(room, BOB, card(70, 70));
+  assert.equal(posted.status, 200, JSON.stringify(posted.json));
+  assert.equal(room.scores.get(B)?.overall, 70);
+  // Only the match's own seats, and only while it awaits settlement.
+  const stranger = await postScore(room, "23333333-cccc-4ccc-8ccc-cccccccccccc", card(70, 70));
+  assert.equal(stranger.status, 404);
+  assert.equal(stranger.json.code, "PLAYER_NOT_IN_ROOM");
+  const midMatch = withRoster(roomIn("turnB", { clipEndsInMs: 500 }));
+  removePlayer(midMatch, B);
+  assert.equal((await postScore(midMatch, BOB, card(70, 70))).status, 404, "a mid-match leave forfeits instead");
+});
+
+test("seat order is the match's: a reconnect that reorders room.players keeps each seat's window", () => {
+  const room = withRoster(roomIn("swap", { clipEndsInMs: 5_000 }));
+  room.players.reverse(); // Bob first, as after Alice re-seated by appending
+  assert.equal(scoreRejection(room, A), null, "seat A may post from the swap on");
+  assert.equal(scoreRejection(room, B)?.code, "TURN_NOT_ENDED", "seat B has not sung yet");
 });

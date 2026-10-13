@@ -19,7 +19,7 @@ const { setDbForTests } = await import("./db.ts");
 const { FakeDb } = await import("./fakeMongo.testkit.ts");
 const { addPlayer, clearTimers, createRoom } = await import("./rooms.ts");
 const { claimScore, claimSettlement, loadSnap, saveRoomSnap } = await import("./liveState.ts");
-const { finishMatch, recordScore } = await import("./clock.ts");
+const { advanceDue, finishMatch, recordScore, setSettleTimingForTests } = await import("./clock.ts");
 const { persistSeatedMatch } = await import("./judge.ts");
 const { eloDelta } = await import("./elo.ts");
 
@@ -244,4 +244,155 @@ test("without Mongo, settlement and score claims fall back to single-instance be
   assert.equal(room.settled, true);
   assert.equal(room.lastWinnerId, "pa");
   assert.equal(io.events.filter((e) => e.event === ServerEvents.matchOver).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Settlement correctness (hardening-log entry 9)
+// ---------------------------------------------------------------------------
+
+const overs = (io: ReturnType<typeof recordingIo>) =>
+  io.events.filter((e) => e.event === ServerEvents.matchOver);
+
+/** Run `before` once, just ahead of the next call to `col[method]`. */
+function interceptOnce(col: any, method: string, before: () => Promise<void>): void {
+  const original = col[method].bind(col);
+  let fired = false;
+  col[method] = async (...args: unknown[]) => {
+    if (!fired) {
+      fired = true;
+      await before();
+    }
+    return original(...args);
+  };
+}
+
+test("#3 a card claimed between finishMatch's snapshot read and its claim is in the result", async () => {
+  const iso1 = resultsRoom();
+  iso1.scores.delete("pb");
+  await saveRoomSnap(iso1);
+  const iso2 = otherIsolate(iso1);
+  // B's POST lands on iso2 (200) after iso1 read the snapshot, before iso1 claims.
+  interceptOnce(db.collection("liveRooms"), "findOneAndUpdate", async () => {
+    assert.equal(await claimScore(iso2, "pb", card(100, 100)), "claimed");
+  });
+  const io = recordingIo();
+  await finishMatch(io as never, iso1);
+  const [over] = overs(io);
+  assert.equal(over?.payload.scores.pb?.overall, 100, "the accepted card, not the empty fallback");
+  assert.equal(over?.payload.winnerId, "pb");
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo + 16);
+});
+
+test("#3 a card whose claim is still in flight when the settlement claim wins is not counted (and is refused)", async () => {
+  const iso1 = resultsRoom();
+  iso1.scores.delete("pb");
+  await saveRoomSnap(iso1);
+  const io = recordingIo();
+  // B's POST on this isolate: card set locally, claim not yet written.
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const col = db.collection("liveRooms") as any;
+  const updateOne = col.updateOne.bind(col);
+  col.updateOne = async (...args: any[]) => {
+    if (JSON.stringify(args[1]).includes("matchScores")) await gate;
+    return updateOne(...args);
+  };
+  const post = recordScore(io as never, iso1, "pb", card(100, 100));
+  const settling = finishMatch(io as never, iso1);
+  await new Promise((r) => setTimeout(r, 20));
+  release();
+  const [posted] = await Promise.all([post, settling]);
+  assert.equal(posted.ok, false);
+  assert.equal(!posted.ok && posted.code, "MATCH_SETTLED");
+  const [over] = overs(io);
+  assert.equal(over?.payload.scores.pb?.overall, 0, "refused card is not in the result");
+  assert.equal(over?.payload.winnerId, "pa");
+});
+
+test("#4 overlapping finishMatch calls on one isolate emit exactly one match:over", async () => {
+  const room = resultsRoom();
+  await saveRoomSnap(room);
+  const io = recordingIo();
+  await Promise.all([
+    finishMatch(io as never, room),
+    finishMatch(io as never, room),
+    finishMatch(io as never, room),
+  ]);
+  await finishMatch(io as never, room);
+  assert.equal(overs(io).length, 1);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+  assert.equal(await db.collection("matches").countDocuments({}), 1);
+  assert.deepEqual(rejections, []);
+});
+
+test("#4 the score wait is armed once per match; clock sweeps past it settle once", async () => {
+  setSettleTimingForTests({ scoreWaitMs: 40 });
+  try {
+    const room = resultsRoom();
+    room.status = "turnB";
+    room.scores.clear();
+    room.playAtUnixMs = Date.now() - 21_000;
+    await saveRoomSnap(room);
+    const io = recordingIo();
+    for (let i = 0; i < 3; i++) advanceDue(io as never, room);
+    assert.equal(room.status, "results");
+    assert.equal(room.scoreWait?.matchId, MATCH);
+    await new Promise((r) => setTimeout(r, 80));
+    for (let i = 0; i < 3; i++) advanceDue(io as never, room);
+    await new Promise((r) => setTimeout(r, 40));
+    assert.equal(overs(io).length, 1);
+    assert.equal(await db.collection("matches").countDocuments({}), 1);
+  } finally {
+    setSettleTimingForTests();
+  }
+});
+
+test("an isolate that learns the result from the snapshot tells its sockets once", async () => {
+  const iso1 = resultsRoom();
+  await saveRoomSnap(iso1);
+  const iso2 = otherIsolate(iso1);
+  await finishMatch(recordingIo() as never, iso1);
+  const { applySnap } = await import("./liveState.ts");
+  applySnap(iso2, (await loadSnap(iso1.code))!);
+  const io2 = recordingIo();
+  for (let i = 0; i < 3; i++) advanceDue(io2 as never, iso2);
+  await finishMatch(io2 as never, iso2);
+  assert.equal(overs(io2).length, 1);
+  assert.equal(overs(io2)[0]?.payload.eloDelta, 16);
+});
+
+test("#11 a Mongo error reading the snapshot does not wedge settlement", async () => {
+  const room = resultsRoom();
+  await saveRoomSnap(room);
+  interceptOnce(db.collection("liveRooms"), "findOne", async () => {
+    throw new Error("connection reset");
+  });
+  const io = recordingIo();
+  await finishMatch(io as never, room);
+  assert.equal(overs(io).length, 1);
+  assert.equal(overs(io)[0]?.payload.rated, true);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+});
+
+test("#11 an error while converging on another isolate's result still emits a (local) match:over", async () => {
+  const iso1 = resultsRoom();
+  await saveRoomSnap(iso1);
+  const winner = otherIsolate(iso1);
+  assert.equal(await claimSettlement(winner), "won"); // claimed, never published
+  const col = db.collection("liveRooms") as any;
+  const findOne = col.findOne.bind(col);
+  let calls = 0;
+  col.findOne = async (...args: unknown[]) => {
+    calls += 1;
+    if (calls > 1) throw new Error("connection reset");
+    return findOne(...args);
+  };
+  const io = recordingIo();
+  await finishMatch(io as never, iso1);
+  const [over] = overs(io);
+  assert.equal(overs(io).length, 1);
+  assert.equal(over?.payload.winnerId, "pa");
+  assert.equal(over?.payload.eloDelta, 0, "no ELO claimed without the real result");
+  assert.equal(await playerDoc("cid-a"), null, "this isolate persisted nothing");
+  assert.deepEqual(rejections, []);
 });

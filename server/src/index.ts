@@ -28,6 +28,7 @@ import {
 import {
   addPlayer,
   allRooms,
+  awaitingSettlement,
   disposeIfEmpty,
   dropDeadPlayers,
   ensurePermanentRooms,
@@ -56,6 +57,7 @@ import {
   advanceDue,
   publicClock,
   revealedScores,
+  currentResult,
   emitScoreReady,
   recordScore,
   startChaos,
@@ -269,28 +271,24 @@ app.get("/api/rooms/:code", asyncRoute(async (req, res) => {
   pruneRoom(room);
   advanceDue(io, room);
   const scores = revealedScores(room);
-  const [a, b] = room.players;
-  let winnerId: string | null = room.lastWinnerId;
-  if (winnerId == null && a && b && room.settled) {
-    const sa = scores[a.id]?.overall ?? 0;
-    const sb = scores[b.id]?.overall ?? 0;
-    if (sa > sb) winnerId = a.id;
-    else if (sb > sa) winnerId = b.id;
-  }
+  // Settled only once the result itself is known (a claim alone is not): the
+  // winner, ELO, cards and flags all come from that one published result.
+  const result = room.status === "results" ? currentResult(room) : null;
   res.json({
     room: toPublic(room),
     clock: publicClock(room),
     scores,
-    settled: room.settled,
-    matchOver:
-      room.status === "results" && room.settled
-        ? {
-            scores,
-            winnerId,
-            eloDelta: room.lastEloDelta ?? 0,
-            ...(room.mode === "ranked" && !room.rated ? { rated: false } : {}),
-          }
-        : null,
+    settled: Boolean(result),
+    matchOver: result
+      ? {
+          scores: result.scores,
+          winnerId: result.winnerId,
+          eloDelta: result.eloDelta,
+          ...(result.rated !== undefined ? { rated: result.rated } : {}),
+          ...(result.forfeit ? { forfeit: true } : {}),
+          ...(result.seatAId !== undefined ? { seatAId: result.seatAId } : {}),
+        }
+      : null,
   });
 }));
 
@@ -427,7 +425,9 @@ function leaveCurrentRoom(
   } else if (room.status === "countdown" && livePlayers(room).length < 2) {
     resetToLobby(room);
   }
-  if (room.players.length === 0 && room.persistent) resetToLobby(room);
+  // Everyone left during the score wait: the room is kept (disposeIfEmpty)
+  // until the match settles on the scores; settleIfScoresIn armed that above.
+  if (room.players.length === 0 && room.persistent && !awaitingSettlement(room)) resetToLobby(room);
 
   broadcastState(io, room);
   disposeIfEmpty(room);
