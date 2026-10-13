@@ -38,11 +38,14 @@ export default function App() {
           <Route path="/check" element={<RequireAuth><DeviceCheck /></RequireAuth>} />
           <Route path="/check/voice" element={<RequireAuth><VoiceCheck /></RequireAuth>} />
           <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
+          {/* Debug tools: dev server only, never in the production bundle's routes. */}
           {import.meta.env.DEV ? (
-            <Route path="/results-preview" element={<ResultsPreview />} />
+            <>
+              <Route path="/results-preview" element={<ResultsPreview />} />
+              <Route path="/sync" element={<SyncLyrics />} />
+              <Route path="/pitchtest" element={<PitchTest />} />
+            </>
           ) : null}
-          <Route path="/sync" element={<SyncLyrics />} />
-          <Route path="/pitchtest" element={<PitchTest />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/stats" element={<ArenaStats />} />
           <Route path="/room/:code" element={<RequireAuth><DeviceCheckGate><Stage /></DeviceCheckGate></RequireAuth>} />

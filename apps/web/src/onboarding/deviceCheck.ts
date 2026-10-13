@@ -7,6 +7,7 @@
  * wrapped: private windows and blocked site data throw, and the check must
  * never break the play flow.
  */
+import { safeNextPath } from "../lib/safeNext.ts";
 
 const MIC_KEY = "karaoke.device.mic";
 const CAM_KEY = "karaoke.device.camera";
@@ -45,10 +46,10 @@ export function preferredCameraId(): string | undefined {
 
 /** Only same-origin paths, so `?next=` can't bounce anyone off-site. */
 export function safeNext(raw: string | null, fallback = "/play"): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith(CheckPath)) {
-    return fallback;
-  }
-  return raw;
+  const next = safeNextPath(raw, fallback);
+  // Never loop back into the check itself.
+  if (next === CheckPath || next.startsWith(`${CheckPath}?`) || next.startsWith(`${CheckPath}/`)) return fallback;
+  return next;
 }
 
 export function checkPathFor(next: string): string {

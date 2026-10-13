@@ -19,6 +19,7 @@
  */
 import { parseVoiceProfile, type VoiceProfile } from "../scoring/voiceRange.ts";
 import { checkPathFor, CheckPath } from "./deviceCheck.ts";
+import { safeNextPath } from "../lib/safeNext.ts";
 
 export type StepStatus = "done" | "skipped";
 
@@ -124,7 +125,9 @@ export function shouldOfferVoice(state: OnboardingState): boolean {
  * to `next` afterwards) if this account has never done it, else straight to
  * `next`. `next` must already be a safe same-site path.
  */
-export function postSignInPath(state: OnboardingState, next: string): string {
+export function postSignInPath(state: OnboardingState, rawNext: string): string {
+  // Defence in depth: callers already pass a vetted path, but re-check here.
+  const next = safeNextPath(rawNext, "/");
   if (!needsOnboarding(state)) return next;
   // Already headed into the checks (e.g. a Settings re-run link): go there.
   if (next === CheckPath || next.startsWith(`${CheckPath}?`) || next.startsWith(`${CheckPath}/`)) {
