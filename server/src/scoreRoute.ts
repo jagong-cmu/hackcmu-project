@@ -17,7 +17,7 @@
 import type { Express } from "express";
 import type { Server } from "socket.io";
 
-import { getRoom } from "./rooms.ts";
+import { getRoom, heldSeatId } from "./rooms.ts";
 import { emitScoreReady, recordScore } from "./clock.ts";
 import { ensureRoom, refreshClaimedCard } from "./liveState.ts";
 import { clampCard, enrichScore, isScoreBody, verdictLyrics } from "./judge.ts";
@@ -51,8 +51,11 @@ export function registerScoreRoute(app: Express, io: Server): void {
         return;
       }
 
-      const player = room.players.find((p) => p.clientId === clientId);
-      if (!player) {
+      // A seat that left during the score wait still counts in this match, so
+      // its card (often already in flight when it left) is still taken.
+      const seatId =
+        room.players.find((p) => p.clientId === clientId)?.id ?? heldSeatId(room, clientId);
+      if (!seatId) {
         res.status(404).json({ code: "PLAYER_NOT_IN_ROOM", message: "not seated here" });
         return;
       }
@@ -61,7 +64,7 @@ export function registerScoreRoute(app: Express, io: Server): void {
       const card = clampCard(body.score);
       const matchId = room.matchId;
       // Status, timing, one-per-seat, settled, and the cross-isolate claim (clock.ts).
-      const outcome = await recordScore(io, room, player.id, card, body.matchId);
+      const outcome = await recordScore(io, room, seatId, card, body.matchId);
       if (!outcome.ok) {
         res.status(outcome.status).json({ code: outcome.code, message: outcome.message });
         return;
@@ -74,10 +77,10 @@ export function registerScoreRoute(app: Express, io: Server): void {
         .then(async (enriched) => {
           if (enriched.verdict === card.verdict && enriched.source === card.source) return;
           // Verdict only; never replaces a card from a later match.
-          if (room.matchId !== matchId || room.scores.get(player.id) !== card) return;
-          room.scores.set(player.id, enriched);
-          emitScoreReady(io, room, player.id, enriched);
-          if (matchId != null) await refreshClaimedCard(room, matchId, player.id, enriched);
+          if (room.matchId !== matchId || room.scores.get(seatId) !== card) return;
+          room.scores.set(seatId, enriched);
+          emitScoreReady(io, room, seatId, enriched);
+          if (matchId != null) await refreshClaimedCard(room, matchId, seatId, enriched);
         })
         .catch(logOnce("enrichScore"));
     }),

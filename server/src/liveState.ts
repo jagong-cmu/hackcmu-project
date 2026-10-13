@@ -23,6 +23,10 @@ import {
   getRoom,
   randomRoomCode,
   registerRoom,
+  awaitingSettlement,
+  currentMatchSeats,
+  type MatchResult,
+  type MatchSeat,
   type Player,
   type Room,
 } from "./rooms.ts";
@@ -84,6 +88,8 @@ export type RoomSnap = {
   hostId?: string | null;
   /** See Room.matchId. Absent on snaps written before score claims existed. */
   matchId?: number | null;
+  /** See Room.matchSeats: the match roster, so any isolate settles with both seats. */
+  matchSeats?: { matchId: number; seats: MatchSeat[] } | null;
   /**
    * One card per seat per match. Written only by claimScore (and the verdict
    * refresh of an already-claimed card), never by saveRoomSnap's whole-doc
@@ -103,17 +109,14 @@ export type RoomSnap = {
 
 export type SnapScore = { matchId: number; card: ScoreCard };
 
-/** What finishMatch emits as match:over. */
-export type MatchOverPayload = {
-  scores: Record<string, ScoreCard>;
-  winnerId: string | null;
-  eloDelta: number;
-  forfeit?: boolean;
-  /** Ranked: false when no ELO moved (a friendly room, or a forfeit under ForfeitSkipMs). */
-  rated?: boolean;
-};
+/**
+ * What finishMatch emits as match:over. `rated` (Ranked) is false when no ELO
+ * moved (a friendly room, or a forfeit under ForfeitSkipMs); `seatAId` is the
+ * match's first seat, which `eloDelta` is relative to.
+ */
+export type MatchOverPayload = Omit<MatchResult, "matchId">;
 
-export type SettledResult = MatchOverPayload & { matchId: number };
+export type SettledResult = MatchResult;
 
 /** Names this isolate in `settledBy` (which instance settled a match). */
 export const instanceId = randomUUID();
@@ -339,6 +342,7 @@ export function snapFromRoom(room: Room): RoomSnap {
     songStartedAtMs: room.songStartedAtMs,
     matchStartedAtMs: room.matchStartedAtMs,
     matchId: room.matchId,
+    matchSeats: room.matchSeats,
     lastEloDelta: room.lastEloDelta,
     lastWinnerId: room.lastWinnerId,
     settled: room.settled,
@@ -426,8 +430,17 @@ export function applySnap(room: Room, snap: RoomSnap): void {
     if (snap.lastWinnerId !== undefined) room.lastWinnerId = snap.lastWinnerId;
   }
   mergeRematchSnap(room, snap.rematch, snap.rematchLapse);
-  if (snap.settled) room.settled = true;
-  if (room.matchId != null && snap.settledMatchId === room.matchId) room.settled = true;
+  if (snap.matchSeats && room.matchId != null && snap.matchSeats.matchId === room.matchId) {
+    room.matchSeats = {
+      matchId: snap.matchSeats.matchId,
+      seats: snap.matchSeats.seats.map((seat) => ({ ...seat })),
+    };
+  }
+  // Settled means "the result is known", not "someone claimed it": the claim
+  // (settledMatchId) lands before the winner has persisted, so taking it as
+  // settled would show a winner from partial scores and no ELO. The result
+  // itself is applied at the end (applyResult). Legacy snaps had only the flag.
+  if (snap.matchId === undefined && snap.settled) room.settled = true;
   const snapIds = new Set(snap.players.map((p) => p.clientId));
   for (const p of snap.players) {
     const have = room.players.find((x) => x.clientId === p.clientId);
@@ -458,8 +471,13 @@ export function applySnap(room: Room, snap: RoomSnap): void {
     }
   }
   const now = Date.now();
+  // While the match awaits settlement its seats stay: one that left on
+  // another isolate still counts, and still settles with its own card.
+  const keep = awaitingSettlement(room)
+    ? new Set((currentMatchSeats(room) ?? []).map((s) => s.clientId))
+    : new Set<string>();
   room.players = room.players.filter(
-    (p) => snapIds.has(p.clientId) || now - p.lastSeenMs < 8_000,
+    (p) => snapIds.has(p.clientId) || keep.has(p.clientId) || now - p.lastSeenMs < 8_000,
   );
   // Merge, never replace: a score this isolate already holds for the match wins.
   if (snap.matchId === undefined) {
@@ -472,6 +490,30 @@ export function applySnap(room: Room, snap: RoomSnap): void {
       if (!room.scores.has(id)) room.scores.set(id, entry.card);
     }
   }
+  const result = snap.settledResult;
+  if (room.matchId != null && result && result.matchId === room.matchId) applyResult(room, result);
+}
+
+/** Take a published settlement as this room's result: winner, ELO, cards, flags. */
+export function applyResult(room: Room, result: SettledResult): void {
+  room.settled = true;
+  room.result = { ...result, scores: { ...result.scores } };
+  room.lastWinnerId = result.winnerId;
+  room.lastEloDelta = result.eloDelta;
+  for (const [id, card] of Object.entries(result.scores)) room.scores.set(id, card);
+}
+
+/**
+ * This match's claimed cards from a snapshot (matchScores), by seat id.
+ * After settledMatchId is set no further claim can land, so a read taken
+ * after winning the settlement claim is complete.
+ */
+export function claimedScores(snap: RoomSnap, matchId: number): Map<string, ScoreCard> {
+  const out = new Map<string, ScoreCard>();
+  for (const [id, entry] of Object.entries(snap.matchScores ?? {})) {
+    if (entry?.matchId === matchId && entry.card) out.set(id, entry.card);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

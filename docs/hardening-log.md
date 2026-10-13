@@ -199,7 +199,43 @@ Second-pass review items 5, 6 and 7.
   - `fullmatch.mjs` and `fullmatch-variants.mjs`: all passed
   - a standalone verify-mode probe: a stub Supabase answers 429 six times then 200, and the same token signs the socket in about 0.6s after the burst, authenticates over HTTP, and creates a room
 
+### 11. Settlement correctness: leavers' cards, cross-instance seats, single match:over (`fix/settlement-correctness`)
+Second-pass review of entries 5 and 7. Every fix is in the settle path (`clock.ts`, `rooms.ts`, `liveState.ts`, `scoreRoute.ts`, the leave/sweep/GET paths in `index.ts`), plus a three-line `seatAId` change on the client.
+- **A leaver's in-flight card counts (1).** A seat that left on the results screen before settlement was rated as a silent 0 even when its clip-end POST was already in flight. The leave was handled first, then the score route refused the card (404 `PLAYER_NOT_IN_ROOM`), or the match had already settled on the remaining seat's card.
+  - The score route now also takes a card from a seat of the current match that is no longer seated, while the match awaits settlement (`heldSeatId`). The seat index comes from the match roster.
+  - A results-phase leave whose card is not in no longer settles at once. It settles after `LEAVER_SCORE_GRACE_MS` (3s, never past the 8s score wait), or as soon as every seat's card is in. The remaining seat posting no longer settles over a leaver whose card is missing.
+- **Match roster in the snapshot (2).** `startMatch` stores `matchSeats` (public id, clientId, name, rating at start) in the room and its snapshot, so any instance settles with both seats. `settleSeats` was per instance, and the other instance's snapshot merge dropped the departed seat within ~8s. Its score-wait settle then rated one seat: `rated:true` with a non-zero `eloDelta`, and nothing persisted.
+  - `applySnap` keeps the current match's seats while it awaits settlement.
+  - Safety net: `match:over` says `rated:true` (and a non-zero delta) only when the rating was actually persisted. A one-seat settle, or a persist error, reports `rated:false` / 0.
+- **No accepted card left out (3).** After winning the settlement claim, `finishMatch` reads the snapshot again and takes this match's `matchScores`. No claim can land after `settledMatchId` is set, so that read has every accepted card. A local card whose claim is still in flight is counted only if that read has it. Otherwise its POST gets 409 `MATCH_SETTLED`, so the result and the POST's answer agree.
+- **One match:over per instance (4).** There is a synchronous per-room `settlingMatchId` guard at the top of `finishMatch`, and one score wait per match (`scoreWait`, `awaitScores` is idempotent). The swap and turnB timers check the status before acting. Emits go through `announce`, once per match per instance; a local fallback can be followed by the real result, never the reverse.
+  - An instance that learns the result from the snapshot (another instance settled it) now tells its own sockets once, from the clock sweep. Before, those sockets saw the result only through the GET poll.
+  - The score wait has a wall-clock backstop in `advanceDue`, for an instance that reached results through a snapshot or lost its timer.
+- **"Settled" means the result is known (8).** `claimSettlement` marks the claim before the winner has persisted, and other instances took that as settled. `GET /api/rooms` then showed a winner from partial scores and `eloDelta` 0, which the client kept. Now `applySnap` treats the match as settled only when `settledResult.matchId` is the current match, and takes winner, delta, cards, `rated`, `forfeit` and `seatAId` from it (`room.result`). `GET /api/rooms` reports `settled`/`matchOver` from that result only.
+- **ELO sign after a reconnect (9).** `match:over`, `settledResult` and the GET `matchOver` carry `seatAId`, the seat `eloDelta` is relative to. The client computes `myDelta` from it, falling back to `room.players[0]`. A player who re-seats during the same match goes back to their original index. New ratings are set by seat id on every object that holds the seat.
+- **Mongo errors don't wedge settlement (11).** The snapshot reads in `finishMatch` are caught. Convergence never throws: if the winner's result can't be read (timeout or error), it emits a local fallback (cards held here, `eloDelta` 0, no `rated`) and the real result replaces it when it arrives.
+- **Both seats leave during the score wait (12).** `disposeIfEmpty` keeps a room that awaits settlement. The leaver grace (or score wait) settles it, and the sweep disposes it after. `0000` is reset to the lobby after it settles empty, not before.
+- Verified (rebased on c66e341):
+  - typecheck and build
+  - 365/365 tests, 17 new:
+    - `friendlyRooms.test.ts`: in-flight leaver card counted; the remaining seat's post doesn't settle over it; cross-instance leave settles with both seats with ELO persisted once; one-seat safety net; claim-before-result is not "settled"; `seatAId`/ELO after a reconnect reorder; both seats leave
+    - `settlementClaim.test.ts`: card claimed between read and claim included; in-flight local claim excluded and refused; overlapping `finishMatch` emits once; score wait armed once; snapshot-learned result announced once; `loadSnap` throwing; convergence error fallback
+    - `scoreIntegrity.test.ts`: held-seat POST accepted (200) while a stranger and a mid-match leaver get 404; roster seat order
+    - `matchOverMerge.test.ts`: `seatAId` survives a poll
+  - One existing test changed: a no-card results leave now settles after the grace, not at once.
+  - Real MongoDB replica set, two instances (8110/8111):
+    - peer e2e 22/23, the one failure the known entry-6 403
+    - `fullmatch.mjs` and `fullmatch-variants.mjs`: all passed
+  - A new two-instance script (seat A on one instance, seat B on the other, demo room `0000`, both polling like the client; fresh servers per scenario). Before is cf7ad2d, after is this branch:
+    - **Bug 1** (B's 90 posted as results start, leave handled first). Before: the card got 409 `MATCH_SETTLED`, A won, A 1016 / B 984. After: 200, B wins, `eloDelta` −16 with `seatAId` = A, players A 984 / B 1016, 1 matches doc holding the 90.
+    - **Bug 2** (B quiet through turnB, leaves on its instance; A's card lands on A's instance after). Before: `rated:true`, `eloDelta` 16, **0 matches docs, ELO 1000/1000**. After: 1 matches doc, A 1016 / B 984, reported delta 16 equal to the persisted one.
+    - **Bug 4** (both instances' clocks hammered across the swap edge). Before: seat B's socket got **2** `match:over`. After: 1 per socket, 1 matches doc, ELO once.
+
 ## Open items (need a decision or larger change)
+
+- `0000` played across two instances can stay on `results` with ghost seats for up to the 45s idle drop after both players leave. Each instance re-adds the other's departed player from the snapshot, and the room is reset only on an explicit last leave. Seen while testing entry 11; not changed there.
+- A rematch can still be accepted on the results screen before settlement. It resets the match, and the pending settlement then gives up (no ELO). Consider allowing rematch only once settled.
+- A settlement claimed by an instance that then dies before publishing leaves the match claimed with no result. Other instances show the local fallback (no ELO) and refuse further cards. ELO was either persisted by the dying instance (matches doc) or not at all; the room shows no delta either way.
 
 - Rate limits are per instance (room joins, room creates, hello verification, reports, blocks, votes, Gemini verdicts, training analytics). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Releasing abandoned `room:create` reservations (entry 9) runs on a 30s timer of the instance that made the room. On Vercel, an instance that stops first leaves the doc to the 2h TTL. A sturdier option is a second TTL index on an `expireAt` field: set it about 10 minutes out while a private lobby is empty, and clear it when someone sits down. That needs a `db.ts` index and a write in the seat/leave path.
