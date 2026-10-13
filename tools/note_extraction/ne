@@ -1,0 +1,9 @@
+#!/bin/sh
+# Runs the note-extraction CLI inside its own virtualenv: ./ne extract|batch|evaluate|review ...
+here="$(cd "$(dirname "$0")" && pwd)"
+if [ ! -x "$here/.venv/bin/python" ]; then
+  echo "No virtualenv. Set it up first (see README.md):" >&2
+  echo "  python3.12 -m venv $here/.venv && $here/.venv/bin/pip install -r $here/requirements.txt" >&2
+  exit 1
+fi
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec "$here/.venv/bin/python" -m note_extraction "$@"

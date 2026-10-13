@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Note review</title>
+<link rel="icon" href="data:,">
+<style>
+  body { margin: 0; font: 13px system-ui, sans-serif; background: #111; color: #ddd; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 10px; border-bottom: 1px solid #2a2a2a; }
+  button { background: #2b2b2b; color: #ddd; border: 1px solid #555; padding: 3px 8px; cursor: pointer; }
+  button.on { background: #2a6e48; border-color: #3c9; color: #fff; }
+  #main { display: flex; }
+  #roll { flex: 1; min-width: 0; }
+  canvas { display: block; width: 100%; height: 520px; background: #181818; cursor: crosshair; }
+  #side { width: 280px; padding: 6px 10px; border-left: 1px solid #2a2a2a; max-height: 560px; overflow: auto; }
+  #sections { padding-left: 18px; }
+  #sections li { cursor: pointer; margin-bottom: 4px; }
+  #sections li:hover { color: #fff; text-decoration: underline; }
+  #time { font-variant-numeric: tabular-nums; min-width: 130px; }
+  #scrub { flex: 1; min-width: 200px; }
+  #status { color: #9c9; }
+  #status.err { color: #f77; }
+  .help { color: #888; padding: 6px 10px; line-height: 1.6; }
+  kbd { background: #2b2b2b; border: 1px solid #444; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b id="title">Loading…</b>
+  <span id="status"></span>
+</div>
+<div class="bar">
+  <button id="play">Play</button>
+  <span id="time">0:00.00</span>
+  <input id="scrub" type="range" min="0" max="1" step="0.01" value="0">
+  <button id="t-vocals" class="on">Vocal</button>
+  <button id="t-backing" class="on">Backing</button>
+  <button id="t-synth">Synth</button>
+  <button id="t-diff">Diff vs auto</button>
+</div>
+<div class="bar">
+  <label>Global offset <input id="offset" type="range" min="-1" max="1" step="0.01" value="0"></label>
+  <span id="offset-val">+0.00 s</span>
+  <button data-op="up">↑</button><button data-op="down">↓</button>
+  <button data-op="startL">[</button><button data-op="startR">]</button>
+  <button data-op="endL">{</button><button data-op="endR">}</button>
+  <button data-op="split">Split</button><button data-op="merge">Merge</button><button data-op="del">Delete</button>
+  <button id="undo">Undo</button>
+  <button id="save">Save</button>
+  <span id="info"></span>
+</div>
+<div id="main">
+  <div id="roll"><canvas id="cv"></canvas></div>
+  <div id="side"><b>Review first</b><ol id="sections"></ol></div>
+</div>
+<div class="help">
+  <kbd>Space</kbd> play/pause · click note = select, click empty = seek · wheel = scroll, <kbd>Ctrl</kbd>/pinch+wheel = zoom ·
+  <kbd>↑</kbd><kbd>↓</kbd> pitch · <kbd>[</kbd><kbd>]</kbd> start ±10 ms · <kbd>{</kbd><kbd>}</kbd> end ±10 ms (add <kbd>Alt</kbd> for 50 ms) ·
+  <kbd>S</kbd> split at playhead · <kbd>M</kbd> merge with next · <kbd>Del</kbd> delete · <kbd>Z</kbd> undo · <kbd>Esc</kbd> deselect
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('cv'), g = cv.getContext('2d');
+const MIN = 0.01, TOP = 18, NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+let song, notes = [], auto = [], dbg = null, sanity = null;
+let history = [], sel = -1, offset = 0, dirty = false, lo = 48, hi = 72;
+let ctx, vocBuf, backBuf = null, duration = 1, gains = {};
+let playing = false, pos = 0, pos0 = 0, ctxT0 = 0, srcs = [], oscs = [], scheduled = new Set();
+let viewStart = -0.5, viewDur = 8;
+const show = { vocals: true, backing: true, synth: false, diff: false };
+
+const fmt = t => `${t < 0 ? '-' : ''}${Math.floor(Math.abs(t) / 60)}:${(Math.abs(t) % 60).toFixed(2).padStart(5, '0')}`;
+const noteName = m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+const setStatus = (msg, err = false) => { $('status').textContent = msg; $('status').className = err ? 'err' : ''; };
+
+// ---------------------------------------------------------------- loading
+async function loadSong() {
+  song = await (await fetch('/api/song')).json();
+  ({ notes, auto_notes: auto, debug: dbg, sanity } = song);
+  const m = notes.map(n => n.midi);
+  if (m.length) { lo = Math.min(...m) - 3; hi = Math.max(...m) + 3; }
+  $('title').textContent = `${song.meta.title || song.meta.id} — ${song.meta.artist || ''}` +
+    (song.meta.reviewed ? ' (reviewed)' : ' (unreviewed)') + (song.meta.lyrics_auto_generated ? ' · lyrics auto' : '');
+  renderSections();
+}
+
+async function decode(url) {
+  return ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
+}
+
+async function init() {
+  await loadSong();
+  ctx = new AudioContext();
+  for (const k of ['vocals', 'backing', 'synth']) { gains[k] = ctx.createGain(); gains[k].connect(ctx.destination); }
+  applyGains();
+  setStatus('Decoding audio…');
+  vocBuf = await decode(song.audio.vocals);
+  if (song.audio.backing) backBuf = await decode(song.audio.backing);
+  else $('t-backing').disabled = true;
+  duration = vocBuf.duration;
+  $('scrub').max = duration;
+  setStatus(backBuf ? '' : 'No backing track');
+  requestAnimationFrame(tick);
+}
+
+function renderSections() {
+  const ol = $('sections');
+  ol.innerHTML = '';
+  if (!sanity) { ol.textContent = 'No sanity.json'; return; }
+  for (const s of [...sanity.sections].sort((a, b) => b.score - a.score).slice(0, 15)) {
+    const li = document.createElement('li');
+    li.textContent = `${fmt(s.start)}–${fmt(s.end)} · ${Math.round(s.score)}` + (s.reasons.length ? ` · ${s.reasons.join(', ')}` : '');
+    li.style.color = scoreColor(s.score);
+    li.onclick = () => { seek(s.start); viewStart = s.start - 0.5; };
+    ol.append(li);
+  }
+}
+
+// ---------------------------------------------------------------- transport
+function applyGains() {
+  gains.vocals.gain.value = show.vocals ? 1 : 0;
+  gains.backing.gain.value = show.backing ? 1 : 0;
+  gains.synth.gain.value = show.synth ? 0.15 : 0;
+}
+
+function play() {
+  ctx.resume();
+  if (pos >= duration) pos = 0;
+  pos0 = pos; ctxT0 = ctx.currentTime + 0.05; scheduled = new Set();
+  const start = (buf, gain, at) => {
+    const s = ctx.createBufferSource();
+    s.buffer = buf; s.connect(gain);
+    if (at >= 0) s.start(ctxT0, at); else s.start(ctxT0 - at);
+    srcs.push(s);
+  };
+  start(vocBuf, gains.vocals, pos);
+  // backing_audio is on the site timeline: source t plays at site t + site_offset_sec.
+  if (backBuf) start(backBuf, gains.backing, pos + (song.audio.backing_on_site_timeline ? song.meta.site_offset_sec : 0));
+  playing = true;
+  $('play').textContent = 'Pause';
+}
+
+function pause() {
+  for (const s of [...srcs, ...oscs]) try { s.stop(); } catch {}
+  srcs = []; oscs = [];
+  playing = false;
+  $('play').textContent = 'Play';
+}
+
+function seek(t) {
+  const was = playing;
+  if (was) pause();
+  pos = Math.max(0, Math.min(duration, t));
+  if (was) play();
+}
+
+// Lookahead scheduler for the synth; always runs while playing, the toggle is a gain.
+function scheduleSynth() {
+  for (const n of notes) {
+    const s = n.start + offset, e = n.end + offset;
+    if (e <= pos || s > pos + 0.5 || scheduled.has(n)) continue;
+    scheduled.add(n);
+    const t0 = ctxT0 + Math.max(s, pos) - pos0, t1 = ctxT0 + e - pos0;
+    const o = ctx.createOscillator(), env = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 440 * 2 ** ((n.midi - 69) / 12);
+    env.gain.setValueAtTime(0, t0);
+    env.gain.setTargetAtTime(1, t0, 0.005);
+    env.gain.setTargetAtTime(0, t1, 0.01);
+    o.connect(env).connect(gains.synth);
+    o.start(t0); o.stop(t1 + 0.1);
+    oscs.push(o);
+  }
+}
+
+function tick() {
+  if (playing) {
+    pos = Math.max(pos0, pos0 + ctx.currentTime - ctxT0);
+    if (pos >= duration) { pause(); pos = duration; }
+    else scheduleSynth();
+    if (pos < viewStart || pos > viewStart + viewDur * 0.85) viewStart = pos - viewDur * 0.1;
+  }
+  $('time').textContent = `${fmt(pos)} / ${fmt(duration)}`;
+  $('scrub').value = pos;
+  draw();
+  requestAnimationFrame(tick);
+}
+
+// ---------------------------------------------------------------- drawing
+function scoreColor(score) { return `hsl(${120 * (1 - Math.min(100, score) / 100)}, 70%, 50%)`; }
+
+function draw() {
+  const dpr = devicePixelRatio, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const X = t => (t - viewStart) / viewDur * W;
+  const Y = m => TOP + (hi - m) / (hi - lo) * (H - TOP);
+  const t1 = viewStart + viewDur;
+
+  if (sanity) {
+    for (const s of sanity.sections) {
+      if (s.end < viewStart || s.start > t1) continue;
+      g.fillStyle = scoreColor(s.score);
+      g.fillRect(X(s.start), 0, X(s.end) - X(s.start) - 1, TOP - 4);
+      g.fillStyle = `rgba(255,60,60,${0.12 * Math.min(100, s.score) / 100})`;
+      g.fillRect(X(s.start), TOP, X(s.end) - X(s.start), H - TOP);
+    }
+    g.font = '10px system-ui';
+    for (const f of sanity.flags) {
+      if (f.end < viewStart || f.start > t1) continue;
+      g.fillStyle = 'rgba(255,170,0,0.13)';
+      g.fillRect(X(f.start), TOP, Math.max(2, X(f.end) - X(f.start)), H - TOP);
+      g.fillStyle = '#c90';
+      g.fillText(f.kind, X(f.start) + 2, TOP + 10);
+    }
+  }
+
+  // pitch grid: semitones faint, C lines labelled
+  g.font = '11px system-ui';
+  for (let m = Math.ceil(lo); m <= hi; m++) {
+    g.fillStyle = m % 12 === 0 ? '#3a3a3a' : '#222';
+    g.fillRect(0, Y(m), W, 1);
+    if (m % 12 === 0) { g.fillStyle = '#777'; g.fillText(noteName(m), 4, Y(m) - 2); }
+  }
+  // time grid, 1 s
+  g.fillStyle = '#555';
+  for (let t = Math.ceil(viewStart); t <= t1; t++) { g.fillRect(X(t), TOP - 4, 1, 4); g.fillText(fmt(t).slice(0, -3), X(t) + 2, TOP + 22); }
+
+  // raw f0 (debug.midi) on the audio timeline
+  if (dbg) {
+    g.strokeStyle = 'rgba(120,220,160,0.45)'; g.lineWidth = 1.5;
+    g.beginPath();
+    let pen = false;
+    const a = Math.max(0, Math.floor(viewStart / dbg.hop)), b = Math.min(dbg.midi.length, Math.ceil(t1 / dbg.hop));
+    for (let i = a; i < b; i++) {
+      const m = dbg.midi[i];
+      if (m == null) { pen = false; continue; }
+      pen ? g.lineTo(X(i * dbg.hop), Y(m)) : g.moveTo(X(i * dbg.hop), Y(m));
+      pen = true;
+    }
+    g.stroke();
+  }
+
+  const rh = (H - TOP) / (hi - lo);
+  if (show.diff) {
+    g.strokeStyle = '#ddd'; g.lineWidth = 1;
+    for (const n of auto) {
+      if (n.end < viewStart || n.start > t1) continue;
+      g.strokeRect(X(n.start) + 0.5, Y(n.midi) - rh / 2 + 0.5, X(n.end) - X(n.start), rh);
+    }
+  }
+
+  g.font = '11px system-ui';
+  notes.forEach((n, i) => {
+    const s = n.start + offset, e = n.end + offset;
+    if (e < viewStart || s > t1) return;
+    g.fillStyle = i === sel ? '#ffd23f' : n.flags.includes('glide') ? '#a070d8' : n.flags.includes('edited') ? '#3cb4c8' : '#3a7fd0';
+    g.fillRect(X(s), Y(n.midi) - rh / 2, Math.max(1, X(e) - X(s) - 1), rh);
+    if (n.line_break) { g.fillStyle = '#fff'; g.fillRect(X(s), Y(n.midi) - rh, 2, rh * 2); }
+    if (n.syllable) { g.fillStyle = '#eee'; g.fillText(n.syllable, X(s) + 1, Y(n.midi) - rh / 2 - 2); }
+  });
+
+  g.fillStyle = '#f44';
+  g.fillRect(X(pos), 0, 1.5, H);
+}
+
+// ---------------------------------------------------------------- mouse
+function hit(x, y) {
+  const W = cv.clientWidth, H = cv.clientHeight, rh = (H - TOP) / (hi - lo);
+  const t = viewStart + x / W * viewDur, m = hi - (y - TOP) / (H - TOP) * (hi - lo);
+  return notes.findIndex(n => t >= n.start + offset && t <= n.end + offset && Math.abs(m - n.midi) <= Math.max(0.5, 4 / rh));
+}
+
+cv.addEventListener('mousedown', e => {
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const i = hit(x, y);
+  if (i >= 0) sel = i; else seek(viewStart + x / r.width * viewDur);
+  updateInfo();
+});
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width;
+  if (e.ctrlKey || e.altKey) {
+    const t = viewStart + fx * viewDur;
+    viewDur = Math.max(1, Math.min(60, viewDur * Math.exp(e.deltaY * 0.002)));
+    viewStart = t - fx * viewDur;
+  } else {
+    viewStart += (e.deltaX || e.deltaY) / r.width * viewDur;
+  }
+  viewStart = Math.max(-1, Math.min(duration, viewStart));
+}, { passive: false });
+
+// ---------------------------------------------------------------- editing
+// Each op mutates the selected note; returns the notes to flag "edited", or false to abort.
+const ops = {
+  up: n => { n.midi++; },
+  down: n => { n.midi--; },
+  startL: (n, d) => { n.start = Math.max(0, n.start - d); },
+  startR: (n, d) => { n.start = Math.min(n.end - MIN, n.start + d); },
+  endL: (n, d) => { n.end = Math.max(n.start + MIN, n.end - d); },
+  endR: (n, d) => { n.end += d; },
+  split: n => {
+    if (n.end - n.start < 2 * MIN) return false;
+    let t = pos - offset;
+    if (!(t >= n.start + MIN && t <= n.end - MIN)) t = (n.start + n.end) / 2;
+    const b = { ...n, start: t, syllable: '~', line_break: false, flags: [...n.flags] };
+    n.end = t;
+    notes.push(b);
+    return [n, b];
+  },
+  merge: n => {
+    const next = notes[sel + 1];
+    if (!next) return false;
+    n.end = Math.max(n.end, next.end);
+    notes.splice(sel + 1, 1);
+  },
+  del: () => { notes.splice(sel, 1); return []; },
+};
+
+function edit(name, step = 0.01) {
+  const n = notes[sel];
+  if (!n) return;
+  history.push(JSON.stringify(notes));
+  const touched = ops[name](n, step);
+  if (touched === false) { history.pop(); return; }
+  for (const t of touched || [n]) if (!t.flags.includes('edited')) t.flags.push('edited');
+  notes.sort((a, b) => a.start - b.start);
+  sel = notes.indexOf(n);
+  dirty = true;
+  updateInfo();
+}
+
+function undo() {
+  if (!history.length) return;
+  notes = JSON.parse(history.pop());
+  sel = Math.min(sel, notes.length - 1);
+  dirty = true;
+  updateInfo();
+}
+
+function updateInfo() {
+  const n = notes[sel];
+  $('info').textContent = n
+    ? `#${sel} ${noteName(n.midi)} (${n.midi}) ${fmt(n.start + offset)}–${fmt(n.end + offset)} ` +
+      `${Math.round((n.end - n.start) * 1000)} ms "${n.syllable ?? ''}" ${n.flags.join(',')}`
+    : '';
+}
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.metaKey || e.ctrlKey || !vocBuf) return;
+  const k = e.key, step = e.altKey ? 0.05 : 0.01;
+  if (k === ' ') { e.preventDefault(); return playing ? pause() : play(); }
+  if (k === 'z' || k === 'Z') return undo();
+  if (k === 'Escape') { sel = -1; return updateInfo(); }
+  // e.code so Alt (which changes e.key on macOS) still works; Shift turns [ ] into { }.
+  const name = { ArrowUp: 'up', ArrowDown: 'down', Delete: 'del', Backspace: 'del', KeyS: 'split', KeyM: 'merge',
+    BracketLeft: e.shiftKey ? 'endL' : 'startL', BracketRight: e.shiftKey ? 'endR' : 'startR' }[e.code];
+  if (name) { e.preventDefault(); edit(name, step); }
+});
+
+// ---------------------------------------------------------------- controls
+document.addEventListener('mousedown', e => { if (e.target.tagName === 'BUTTON') e.preventDefault(); }); // keep keys on the page
+$('play').onclick = () => vocBuf && (playing ? pause() : play());
+$('scrub').oninput = e => seek(+e.target.value);
+$('scrub').onchange = e => e.target.blur();
+for (const k of ['vocals', 'backing', 'synth', 'diff']) {
+  $('t-' + k).onclick = e => { show[k] = !show[k]; e.target.classList.toggle('on', show[k]); if (ctx) applyGains(); };
+}
+for (const b of document.querySelectorAll('[data-op]')) b.onclick = () => edit(b.dataset.op);
+$('undo').onclick = undo;
+$('offset').oninput = e => {
+  offset = +e.target.value;
+  $('offset-val').textContent = `${offset >= 0 ? '+' : ''}${offset.toFixed(2)} s`;
+  dirty = true;
+  updateInfo();
+};
+$('offset').onchange = e => e.target.blur();
+
+$('save').onclick = async () => {
+  setStatus('Saving…');
+  try {
+    const r = await fetch('/api/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes, global_offset_sec: offset }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error);
+    // The offset is now baked into notes.json; reload and start a fresh history.
+    offset = 0; $('offset').value = 0; $('offset-val').textContent = '+0.00 s';
+    await loadSong();
+    history = []; sel = -1; dirty = false;
+    updateInfo();
+    setStatus('Saved: ' + j.wrote.join(', '));
+  } catch (err) {
+    setStatus('Save failed: ' + err.message, true);
+  }
+};
+
+addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
+
+init().catch(err => setStatus('Load failed: ' + err.message, true));
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# The site's songs, for `./ne batch songs.yaml --out out/`.
+# Paths are relative to this file. Source audio lives outside the repo, in
+# ../../../{Vocals,Actual Tracks} (the same files apps/web/scripts/rebuild-melodies.mjs used).
+#
+# site_offset_sec: karaoke-track time = source time + this.
+#   With a stem:  offsetSec - vocalSec   (both from rebuild-melodies.mjs)
+#   With a mix:   offsetSec
+# Viva La Vida's and Cupid's acapellas are edited (sections cut out), so they are
+# NOT on the original's timeline; those two separate the original with Demucs instead.
+# lyrics.lrc is timed to the karaoke track, so lrc_offset_sec defaults to site_offset_sec.
+# site_dir is left out on purpose: batch never overwrites the live melodies.
+# Pass --site-dir to `extract` (or add it here) once a song has been reviewed.
+
+songs:
+  - id: creep
+    title: Creep
+    artist: Radiohead
+    stem: "../../../Vocals/Radiohead - Creep (Vocals Only).mp3"
+    site_offset_sec: 3.53  # 3.9 - 0.37
+    lyrics: ../../apps/web/public/songs/creep/lyrics.lrc
+    backing: ../../apps/web/public/songs/creep/instrumental.mp3
+
+  - id: perfect
+    title: Perfect
+    artist: Ed Sheeran
+    stem: "../../../Vocals/Ed Sheeran - Perfect (Studio Acapella).mp3"
+    site_offset_sec: 3.88  # 3.88 - 0
+    lyrics: ../../apps/web/public/songs/perfect/lyrics.lrc
+    backing: ../../apps/web/public/songs/perfect/instrumental.mp3
+
+  - id: im-not-the-only-one
+    title: I'm Not The Only One
+    artist: Sam Smith
+    stem: "../../../Vocals/Sam Smith - I'm Not The Only One (AcapellaVocals Only).mp3"
+    site_offset_sec: -4.71  # -4.62 - 0.09
+    lyrics: ../../apps/web/public/songs/im-not-the-only-one/lyrics.lrc
+    backing: ../../apps/web/public/songs/im-not-the-only-one/instrumental.mp3
+
+  - id: from-the-start
+    title: From The Start
+    artist: Laufey
+    stem: "../../../Vocals/From The Start - Vocals Only (Acapella)  Laufey.mp3"
+    site_offset_sec: 3.90  # -0.74 - (-4.64)
+    lyrics: ../../apps/web/public/songs/from-the-start/lyrics.lrc
+    backing: ../../apps/web/public/songs/from-the-start/instrumental.mp3
+
+  - id: beauty-and-a-beat
+    title: Beauty And A Beat
+    artist: Justin Bieber
+    stem: "../../../Vocals/Justin Bieber, Nicki Minaj - Beauty And A Beat (Official Studio Acapella - Vocals Only).mp3"
+    site_offset_sec: 0.28  # 0.19 - (-0.09)
+    lyrics: ../../apps/web/public/songs/beauty-and-a-beat/lyrics.lrc
+    backing: ../../apps/web/public/songs/beauty-and-a-beat/instrumental.mp3
+
+  - id: viva-la-vida
+    title: Viva La Vida
+    artist: Coldplay
+    mix: "../../../Actual Tracks/Coldplay - Viva La Vida (Official Video).mp3"
+    site_offset_sec: -4.95
+    lyrics: ../../apps/web/public/songs/viva-la-vida/lyrics.lrc
+    backing: ../../apps/web/public/songs/viva-la-vida/instrumental.mp3
+
+  - id: cupid
+    title: Cupid (Twin Ver.)
+    artist: FIFTY FIFTY
+    mix: "../../../Actual Tracks/FIFTY FIFTY - Cupid (Twin Version) (Lyrics).mp3"
+    site_offset_sec: 2.97
+    lyrics: ../../apps/web/public/songs/cupid/lyrics.lrc
+    backing: ../../apps/web/public/songs/cupid/instrumental.mp3

@@ -1,0 +1,16 @@
+# Offline note-extraction tool only. The website does not use any of this.
+# Python 3.12 (3.13+ is not yet supported by the torch/whisperx stack).
+torch==2.8.0
+torchaudio==2.8.0
+demucs==4.1.0
+whisperx==3.8.6
+torchcrepe==0.0.24
+librosa==1.0.0
+numpy==2.5.4
+scipy==1.18.1
+soundfile==0.14.0
+pyphen==0.18.1
+mir_eval==0.8.2
+pyyaml==6.0.3
+tqdm==4.70.1
+pytest==9.1.1

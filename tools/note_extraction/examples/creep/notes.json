@@ -1,0 +1,3585 @@
+{
+ "id": "creep",
+ "title": "Creep",
+ "artist": "Radiohead",
+ "site_offset_sec": 3.53,
+ "tuning_cents": 10.0,
+ "octave_fixes": 26,
+ "tracker": "rmvpe",
+ "lyrics_auto_generated": false,
+ "reviewed": false,
+ "backing_audio": "/Users/rk/Documents/GitHub/karaoke/note-extraction/apps/web/public/songs/creep/instrumental.mp3",
+ "site_dir": "/Users/rk/Documents/GitHub/karaoke/note-extraction/apps/web/public/songs/creep",
+ "audio_file": "instrumental.mp3",
+ "export": {
+  "site_frame_rate": 50,
+  "ultrastar_bpm": 1200
+ },
+ "notes": [
+  {
+   "start": 19.31,
+   "end": 19.41,
+   "midi": 48,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 19.41,
+   "end": 19.44,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 19.44,
+   "end": 19.5,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 19.5,
+   "end": 19.56,
+   "midi": 56,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 19.56,
+   "end": 19.68,
+   "midi": 57,
+   "syllable": "When ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 19.68,
+   "end": 19.971,
+   "midi": 54,
+   "syllable": "you ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 19.971,
+   "end": 20.111,
+   "midi": 54,
+   "syllable": "were ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 20.111,
+   "end": 20.292,
+   "midi": 54,
+   "syllable": "here ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 20.292,
+   "end": 20.48,
+   "midi": 54,
+   "syllable": "be",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 20.48,
+   "end": 22.3,
+   "midi": 55,
+   "syllable": "fore ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 24.18,
+   "end": 24.48,
+   "midi": 49,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 24.53,
+   "end": 24.625,
+   "midi": 55,
+   "syllable": "Could",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 24.625,
+   "end": 24.67,
+   "midi": 55,
+   "syllable": "n't ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 24.78,
+   "end": 24.841,
+   "midi": 54,
+   "syllable": "look ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 24.841,
+   "end": 25.021,
+   "midi": 54,
+   "syllable": "you ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 25.021,
+   "end": 25.141,
+   "midi": 54,
+   "syllable": "in ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 25.141,
+   "end": 25.642,
+   "midi": 54,
+   "syllable": "the ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 25.642,
+   "end": 26.64,
+   "midi": 54,
+   "syllable": "eye ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 29.36,
+   "end": 29.53,
+   "midi": 48,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 29.62,
+   "end": 29.700000000000003,
+   "midi": 56,
+   "syllable": "You're ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 29.700000000000003,
+   "end": 29.78,
+   "midi": 56,
+   "syllable": "just ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 29.89,
+   "end": 30.23,
+   "midi": 55,
+   "syllable": "like ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 30.23,
+   "end": 30.953,
+   "midi": 55,
+   "syllable": "an ",
+   "line_break": false,
+   "flags": [
+    "rearticulated",
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 30.953,
+   "end": 31.080000000000002,
+   "midi": 55,
+   "syllable": "an",
+   "line_break": false,
+   "flags": [
+    "rearticulated",
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 31.14,
+   "end": 31.25,
+   "midi": 49,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 31.25,
+   "end": 32.4,
+   "midi": 52,
+   "syllable": "gel ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 32.4,
+   "end": 32.69,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 34.410000000000004,
+   "end": 34.49,
+   "midi": 48,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 34.72,
+   "end": 34.94,
+   "midi": 57,
+   "syllable": "Your ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 34.94,
+   "end": 35.101,
+   "midi": 55,
+   "syllable": "skin ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 35.101,
+   "end": 35.24,
+   "midi": 55,
+   "syllable": "makes ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 35.37,
+   "end": 35.58,
+   "midi": 54,
+   "syllable": "me ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 35.71,
+   "end": 37.480000000000004,
+   "midi": 55,
+   "syllable": "cry ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 39.53,
+   "end": 39.65,
+   "midi": 46,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 39.87,
+   "end": 40.050000000000004,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 40.050000000000004,
+   "end": 40.24,
+   "midi": 55,
+   "syllable": "You ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 40.24,
+   "end": 40.381,
+   "midi": 55,
+   "syllable": "float ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 40.381,
+   "end": 40.44,
+   "midi": 55,
+   "syllable": "like ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 40.44,
+   "end": 40.803,
+   "midi": 55,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "rearticulated",
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 40.803,
+   "end": 41.46,
+   "midi": 55,
+   "syllable": "feath",
+   "line_break": false,
+   "flags": [
+    "rearticulated",
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 41.49,
+   "end": 42.13,
+   "midi": 50,
+   "syllable": "er ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 42.13,
+   "end": 42.29,
+   "midi": 48,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 42.29,
+   "end": 43.4,
+   "midi": 47,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 44.74,
+   "end": 44.97,
+   "midi": 47,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 45.06,
+   "end": 45.14,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 45.14,
+   "end": 45.22,
+   "midi": 56,
+   "syllable": "In ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 45.22,
+   "end": 45.97,
+   "midi": 55,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 45.97,
+   "end": 46.37144444444444,
+   "midi": 54,
+   "syllable": "beau",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 46.37144444444444,
+   "end": 46.58566666666666,
+   "midi": 54,
+   "syllable": "ti",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 46.58566666666666,
+   "end": 46.967,
+   "midi": 54,
+   "syllable": "ful ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 46.967,
+   "end": 47.31,
+   "midi": 54,
+   "syllable": "world ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 47.31,
+   "end": 47.44,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 47.44,
+   "end": 48.120000000000005,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 50.13,
+   "end": 50.230000000000004,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 50.230000000000004,
+   "end": 50.42,
+   "midi": 56,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 50.57,
+   "end": 50.741,
+   "midi": 57,
+   "syllable": "wish ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 50.741,
+   "end": 50.800000000000004,
+   "midi": 57,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 50.870000000000005,
+   "end": 50.97,
+   "midi": 54,
+   "syllable": "was ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 51.19,
+   "end": 51.238571428571426,
+   "midi": 58,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 51.238571428571426,
+   "end": 51.620000000000005,
+   "midi": 58,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 51.84,
+   "end": 52.68,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 52.68,
+   "end": 52.95,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 52.95,
+   "end": 53.370000000000005,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 55.01,
+   "end": 55.11,
+   "midi": 44,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 55.11,
+   "end": 55.2,
+   "midi": 47,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 55.43,
+   "end": 55.65,
+   "midi": 55,
+   "syllable": "You're ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 55.65,
+   "end": 55.77,
+   "midi": 52,
+   "syllable": "so ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 55.78,
+   "end": 56.1,
+   "midi": 57,
+   "syllable": "fuck",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 56.1,
+   "end": 56.27,
+   "midi": 54,
+   "syllable": "in' ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 56.480000000000004,
+   "end": 56.88,
+   "midi": 58,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 57.07,
+   "end": 58.59,
+   "midi": 55,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 58.59,
+   "end": 59.03,
+   "midi": 56,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 60.6,
+   "end": 60.95,
+   "midi": 55,
+   "syllable": "But ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 61.02,
+   "end": 61.13,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 61.13,
+   "end": 61.38,
+   "midi": 59,
+   "syllable": "I'm ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 61.56,
+   "end": 61.715,
+   "midi": 59,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 61.715,
+   "end": 61.870000000000005,
+   "midi": 59,
+   "syllable": "creep ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 61.940000000000005,
+   "end": 62.1,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 62.230000000000004,
+   "end": 62.71,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 65.83,
+   "end": 65.99,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 65.99,
+   "end": 66.2,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 66.2,
+   "end": 66.36,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 66.36,
+   "end": 66.803,
+   "midi": 59,
+   "syllable": "I'm ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 66.803,
+   "end": 66.843,
+   "midi": 59,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 66.843,
+   "end": 67.46000000000001,
+   "midi": 59,
+   "syllable": "weirdo ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 67.52,
+   "end": 68.12,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 68.12,
+   "end": 68.9,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 68.9,
+   "end": 69.46000000000001,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 69.46000000000001,
+   "end": 69.55,
+   "midi": 47,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 69.55,
+   "end": 69.66,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 69.66,
+   "end": 69.75,
+   "midi": 47,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 69.75,
+   "end": 69.83,
+   "midi": 49,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 69.83,
+   "end": 70.11,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 70.42,
+   "end": 70.52,
+   "midi": 50,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 70.56,
+   "end": 70.69,
+   "midi": 58,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 70.69,
+   "end": 70.77,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 70.77,
+   "end": 70.941,
+   "midi": 59,
+   "syllable": "What ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 70.941,
+   "end": 71.182,
+   "midi": 59,
+   "syllable": "the ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 71.182,
+   "end": 71.382,
+   "midi": 59,
+   "syllable": "hell ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 71.382,
+   "end": 71.543,
+   "midi": 59,
+   "syllable": "am ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 71.543,
+   "end": 71.62,
+   "midi": 59,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 71.77,
+   "end": 71.92,
+   "midi": 59,
+   "syllable": "do",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 71.92,
+   "end": 72.11,
+   "midi": 58,
+   "syllable": "ing ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 72.11,
+   "end": 72.22,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 72.22,
+   "end": 72.45,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 72.45,
+   "end": 74.43,
+   "midi": 59,
+   "syllable": "here? ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 76.39,
+   "end": 76.7,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 76.7,
+   "end": 76.92,
+   "midi": 57,
+   "syllable": "don't ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 76.92,
+   "end": 77.01,
+   "midi": 53,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 77.01,
+   "end": 77.29,
+   "midi": 55,
+   "syllable": "be",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 77.34,
+   "end": 77.85000000000001,
+   "midi": 58,
+   "syllable": "long ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 77.91,
+   "end": 78.78,
+   "midi": 55,
+   "syllable": "here ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 78.78,
+   "end": 79.75,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 81.39,
+   "end": 81.51,
+   "midi": 48,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 81.60000000000001,
+   "end": 81.82000000000001,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 81.82000000000001,
+   "end": 81.9,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 81.9,
+   "end": 82.041,
+   "midi": 55,
+   "syllable": "don't ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 82.041,
+   "end": 82.18,
+   "midi": 55,
+   "syllable": "care ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 82.18,
+   "end": 82.31,
+   "midi": 53,
+   "syllable": "if ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 82.33,
+   "end": 82.51,
+   "midi": 54,
+   "syllable": "it ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 82.51,
+   "end": 82.95,
+   "midi": 55,
+   "syllable": "hurts ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 82.95,
+   "end": 83.08,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 83.23,
+   "end": 83.89,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 86.66,
+   "end": 86.77,
+   "midi": 46,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 86.77,
+   "end": 86.8,
+   "midi": 52,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 86.8,
+   "end": 86.83,
+   "midi": 53,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 86.83,
+   "end": 86.87,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 86.87,
+   "end": 86.93,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 86.93,
+   "end": 87.1,
+   "midi": 56,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 87.1,
+   "end": 87.17,
+   "midi": 56,
+   "syllable": "wan",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 87.17,
+   "end": 87.25,
+   "midi": 55,
+   "syllable": "na ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 87.25,
+   "end": 87.36,
+   "midi": 53,
+   "syllable": "have ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 87.4,
+   "end": 87.57000000000001,
+   "midi": 55,
+   "syllable": "con",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 87.69,
+   "end": 89.15,
+   "midi": 54,
+   "syllable": "trol ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 92.06,
+   "end": 92.23,
+   "midi": 57,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 92.23,
+   "end": 92.26,
+   "midi": 57,
+   "syllable": "want ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 92.29,
+   "end": 92.39,
+   "midi": 52,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 92.39,
+   "end": 92.56,
+   "midi": 55,
+   "syllable": "per",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 92.56,
+   "end": 92.85000000000001,
+   "midi": 53,
+   "syllable": "fect ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 92.85000000000001,
+   "end": 92.96000000000001,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 92.99,
+   "end": 93.62,
+   "midi": 55,
+   "syllable": "body ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 93.63,
+   "end": 94.25,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 94.25,
+   "end": 94.4,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 94.46000000000001,
+   "end": 94.78,
+   "midi": 47,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 94.78,
+   "end": 95.35000000000001,
+   "midi": 48,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 97.28,
+   "end": 97.48,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 97.51,
+   "end": 97.56,
+   "midi": 52,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 97.56,
+   "end": 97.60000000000001,
+   "midi": 52,
+   "syllable": "want ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 97.61,
+   "end": 97.721,
+   "midi": 55,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 97.721,
+   "end": 97.8,
+   "midi": 55,
+   "syllable": "per",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 97.8,
+   "end": 98.06,
+   "midi": 53,
+   "syllable": "fect ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 98.24000000000001,
+   "end": 100.05,
+   "midi": 55,
+   "syllable": "soul ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 100.05,
+   "end": 100.46000000000001,
+   "midi": 56,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 100.46000000000001,
+   "end": 100.78,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 102.4,
+   "end": 102.53,
+   "midi": 44,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 102.53,
+   "end": 102.56,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 102.56,
+   "end": 102.60000000000001,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 102.60000000000001,
+   "end": 102.65,
+   "midi": 56,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 102.85000000000001,
+   "end": 103.02,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 103.02,
+   "end": 103.15,
+   "midi": 55,
+   "syllable": "want ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 103.15,
+   "end": 103.321,
+   "midi": 53,
+   "syllable": "you ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 103.321,
+   "end": 103.44,
+   "midi": 53,
+   "syllable": "to ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 103.44,
+   "end": 104.08,
+   "midi": 55,
+   "syllable": "no",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 104.12,
+   "end": 104.77,
+   "midi": 50,
+   "syllable": "tice ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 104.77,
+   "end": 104.94,
+   "midi": 48,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 104.94,
+   "end": 105.66,
+   "midi": 47,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 105.88,
+   "end": 106.04,
+   "midi": 48,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 106.10000000000001,
+   "end": 106.29,
+   "midi": 47,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 107.67,
+   "end": 107.81,
+   "midi": 45,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 107.81,
+   "end": 107.85000000000001,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 107.85000000000001,
+   "end": 107.88,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 107.88,
+   "end": 107.92,
+   "midi": 56,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 107.92,
+   "end": 108.12,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": [
+    "glide"
+   ]
+  },
+  {
+   "start": 108.12,
+   "end": 108.612,
+   "midi": 55,
+   "syllable": "When ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 108.612,
+   "end": 108.7,
+   "midi": 55,
+   "syllable": "I'm ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 108.7,
+   "end": 109.435,
+   "midi": 54,
+   "syllable": "not ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 109.435,
+   "end": 109.81,
+   "midi": 54,
+   "syllable": "around ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 109.81,
+   "end": 110.18,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 110.18,
+   "end": 110.92,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 112.7,
+   "end": 112.81,
+   "midi": 45,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 113.07000000000001,
+   "end": 113.39,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 113.39,
+   "end": 113.74000000000001,
+   "midi": 57,
+   "syllable": "You're ",
+   "line_break": true,
+   "flags": [
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 113.77,
+   "end": 113.89,
+   "midi": 54,
+   "syllable": "so ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 114.06,
+   "end": 114.3377142857143,
+   "midi": 58,
+   "syllable": "fuck",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 114.3377142857143,
+   "end": 114.42,
+   "midi": 58,
+   "syllable": "in' ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 114.68,
+   "end": 114.87057142857142,
+   "midi": 55,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 114.87057142857142,
+   "end": 116.32000000000001,
+   "midi": 55,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 118.01,
+   "end": 118.44,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 118.44,
+   "end": 118.46000000000001,
+   "midi": 55,
+   "syllable": "wish ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 118.61,
+   "end": 118.9,
+   "midi": 57,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 118.93,
+   "end": 119.05,
+   "midi": 55,
+   "syllable": "was ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 119.19,
+   "end": 119.27,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 119.27,
+   "end": 119.69,
+   "midi": 58,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 119.91,
+   "end": 120.99000000000001,
+   "midi": 55,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 120.99000000000001,
+   "end": 121.15,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 121.19,
+   "end": 121.34,
+   "midi": 43,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 121.34,
+   "end": 121.45,
+   "midi": 42,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 121.46000000000001,
+   "end": 121.74000000000001,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 121.74000000000001,
+   "end": 121.85000000000001,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 123.32000000000001,
+   "end": 123.76,
+   "midi": 55,
+   "syllable": "But ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 123.76,
+   "end": 123.84,
+   "midi": 57,
+   "syllable": "I'm ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 123.84,
+   "end": 123.93,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 123.93,
+   "end": 124.22,
+   "midi": 59,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 124.42,
+   "end": 124.69,
+   "midi": 59,
+   "syllable": "creep ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 124.73,
+   "end": 124.82000000000001,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 124.86,
+   "end": 125.17,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 125.17,
+   "end": 125.5,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 128.74,
+   "end": 128.82,
+   "midi": 56,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 128.82,
+   "end": 129.04,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 129.04,
+   "end": 129.27,
+   "midi": 57,
+   "syllable": "I'm ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 129.27,
+   "end": 129.741,
+   "midi": 59,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 129.741,
+   "end": 130.32,
+   "midi": 59,
+   "syllable": "weirdo ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 130.4,
+   "end": 130.99,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 130.99,
+   "end": 131.15,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 131.15,
+   "end": 132.5,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 132.5,
+   "end": 132.86,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 132.86,
+   "end": 133.1,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 133.1,
+   "end": 133.13,
+   "midi": 48,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 133.13,
+   "end": 133.21,
+   "midi": 49,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 133.21,
+   "end": 133.26,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 133.26,
+   "end": 133.57,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 133.61,
+   "end": 133.72,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 133.8,
+   "end": 133.99,
+   "midi": 59,
+   "syllable": "What ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 133.99,
+   "end": 134.12,
+   "midi": 59,
+   "syllable": "the ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 134.12,
+   "end": 134.33,
+   "midi": 61,
+   "syllable": "hell ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 134.33,
+   "end": 134.571,
+   "midi": 59,
+   "syllable": "am ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 134.571,
+   "end": 134.63,
+   "midi": 59,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 134.66,
+   "end": 134.77,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 134.78,
+   "end": 134.94,
+   "midi": 59,
+   "syllable": "do",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 134.94,
+   "end": 135.15,
+   "midi": 57,
+   "syllable": "ing ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 135.15,
+   "end": 135.27,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 135.27,
+   "end": 135.49,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 135.49,
+   "end": 136.59,
+   "midi": 59,
+   "syllable": "here? ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 136.59,
+   "end": 136.83,
+   "midi": 60,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 136.83,
+   "end": 137.75,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 139.35,
+   "end": 139.43,
+   "midi": 51,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 139.43,
+   "end": 139.6,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 139.6,
+   "end": 139.70000000000002,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 139.70000000000002,
+   "end": 139.95000000000002,
+   "midi": 57,
+   "syllable": "don't ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 139.99,
+   "end": 140.07,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 140.07,
+   "end": 140.34,
+   "midi": 55,
+   "syllable": "be",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 140.34,
+   "end": 140.53,
+   "midi": 57,
+   "syllable": "long ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 140.53,
+   "end": 140.83,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 140.9,
+   "end": 141.0,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 141.0,
+   "end": 141.85,
+   "midi": 55,
+   "syllable": "here, ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 141.85,
+   "end": 141.96,
+   "midi": 53,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 141.96,
+   "end": 142.3,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 142.3,
+   "end": 142.59,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 142.98,
+   "end": 143.56,
+   "midi": 62,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 143.56,
+   "end": 143.87,
+   "midi": 60,
+   "syllable": "oh, ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 143.94,
+   "end": 144.19,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 144.25,
+   "end": 144.41,
+   "midi": 60,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 144.41,
+   "end": 144.92000000000002,
+   "midi": 62,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 144.92000000000002,
+   "end": 145.37,
+   "midi": 60,
+   "syllable": "oh ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 145.84,
+   "end": 147.88,
+   "midi": 67,
+   "syllable": "She's ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 148.25,
+   "end": 148.66,
+   "midi": 67,
+   "syllable": "run",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 148.66,
+   "end": 149.07,
+   "midi": 69,
+   "syllable": "ning ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 149.07,
+   "end": 149.4,
+   "midi": 67,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 149.4,
+   "end": 149.99,
+   "midi": 66,
+   "syllable": "out ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 150.37,
+   "end": 150.63,
+   "midi": 62,
+   "syllable": "the ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 150.63,
+   "end": 150.73,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 150.75,
+   "end": 151.73,
+   "midi": 63,
+   "syllable": "door ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 151.73,
+   "end": 152.0,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 152.04,
+   "end": 152.19,
+   "midi": 69,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 152.19,
+   "end": 153.38,
+   "midi": 71,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 153.42000000000002,
+   "end": 153.54,
+   "midi": 68,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 153.54,
+   "end": 154.49,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 154.49,
+   "end": 154.76,
+   "midi": 67,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 154.76,
+   "end": 154.96,
+   "midi": 68,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 155.1,
+   "end": 155.3,
+   "midi": 63,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 155.59,
+   "end": 155.97,
+   "midi": 64,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 156.27,
+   "end": 156.48,
+   "midi": 65,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 156.48,
+   "end": 158.06,
+   "midi": 67,
+   "syllable": "She's ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 158.44,
+   "end": 158.58,
+   "midi": 70,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 158.68,
+   "end": 159.06,
+   "midi": 67,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 159.06,
+   "end": 159.53,
+   "midi": 69,
+   "syllable": "run",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 159.53,
+   "end": 160.67000000000002,
+   "midi": 67,
+   "syllable": "ning ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 160.82,
+   "end": 160.97,
+   "midi": 71,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 161.19,
+   "end": 161.38,
+   "midi": 62,
+   "syllable": "out ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 161.38,
+   "end": 162.05,
+   "midi": 63,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 162.05,
+   "end": 162.26,
+   "midi": 62,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 162.26,
+   "end": 162.46,
+   "midi": 62,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 162.61,
+   "end": 162.892,
+   "midi": 65,
+   "syllable": "She ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 162.892,
+   "end": 163.54,
+   "midi": 65,
+   "syllable": "run, ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 163.66,
+   "end": 163.76,
+   "midi": 73,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 163.81,
+   "end": 164.495,
+   "midi": 67,
+   "syllable": "run, ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 164.495,
+   "end": 164.84,
+   "midi": 67,
+   "syllable": "run, ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 164.91,
+   "end": 164.99,
+   "midi": 73,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 164.99,
+   "end": 165.08,
+   "midi": 69,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 165.12,
+   "end": 165.43,
+   "midi": 68,
+   "syllable": "run ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 165.43,
+   "end": 168.96,
+   "midi": 69,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 168.96,
+   "end": 171.13,
+   "midi": 67,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 171.13,
+   "end": 171.70000000000002,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 171.72,
+   "end": 171.83,
+   "midi": 70,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 171.86,
+   "end": 172.01,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 172.01,
+   "end": 172.05,
+   "midi": 68,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 172.05,
+   "end": 172.12,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 172.12,
+   "end": 172.17000000000002,
+   "midi": 62,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 172.17000000000002,
+   "end": 172.25,
+   "midi": 60,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 172.25,
+   "end": 172.28,
+   "midi": 58,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "glide",
+    "held"
+   ]
+  },
+  {
+   "start": 172.28,
+   "end": 172.36,
+   "midi": 57,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 172.38,
+   "end": 172.52,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 176.46,
+   "end": 176.57,
+   "midi": 72,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 176.59,
+   "end": 176.89000000000001,
+   "midi": 67,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 176.89000000000001,
+   "end": 179.29,
+   "midi": 69,
+   "syllable": "Run! ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 179.29,
+   "end": 180.55,
+   "midi": 67,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 180.55,
+   "end": 182.32,
+   "midi": 66,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 182.32,
+   "end": 182.75,
+   "midi": 68,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 182.75,
+   "end": 183.03,
+   "midi": 67,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 185.79,
+   "end": 185.9205,
+   "midi": 57,
+   "syllable": "What",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 185.9205,
+   "end": 185.96075000000002,
+   "midi": 57,
+   "syllable": "ev",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 185.96075000000002,
+   "end": 186.02,
+   "midi": 57,
+   "syllable": "er ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 186.02,
+   "end": 186.21,
+   "midi": 56,
+   "syllable": "makes ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 186.42000000000002,
+   "end": 186.703,
+   "midi": 55,
+   "syllable": "you ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 186.703,
+   "end": 187.02,
+   "midi": 55,
+   "syllable": "hap",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 187.08,
+   "end": 187.20000000000002,
+   "midi": 43,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 187.20000000000002,
+   "end": 187.99,
+   "midi": 50,
+   "syllable": "py ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 187.99,
+   "end": 188.44,
+   "midi": 50,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held",
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 190.96,
+   "end": 191.31,
+   "midi": 44,
+   "syllable": "What",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 191.32,
+   "end": 191.65075,
+   "midi": 55,
+   "syllable": "ev",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 191.65075,
+   "end": 191.821,
+   "midi": 55,
+   "syllable": "er ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 191.821,
+   "end": 191.961,
+   "midi": 55,
+   "syllable": "you ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 191.961,
+   "end": 192.23000000000002,
+   "midi": 55,
+   "syllable": "want ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 192.23000000000002,
+   "end": 193.31,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 195.78,
+   "end": 195.91,
+   "midi": 52,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 196.08,
+   "end": 196.35,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 196.35,
+   "end": 196.74,
+   "midi": 57,
+   "syllable": "You're ",
+   "line_break": true,
+   "flags": [
+    "rearticulated"
+   ]
+  },
+  {
+   "start": 196.74,
+   "end": 196.87,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 196.87,
+   "end": 196.97,
+   "midi": 53,
+   "syllable": "so ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 197.14000000000001,
+   "end": 197.3,
+   "midi": 57,
+   "syllable": "fuck",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 197.3,
+   "end": 197.57,
+   "midi": 58,
+   "syllable": "in' ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 197.76,
+   "end": 197.86157142857144,
+   "midi": 55,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 197.86157142857144,
+   "end": 198.75,
+   "midi": 55,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 200.95000000000002,
+   "end": 201.27,
+   "midi": 42,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 201.27,
+   "end": 201.35,
+   "midi": 54,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 201.53,
+   "end": 201.711,
+   "midi": 45,
+   "syllable": "wish ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 201.711,
+   "end": 201.8,
+   "midi": 45,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 201.8,
+   "end": 201.93,
+   "midi": 43,
+   "syllable": "was ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 202.09,
+   "end": 202.18,
+   "midi": 56,
+   "syllable": "spe",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 202.18,
+   "end": 202.42000000000002,
+   "midi": 58,
+   "syllable": "cial ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 202.42000000000002,
+   "end": 202.66,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 202.87,
+   "end": 203.61,
+   "midi": 43,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 203.62,
+   "end": 203.74,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 203.74,
+   "end": 203.91,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 206.22,
+   "end": 206.3,
+   "midi": 43,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 206.3,
+   "end": 206.42000000000002,
+   "midi": 42,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 206.42000000000002,
+   "end": 206.69,
+   "midi": 55,
+   "syllable": "But ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 206.69,
+   "end": 206.85,
+   "midi": 57,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 206.85,
+   "end": 207.08,
+   "midi": 59,
+   "syllable": "I'm ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 207.08,
+   "end": 207.20000000000002,
+   "midi": 58,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 207.31,
+   "end": 208.54,
+   "midi": 59,
+   "syllable": "creep ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 211.58,
+   "end": 211.88,
+   "midi": 54,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 211.93,
+   "end": 212.08,
+   "midi": 57,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 212.08,
+   "end": 212.452,
+   "midi": 59,
+   "syllable": "I'm ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 212.452,
+   "end": 212.512,
+   "midi": 59,
+   "syllable": "a ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 212.512,
+   "end": 213.15,
+   "midi": 59,
+   "syllable": "weirdo ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 213.18,
+   "end": 213.88,
+   "midi": 54,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 213.88,
+   "end": 214.07,
+   "midi": 52,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 214.07,
+   "end": 215.08,
+   "midi": 51,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 216.41,
+   "end": 216.55,
+   "midi": 46,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 216.61,
+   "end": 216.78,
+   "midi": 59,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 216.78,
+   "end": 216.95,
+   "midi": 60,
+   "syllable": "What ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 216.95,
+   "end": 217.0,
+   "midi": 60,
+   "syllable": "the ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 217.0,
+   "end": 217.171,
+   "midi": 59,
+   "syllable": "hell ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 217.171,
+   "end": 217.311,
+   "midi": 59,
+   "syllable": "am ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 217.311,
+   "end": 217.4,
+   "midi": 59,
+   "syllable": "I ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 217.4,
+   "end": 217.49,
+   "midi": 56,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 217.49,
+   "end": 217.66,
+   "midi": 59,
+   "syllable": "do",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 217.66,
+   "end": 218.20000000000002,
+   "midi": 57,
+   "syllable": "ing ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 218.20000000000002,
+   "end": 219.84,
+   "midi": 59,
+   "syllable": "here? ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 222.09,
+   "end": 222.42000000000002,
+   "midi": 55,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": []
+  },
+  {
+   "start": 222.42000000000002,
+   "end": 222.65,
+   "midi": 57,
+   "syllable": "don't ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 222.65,
+   "end": 222.94,
+   "midi": 55,
+   "syllable": "be",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 223.0,
+   "end": 223.62,
+   "midi": 58,
+   "syllable": "long ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 223.66,
+   "end": 224.89000000000001,
+   "midi": 55,
+   "syllable": "here ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 227.29,
+   "end": 227.54,
+   "midi": 55,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 227.54,
+   "end": 227.64000000000001,
+   "midi": 56,
+   "syllable": null,
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 227.64000000000001,
+   "end": 227.84,
+   "midi": 57,
+   "syllable": "I ",
+   "line_break": true,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 227.84,
+   "end": 227.92000000000002,
+   "midi": 57,
+   "syllable": "don't ",
+   "line_break": false,
+   "flags": [
+    "split-syllable"
+   ]
+  },
+  {
+   "start": 227.94,
+   "end": 228.02,
+   "midi": 55,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 228.03,
+   "end": 228.25,
+   "midi": 44,
+   "syllable": "be",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 228.31,
+   "end": 228.59,
+   "midi": 47,
+   "syllable": "long ",
+   "line_break": false,
+   "flags": []
+  },
+  {
+   "start": 228.65,
+   "end": 229.03,
+   "midi": 59,
+   "syllable": "~",
+   "line_break": false,
+   "flags": [
+    "held"
+   ]
+  },
+  {
+   "start": 229.09,
+   "end": 230.47,
+   "midi": 55,
+   "syllable": "here ",
+   "line_break": false,
+   "flags": []
+  }
+ ]
+}
