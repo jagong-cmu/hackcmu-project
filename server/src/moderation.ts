@@ -26,6 +26,7 @@ import { RoomServiceClient } from "livekit-server-sdk";
 import type { Server, Socket } from "socket.io";
 import {
   BlockLimit,
+  MaxBlockedPlayers,
   ClientEvents,
   PublicChaosPrefix,
   ReportLimit,
@@ -588,6 +589,10 @@ export function createSafety(deps: SafetyDeps) {
     const targetId = String(((payload ?? {}) as { targetId?: unknown }).targetId ?? "");
     const target = ctx.room.players.find((p) => p.id === targetId);
     if (!target || target.id === ctx.me.id) return deny("block", "Pick someone in this room.", targetId);
+    await hydrateBlocks(ctx.me.id);
+    if (!hasBlocked(ctx.me.id, target.id) && blockListOf(ctx.me.id).length >= MaxBlockedPlayers) {
+      return deny("block", `You can block up to ${MaxBlockedPlayers} players.`, targetId);
+    }
     if (!hasBlocked(ctx.me.id, target.id) && !blockLimiter.take(ctx.me.id)) {
       return deny("block", "Too many blocks at once. Try again in a few minutes.", targetId);
     }

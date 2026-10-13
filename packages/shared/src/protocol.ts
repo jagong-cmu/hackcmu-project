@@ -62,6 +62,8 @@ export const ReportLimit = 5;
 export const ReportWindowMs = 10 * 60_000;
 /** Per player: at most BlockLimit blocks per ReportWindowMs. */
 export const BlockLimit = 20;
+/** Lifetime cap on how many players one player can block (also caps no-penalty leaves). */
+export const MaxBlockedPlayers = 10;
 /**
  * Chaos vote-kick: votes needed to remove someone, given how many *other*
  * people are live in the room. A strict majority, never fewer than 2, so one

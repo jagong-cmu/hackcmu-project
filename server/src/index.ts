@@ -72,7 +72,7 @@ import { decideLiveKitAccess } from "./livekitAccess.ts";
 import { publicPlayerId } from "./publicId.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
-import { attachSocketAuth, httpIdentity, registerAuthRoutes, socketIdentity } from "./auth.ts";
+import { attachSocketAuth, httpIdentity, socketIdentity } from "./auth.ts";
 import {
   posthogConfigured,
   trackChaosJoined,
@@ -107,7 +107,6 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json({ limit: "256kb" }));
 registerLaneBRoutes(app);
-registerAuthRoutes(app);
 attachSocketAuth(io);
 
 /** Per-socket identity. Rooms hold the authoritative player record. */

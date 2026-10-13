@@ -17,10 +17,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
-import type { Express, Request, Response } from "express";
+import type { Request } from "express";
 import type { Server, Socket } from "socket.io";
 
-import { getDb, players } from "./db.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -162,63 +161,3 @@ export function socketIdentity(socket: Socket, claimed: unknown): string | null 
   return typeof id === "string" && id ? id : null;
 }
 
-/**
- * POST /api/player/link — carry a pre-account rating over to the signed-in
- * account. `legacyClientId` is the random localStorage id this browser played
- * under as a guest (PR #5), or an older Supabase user id (PR #3).
- *
- * Rules: one claim per legacy id (it is marked `linkedTo`), and only into an
- * account that has not played a ranked match yet, so nobody's rating is
- * overwritten or double counted.
- */
-export function registerAuthRoutes(app: Express): void {
-  app.post("/api/player/link", async (req: Request, res: Response) => {
-    if (!authRequired()) {
-      res.status(501).json({ ok: false, error: "auth not configured on server" });
-      return;
-    }
-    const userId = await verifyAccessToken(bearer(req));
-    if (!userId) {
-      res.status(401).json({ ok: false, error: "sign in first" });
-      return;
-    }
-    const legacy = typeof req.body?.legacyClientId === "string" ? req.body.legacyClientId.trim() : "";
-    if (!legacy || legacy === userId || legacy.length > 128) {
-      res.json({ ok: true, linked: false });
-      return;
-    }
-    const db = await getDb();
-    if (!db) {
-      res.json({ ok: true, linked: false, mongo: false });
-      return;
-    }
-    const account = await players(db).findOne({ clientId: userId });
-    if (account && account.matchesPlayed > 0) {
-      res.json({ ok: true, linked: false, reason: "account already has matches" });
-      return;
-    }
-    const claimed = await players(db).findOneAndUpdate(
-      { clientId: legacy, linkedTo: { $exists: false } },
-      { $set: { linkedTo: userId, updatedAt: new Date() } },
-      { returnDocument: "before" },
-    );
-    if (!claimed) {
-      res.json({ ok: true, linked: false });
-      return;
-    }
-    await players(db).updateOne(
-      { clientId: userId },
-      {
-        $set: {
-          elo: claimed.elo,
-          matchesPlayed: claimed.matchesPlayed,
-          updatedAt: new Date(),
-          linkedFrom: legacy,
-        },
-        $setOnInsert: { clientId: userId, displayName: claimed.displayName },
-      },
-      { upsert: true },
-    );
-    res.json({ ok: true, linked: true, elo: claimed.elo });
-  });
-}

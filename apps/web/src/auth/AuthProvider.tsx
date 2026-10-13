@@ -12,9 +12,8 @@ import { Navigate, useLocation } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { resyncSocketAuth } from "../rooms/socket.ts";
-import { getDisplayName } from "../home/identity.ts";
 import { identifyPlayer } from "../analytics/posthog.ts";
-import { bindAccount, linkPendingRating, nameFromUser, safeNext, unbindAccount } from "./account.ts";
+import { bindAccount, nameFromUser, safeNext, unbindAccount } from "./account.ts";
 import { authConfigured, getSupabase } from "./supabase.ts";
 
 export type AuthContextValue = {
@@ -68,10 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resyncSocketAuth(id);
         hello(name);
         identifyPlayer();
-        void linkPendingRating().then((linked) => {
-          // Re-hello so the server reloads the carried-over ELO.
-          if (linked) hello(getDisplayName() || name);
-        });
       } else if (boundRef.current) {
         boundRef.current = null;
         unbindAccount();

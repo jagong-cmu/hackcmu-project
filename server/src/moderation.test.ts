@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
-import { ReportLimit, ServerEvents, type Mode } from "@karaoke/shared";
+import { MaxBlockedPlayers, ReportLimit, ServerEvents, type Mode } from "@karaoke/shared";
 import {
   addPlayer,
   clearTimers,
@@ -327,4 +327,19 @@ test("reports validate, de-duplicate, rate-limit, and can block in one tap", asy
 test("LiveKit API host is the https twin of the ws URL", () => {
   assert.equal(liveKitApiHost("wss://x.livekit.cloud"), "https://x.livekit.cloud");
   assert.equal(liveKitApiHost("ws://localhost:7880"), "http://localhost:7880");
+});
+
+test("a player can block at most MaxBlockedPlayers people", async () => {
+  const h = harness("chaos", ["me", "next", "old0"]);
+  try {
+    for (let i = 0; i < MaxBlockedPlayers; i += 1) await addBlock("me", `old${i}`);
+    const denied = await h.safety.block(h.sock("me"), { targetId: "next" });
+    assert.equal(denied.ok, false);
+    assert.match(denied.message ?? "", /up to 10/);
+    assert.equal(hasBlocked("me", "next"), false);
+    // Re-blocking someone already blocked is not a new block.
+    assert.equal((await h.safety.block(h.sock("me"), { targetId: "old0" })).ok, true);
+  } finally {
+    clearTimers(h.room);
+  }
 });

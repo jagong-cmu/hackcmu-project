@@ -65,7 +65,7 @@ No spectator role in v1.
 
 - Display name, 2–16 characters, prompted once.
 - Random avatar color.
-- Accounts: Supabase Google sign-in when `AUTH_REQUIRED=1`. ELO and history then key off the Supabase user id.
+- Accounts: Supabase Google sign-in when `AUTH_REQUIRED=1`. ELO and history then key off the Supabase user id. Every account starts with a fresh rating; guest ratings are not carried over, because guest ids were once visible to opponents.
 - Guest mode (accounts off): a stable random `clientId` (UUID) in `localStorage` with the name. ELO and history key off it, not the display name. Duplicate names are allowed.
 - The `clientId` is a secret. Other players only ever see a public player id (the Supabase user id, or a server-side hash of the `clientId` for guests).
 
@@ -175,8 +175,9 @@ accepts.
   the client unsubscribes from their camera and mic. Blocks are stored by
   player id in Mongo `blocks`, so they persist. The matchmaker never pairs
   two players if either one has blocked the other, in both the in-memory and
-  the Mongo queue. The blocked person is not told. The limit is 20 blocks per
-  10 minutes.
+  the Mongo queue. The blocked person is not told. Each player can block at most
+  10 people in total (this also caps no-penalty leaves), and no more than
+  20 blocks per 10 minutes.
 - **Remove.** Who can remove whom depends on the room:
 
   | Room | Rule |
