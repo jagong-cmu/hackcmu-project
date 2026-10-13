@@ -14,6 +14,8 @@ import {
   httpAccount,
   httpIdentity,
   refreshSocketAuth,
+  RejectedTokenCacheMax,
+  rejectedTokenCacheSize,
   resolveAuthMode,
   setAuthConfigForTests,
   socketIdentity,
@@ -170,6 +172,12 @@ function stubFetch(responses: Array<() => Promise<Response>>): { calls: number; 
 }
 const okUser = (id: string) => async () => new Response(JSON.stringify({ id }), { status: 200 });
 
+/** A JWT-shaped token (unsigned; Supabase is stubbed) expiring `expInSec` from now. */
+function fakeJwt(tag: string, expInSec = 3600, nowMs = Date.now()): string {
+  const enc = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  return `${enc({ alg: "HS256" })}.${enc({ sub: tag, exp: Math.floor(nowMs / 1000) + expInSec })}.c2ln`;
+}
+
 test("hello with a fresh token heals a socket that was not verified at handshake", async () => {
   setEnv({ NODE_ENV: "production" });
   setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
@@ -177,7 +185,7 @@ test("hello with a fresh token heals a socket that was not verified at handshake
   try {
     const s = sock(null);
     assert.equal(socketIdentity(s, ALICE).ok, false);
-    await refreshSocketAuth(s, "fresh-token-1");
+    await refreshSocketAuth(s, fakeJwt("fresh-1"));
     const who = socketIdentity(s, "anything");
     assert.deepEqual(who, { ok: true, clientId: ALICE });
   } finally {
@@ -191,7 +199,7 @@ test("a rejected token does not authorise the socket", async () => {
   const f = stubFetch([async () => new Response("{}", { status: 401 })]);
   try {
     const s = sock(null);
-    await refreshSocketAuth(s, "expired-token-2");
+    await refreshSocketAuth(s, fakeJwt("rejected-2"));
     assert.equal(socketIdentity(s, ALICE).ok, false);
     assert.equal(f.calls, 1, "a 401 is final: no retry");
   } finally {
@@ -204,14 +212,14 @@ test("a network blip or 5xx at Supabase is retried once", async () => {
   setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
   const f = stubFetch([async () => new Response("", { status: 503 }), okUser(ALICE)]);
   try {
-    assert.equal(await verifyAccessToken("token-after-blip-3"), ALICE);
+    assert.equal(await verifyAccessToken(fakeJwt("blip-3")), ALICE);
     assert.equal(f.calls, 2);
   } finally {
     f.restore();
   }
   const g = stubFetch([async () => { throw new TypeError("fetch failed"); }, okUser(ALICE)]);
   try {
-    assert.equal(await verifyAccessToken("token-after-blip-4"), ALICE);
+    assert.equal(await verifyAccessToken(fakeJwt("blip-4")), ALICE);
     assert.equal(g.calls, 2);
   } finally {
     g.restore();
@@ -228,4 +236,82 @@ test("refreshSocketAuth does nothing outside verify mode or without a token", as
   setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
   await refreshSocketAuth(s, undefined);
   assert.equal(s.data.authUserId, null);
+});
+
+// ---------------------------------------------------------------------------
+// Verification amplification (audit #8): local screen + negative cache
+// ---------------------------------------------------------------------------
+
+test("tokens that cannot be Supabase JWTs are refused without a network call", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    for (const t of ["garbage", "a.b", "x".repeat(200), "a.b.c.d", fakeJwt("old", -3600)]) {
+      assert.equal(await verifyAccessToken(t), null, t.slice(0, 20));
+    }
+    // No `exp` claim at all.
+    const noExp = `${Buffer.from("{}").toString("base64url")}.${Buffer.from('{"sub":"x"}').toString("base64url")}.sig`;
+    assert.equal(await verifyAccessToken(noExp), null);
+    assert.equal(f.calls, 0);
+  } finally {
+    f.restore();
+  }
+});
+
+test("a token Supabase rejected (4xx) is not re-checked for a minute", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([async () => new Response("{}", { status: 403 })]);
+  try {
+    const bad = fakeJwt("revoked-5");
+    for (let i = 0; i < 10; i++) assert.equal(await verifyAccessToken(bad), null);
+    assert.equal(f.calls, 1, "one Supabase call for ten attempts");
+    assert.equal(rejectedTokenCacheSize(), 1);
+    // A different token is still checked.
+    assert.equal(await verifyAccessToken(fakeJwt("revoked-6")), null);
+    assert.equal(f.calls, 2);
+  } finally {
+    f.restore();
+  }
+});
+
+test("network errors and 5xx are never negatively cached", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const token = fakeJwt("flaky-7");
+  const f = stubFetch([async () => new Response("", { status: 502 })]);
+  try {
+    assert.equal(await verifyAccessToken(token), null);
+    assert.equal(f.calls, 2, "retried once");
+  } finally {
+    f.restore();
+  }
+  assert.equal(rejectedTokenCacheSize(), 0);
+  const g = stubFetch([async () => { throw new TypeError("fetch failed"); }]);
+  try {
+    assert.equal(await verifyAccessToken(token), null);
+  } finally {
+    g.restore();
+  }
+  assert.equal(rejectedTokenCacheSize(), 0);
+  const h = stubFetch([okUser(ALICE)]);
+  try {
+    assert.equal(await verifyAccessToken(token), ALICE, "Supabase back: the same token now verifies");
+    assert.equal(h.calls, 1);
+  } finally {
+    h.restore();
+  }
+});
+
+test("the negative cache is bounded", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([async () => new Response("{}", { status: 401 })]);
+  try {
+    for (let i = 0; i < RejectedTokenCacheMax + 50; i++) await verifyAccessToken(fakeJwt(`spray-${i}`));
+    assert.equal(rejectedTokenCacheSize(), RejectedTokenCacheMax);
+  } finally {
+    f.restore();
+  }
 });

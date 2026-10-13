@@ -19,6 +19,7 @@
  *   so one developer can play both seats. Ignored when NODE_ENV=production or
  *   on Vercel / Render, so production cannot switch accounts off via env.
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +79,7 @@ export function setAuthConfigForTests(cfg: SupabaseConfig | null | undefined): v
   cachedConfig = cfg;
   cachedFile = cfg === undefined ? undefined : {};
   verified.clear();
+  rejected.clear();
 }
 
 export type AuthMode = "verify" | "dev-guest" | "unconfigured";
@@ -122,33 +124,95 @@ export function authRequired(): boolean {
 
 const UNCONFIGURED_MESSAGE = "Accounts aren't configured on this server, so play is off.";
 
-type Verified = { userId: string; expiresAtMs: number };
+type Verified = { userId: string; expiresAtMs: number; tokenExpMs: number };
 const verified = new Map<string, Verified>();
 const CACHE_MS = 5 * 60_000;
+const VERIFIED_MAX = 5000;
+
+/**
+ * Tokens Supabase rejected (4xx), keyed by a hash of the token, so a client
+ * that keeps sending the same garbage costs one Supabase call a minute, not
+ * two per attempt. Network errors and 5xx are never cached: those are retried.
+ */
+const rejected = new Map<string, number>();
+export const RejectedTokenCacheMs = 60_000;
+export const RejectedTokenCacheMax = 5000;
+
+/** Clock skew we forgive when reading a token's own `exp` before asking Supabase. */
+const EXP_SKEW_MS = 60_000;
+
+function tokenKey(token: string): string {
+  return createHash("sha256").update(token).digest("base64url");
+}
+
+function rememberRejected(key: string, now: number): void {
+  rejected.delete(key);
+  rejected.set(key, now + RejectedTokenCacheMs);
+  // A Map iterates in insertion order: drop the oldest entries past the cap.
+  while (rejected.size > RejectedTokenCacheMax) {
+    const oldest = rejected.keys().next().value;
+    if (oldest === undefined) break;
+    rejected.delete(oldest);
+  }
+}
+
+function recentlyRejected(key: string, now: number): boolean {
+  const until = rejected.get(key);
+  if (until === undefined) return false;
+  if (until > now) return true;
+  rejected.delete(key);
+  return false;
+}
+
+/** Test-only: how many rejected tokens are remembered. */
+export function rejectedTokenCacheSize(): number {
+  return rejected.size;
+}
 
 function jwtExpMs(token: string): number {
   try {
     const body = token.split(".")[1] ?? "";
     const json = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as { exp?: number };
-    return typeof json.exp === "number" ? json.exp * 1000 : 0;
+    return typeof json.exp === "number" && Number.isFinite(json.exp) ? json.exp * 1000 : 0;
   } catch {
     return 0;
   }
 }
 
-/** Supabase user id for a valid access token, else null. */
-export async function verifyAccessToken(token: unknown): Promise<string | null> {
+/**
+ * Cheap local screen before any network call. Supabase access tokens are
+ * always three-part JWTs with an `exp`; anything else, or one that expired
+ * more than a minute ago, cannot verify, so Supabase is never asked. This
+ * reads the claims without checking the signature, so it can only say no.
+ */
+function plausibleToken(token: string, now: number): boolean {
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/.test(token)) return false;
+  const exp = jwtExpMs(token);
+  return exp > 0 && exp + EXP_SKEW_MS > now;
+}
+
+export type VerifiedToken = { userId: string; expMs: number };
+
+/**
+ * Supabase user id and token expiry for a valid access token, else null.
+ * Tokens Supabase rejected are remembered for a minute (see `rejected`).
+ */
+export async function verifyAccessTokenDetailed(token: unknown): Promise<VerifiedToken | null> {
   const cfg = config();
   if (!cfg || typeof token !== "string" || !token || token.length > 8192) return null;
 
   const now = Date.now();
   const hit = verified.get(token);
-  if (hit && hit.expiresAtMs > now) return hit.userId;
+  if (hit && hit.expiresAtMs > now) return { userId: hit.userId, expMs: hit.tokenExpMs };
   if (hit) verified.delete(token);
+
+  if (!plausibleToken(token, now)) return null;
+  const key = tokenKey(token);
+  if (recentlyRejected(key, now)) return null;
 
   // One retry on a network error or a 5xx: a cold start or a blip at Supabase
   // must not leave a signed-in player stuck on "Sign in to play". A 4xx means
-  // the token itself is bad, so that is final.
+  // the token itself is bad, so that is final (and cached for a minute).
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await fetch(`${cfg.url}/auth/v1/user`, {
@@ -156,18 +220,26 @@ export async function verifyAccessToken(token: unknown): Promise<string | null> 
         signal: AbortSignal.timeout(6000),
       });
       if (res.status >= 500) continue;
-      if (!res.ok) return null;
+      if (!res.ok) {
+        if (res.status >= 400) rememberRejected(key, Date.now());
+        return null;
+      }
       const user = (await res.json()) as { id?: unknown };
       if (typeof user.id !== "string" || !user.id) return null;
-      const exp = jwtExpMs(token) || now + CACHE_MS;
-      if (verified.size > 5000) verified.clear();
-      verified.set(token, { userId: user.id, expiresAtMs: Math.min(exp, now + CACHE_MS) });
-      return user.id;
+      const exp = jwtExpMs(token);
+      if (verified.size > VERIFIED_MAX) verified.clear();
+      verified.set(token, { userId: user.id, expiresAtMs: Math.min(exp, now + CACHE_MS), tokenExpMs: exp });
+      return { userId: user.id, expMs: exp };
     } catch {
       // network error or timeout: retry once
     }
   }
   return null;
+}
+
+/** Supabase user id for a valid access token, else null. */
+export async function verifyAccessToken(token: unknown): Promise<string | null> {
+  return (await verifyAccessTokenDetailed(token))?.userId ?? null;
 }
 
 /**
