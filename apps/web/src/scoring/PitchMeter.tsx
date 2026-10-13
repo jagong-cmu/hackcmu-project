@@ -6,9 +6,9 @@ import { melodyHzAt } from "./scoreClip.ts";
 import {
   TRAIL_SEC,
   createPitchSmoothState,
+  noteName,
   segmentMelody,
   smoothLivePitch,
-  windowedMelodyRange,
   type NoteRun,
 } from "./pitchGuide.ts";
 
@@ -22,10 +22,28 @@ type Props = {
 
 const LOOKAHEAD_SEC = 2.0;
 const LOOKBEHIND_SEC = TRAIL_SEC;
-/** Vertical camera follows a shorter window so upcoming leaps don't squash live travel. */
-const VIEW_BEHIND_SEC = 0.45;
-const VIEW_AHEAD_SEC = 0.85;
+/**
+ * Fixed vertical range, C2–C6 (MIDI 36–84): bass to soprano. Y is linear in
+ * MIDI, so every semitone gets the same height. Pitches outside pin to an edge.
+ */
+const VIEW_MIN_MIDI = 36;
+const VIEW_MAX_MIDI = 84;
 const RAIL = 78;
+/**
+ * Add ?pitchdebug to the URL for a Hz / note / clarity / RMS readout, and a
+ * per-frame log of the last ~20 s in the console as `pitchLog`
+ * (e.g. `console.table(pitchLog.filter((f) => f.reject))`).
+ */
+const DEBUG = new URLSearchParams(window.location.search).has("pitchdebug");
+type FrameLog = {
+  hz: number | null;
+  clarity: number;
+  rms: number;
+  reject: string | null;
+  shown: number | null;
+};
+const pitchLog: FrameLog[] = [];
+if (DEBUG) (window as unknown as { pitchLog: FrameLog[] }).pitchLog = pitchLog;
 
 export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,14 +51,11 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
   const propsRef = useRef({ melody, playheadSec, liveHz, liveClarity, liveRms });
   const runsRef = useRef<NoteRun[]>([]);
   const smoothRef = useRef(createPitchSmoothState());
-  const viewRef = useRef({ min: 52, max: 62 });
   propsRef.current = { melody, playheadSec, liveHz, liveClarity, liveRms };
 
   useEffect(() => {
     runsRef.current = melody ? segmentMelody(melody) : [];
     smoothRef.current = createPitchSmoothState();
-    const r = windowedMelodyRange(runsRef.current, 0, VIEW_BEHIND_SEC, VIEW_AHEAD_SEC);
-    viewRef.current = { min: r.min, max: r.max };
   }, [melody]);
 
   useEffect(() => {
@@ -52,7 +67,7 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
 
     let raf = 0;
     const draw = () => {
-      paint(canvas, ctx, wrap, propsRef.current, runsRef.current, smoothRef.current, viewRef.current);
+      paint(canvas, ctx, wrap, propsRef.current, runsRef.current, smoothRef.current);
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -78,7 +93,6 @@ function paint(
   props: Props,
   runs: NoteRun[],
   smooth: ReturnType<typeof createPitchSmoothState>,
-  viewRef: { min: number; max: number },
 ) {
   const cssW = Math.max(1, wrap.clientWidth);
   const cssH = Math.max(1, wrap.clientHeight);
@@ -99,23 +113,20 @@ function paint(
   ctx.fillRect(0, 0, w, h);
 
   const tNow = props.playheadSec;
-  // Zoom onto notes in frame so live pitch travel fills the staff. Edges ease
-  // so a sudden leap does not jump the camera.
-  const tune = windowedMelodyRange(runs, tNow, VIEW_BEHIND_SEC, VIEW_AHEAD_SEC, smooth.midi);
-  const view = viewRef;
-  view.min += (tune.min - view.min) * 0.14;
-  view.max += (tune.max - view.max) * 0.14;
-  const min = view.min;
-  const max = view.max;
-  const span = Math.max(1, max - min);
+  const min = VIEW_MIN_MIDI;
+  const max = VIEW_MAX_MIDI;
+  const span = max - min;
   const yPad = Math.max(8, Math.min(14, h * 0.09));
+  const stPx = (h - 2 * yPad) / span;
   const yOf = (midi: number) => {
     const t = (midi - min) / span;
     const y = h - yPad - t * (h - 2 * yPad);
     return Math.min(h - 4, Math.max(4, y));
   };
-  const laneH = Math.max(18, Math.min(h * 0.28, ((h - 48) / span) * 0.78));
-  const voiceW = Math.max(14, Math.round(h * 0.065));
+  // Lanes and the voice line are sized in semitones so a line one semitone
+  // off the note is visibly off it.
+  const laneH = Math.max(4, stPx);
+  const voiceW = Math.max(4, Math.min(Math.round(h * 0.065), Math.round(stPx * 1.5)));
   const headR = Math.max(10, Math.round(h * 0.045));
 
   const windowSec = LOOKAHEAD_SEC + LOOKBEHIND_SEC;
@@ -127,7 +138,9 @@ function paint(
   ctx.fillStyle = pal.ink(0.04);
   ctx.fillRect(0, 0, RAIL, h);
 
-  for (let m = Math.ceil(min); m <= Math.floor(max); m++) {
+  for (let m = min; m <= max; m++) {
+    // Octave lines always; semitone lines only when they would not smear into a fill.
+    if (m % 12 !== 0 && stPx < 6) continue;
     const y = yOf(m);
     ctx.strokeStyle = m % 12 === 0 ? pal.ink(0.16) : pal.ink(0.06);
     ctx.lineWidth = 1;
@@ -167,9 +180,6 @@ function paint(
     clarity: props.liveClarity,
     rms: props.liveRms ?? 0,
     targetMidi,
-    restMidi: (min + max) / 2,
-    minMidi: min,
-    maxMidi: max,
     playheadSec: tNow,
     nowMs: performance.now(),
   });
@@ -177,33 +187,46 @@ function paint(
   // The head marker rides the smoothed curve so the two cannot disagree.
   let headY: number | null = null;
 
-  if (smooth.trail.length > 1) {
+  // Silence breaks the line instead of holding a stale note.
+  type TrailPoint = { t: number; midi: number; inTune: boolean };
+  const segments: TrailPoint[][] = [];
+  let open: TrailPoint[] | null = null;
+  for (const p of smooth.trail) {
+    if (p.midi == null) {
+      open = null;
+      continue;
+    }
+    if (!open) segments.push((open = []));
+    open.push({ t: p.t, midi: p.midi, inTune: p.inTune });
+  }
+
+  for (const trail of segments) {
+    if (trail.length < 2) continue;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    const voiceHue = pitchColor(Math.round(live.midi), 0.95);
-    ctx.shadowColor = pitchColor(Math.round(live.midi), 0.7);
+    const hue = Math.round(trail[trail.length - 1]!.midi);
+    const voiceHue = pitchColor(hue, 0.95);
+    ctx.shadowColor = pitchColor(hue, 0.7);
     ctx.shadowBlur = 26;
     // Rolling average over the trail, then a quadratic through the midpoints.
     // Straight segments between per-frame samples read as a jagged sawtooth
     // even when the pitch itself is steady.
-    const n = smooth.trail.length;
+    const n = trail.length;
     const avg = new Array<number>(n);
     for (let i = 0; i < n; i++) {
       let sum = 0;
       let count = 0;
       for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) {
-        const q = smooth.trail[j];
-        if (!q) continue;
-        sum += q.midi;
+        sum += trail[j]!.midi;
         count++;
       }
-      avg[i] = count ? sum / count : (smooth.trail[i]?.midi ?? 0);
+      avg[i] = sum / count;
     }
-    if (n > 0) headY = yOf(avg[n - 1]!);
+    if (live.midi != null && trail === open) headY = yOf(avg[n - 1]!);
 
     const pts: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < n; i++) {
-      const p = smooth.trail[i];
+      const p = trail[i];
       if (!p) continue;
       const x = xOf(p.t);
       const prev = pts[pts.length - 1];
@@ -232,7 +255,7 @@ function paint(
     // Dots sit on the smoothed curve, not the raw samples, or they read as
     // speckle scattered either side of the line.
     for (let i = 0; i < n; i += 4) {
-      const p = smooth.trail[i];
+      const p = trail[i];
       if (!p) continue;
       const age = (tNow - p.t) / LOOKBEHIND_SEC;
       const alpha = Math.max(0, 1 - age);
@@ -254,29 +277,30 @@ function paint(
   ctx.lineTo(nowX, h - 8);
   ctx.stroke();
 
-  const y = headY ?? yOf(live.midi);
-  const pillH = Math.max(28, Math.round(laneH * 0.85));
-  ctx.save();
-  ctx.globalAlpha = live.tracking ? 1 : 0.72;
-  const headHue = pitchColor(Math.round(live.midi), 1);
-  ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.35);
-  ctx.shadowBlur = live.inTune ? 22 : live.tracking ? 8 : 4;
-  ctx.fillStyle = live.inTune ? headHue : pal.fg;
-  roundRect(ctx, 8, y - pillH / 2, RAIL - 16, pillH, 6);
-  ctx.fill();
-  ctx.restore();
+  if (live.midi != null) {
+    const y = headY ?? yOf(live.midi);
+    const pillH = Math.max(28, Math.round(laneH * 0.85));
+    ctx.save();
+    const headHue = pitchColor(Math.round(live.midi), 1);
+    ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.35);
+    ctx.shadowBlur = live.inTune ? 22 : 8;
+    ctx.fillStyle = live.inTune ? headHue : pal.fg;
+    roundRect(ctx, 8, y - pillH / 2, RAIL - 16, pillH, 6);
+    ctx.fill();
+    ctx.restore();
 
-  ctx.fillStyle = live.inTune ? headHue : pal.ink(0.8);
-  ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
+    ctx.fillStyle = live.inTune ? headHue : pal.ink(0.8);
+    ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
 
-  ctx.save();
-  ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.45);
-  ctx.shadowBlur = live.inTune ? 22 : 10;
-  ctx.fillStyle = live.inTune ? headHue : pal.fg;
-  ctx.beginPath();
-  ctx.arc(nowX, y, headR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+    ctx.save();
+    ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.45);
+    ctx.shadowBlur = live.inTune ? 22 : 10;
+    ctx.fillStyle = live.inTune ? headHue : pal.fg;
+    ctx.beginPath();
+    ctx.arc(nowX, y, headR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   ctx.fillStyle = pal.ink(0.5);
   ctx.font = "12px Outfit, sans-serif";
@@ -288,6 +312,35 @@ function paint(
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
   ctx.fillText("coming up →", w - 12, 8);
+
+  if (DEBUG) {
+    const hz = props.liveHz;
+    const m = hz != null && hz > 0 ? midiFromHz(hz) : null;
+    const cents = m == null ? 0 : Math.round((m - Math.round(m)) * 100);
+    const lines = [
+      `hz ${m == null ? "—" : hz!.toFixed(1)}  midi ${m?.toFixed(2) ?? "—"}`,
+      `note ${m == null ? "—" : `${noteName(m)} ${cents >= 0 ? "+" : ""}${cents}¢`}`,
+      `clarity ${props.liveClarity.toFixed(2)}  rms ${(props.liveRms ?? 0).toFixed(4)}`,
+      `frame ${live.reject ?? "accepted"}  shown ${live.midi == null ? "hidden" : live.midi.toFixed(2)}`,
+    ];
+    pitchLog.push({
+      hz,
+      clarity: +props.liveClarity.toFixed(3),
+      rms: +(props.liveRms ?? 0).toFixed(4),
+      reject: live.reject,
+      shown: live.midi == null ? null : +live.midi.toFixed(2),
+    });
+    if (pitchLog.length > 1200) pitchLog.shift();
+    ctx.font = "11px ui-monospace, monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = pal.bg;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(fieldX + 4, 4, 240, lines.length * 13 + 6);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pal.fg;
+    lines.forEach((line, i) => ctx.fillText(line, fieldX + 8, 7 + i * 13));
+  }
 }
 
 function roundRect(

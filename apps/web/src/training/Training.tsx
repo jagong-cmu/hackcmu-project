@@ -18,7 +18,7 @@ import {
   PITCH_FFT,
 } from "../scoring/cancelPlayback.ts";
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
-import { rmsOf } from "../scoring/pitchGuide.ts";
+import { pitchAnalyser, rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { PageShell } from "../theme/PageShell.tsx";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
@@ -215,10 +215,7 @@ export function Training() {
     const ctx = new AudioContext();
     await ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = PITCH_FFT;
-    analyser.smoothingTimeConstant = 0;
-    src.connect(analyser);
+    const analyser = pitchAnalyser(ctx, src, PITCH_FFT);
     const buf = new Float32Array(PITCH_FFT);
     const refBuf = new Float32Array(PITCH_FFT);
     const clean = new Float32Array(PITCH_FFT);
@@ -274,8 +271,12 @@ export function Training() {
           hz: forScore ? hz : null,
           clarity,
         });
-        setLiveHz(useCrepe || (Number.isFinite(yinHz) && yinHz > 0) ? hz : null);
-        setLiveClarity(clarity);
+        // The live guide always reads pitchy, like the stage does. Hopping
+        // between CREPE and pitchy on a confidence that falls with volume let
+        // loudness pick which detector drew the line, and CREPE's confidence
+        // is not on pitchy's clarity scale for the guide's gate.
+        setLiveHz(Number.isFinite(yinHz) && yinHz > 0 ? yinHz : null);
+        setLiveClarity(yinClarity);
         setLiveRms(rms);
       }
       if (melody && t - lastLiveScore >= 0.12) {

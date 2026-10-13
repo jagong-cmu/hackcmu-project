@@ -54,48 +54,93 @@ export function wrapMidi(sung: number, around: number): number {
 }
 
 export type PitchSmoothState = {
+  /** Smoothed display pitch. null = nothing pitched, indicator hidden. */
   midi: number | null;
   rawMidi: number | null;
-  octaveShift: number;
-  pendingShift: number;
-  pendingCount: number;
-  lastTs: number;
+  lastPitchedMs: number;
+  /** A big jump waiting to prove it is real, and how many frames it has held. */
+  jumpMidi: number | null;
+  jumpCount: number;
   buf: number[];
-  trail: Array<{ t: number; midi: number; inTune: boolean }>;
+  trail: Array<{ t: number; midi: number | null; inTune: boolean }>;
 };
 
 export function createPitchSmoothState(): PitchSmoothState {
   return {
     midi: null,
     rawMidi: null,
-    octaveShift: 0,
-    pendingShift: 0,
-    pendingCount: 0,
-    lastTs: 0,
+    lastPitchedMs: 0,
+    jumpMidi: null,
+    jumpCount: 0,
     buf: [],
     trail: [],
   };
 }
 
-// A bass singing two octaves under the tune is still singing it correctly, so
-// the indicator is drawn folded into the melody's octave. Scoring already
-// compares octave-independently via wrapMidi. The fold only changes after it
-// has been wanted for SHIFT_HOLD consecutive frames, so the indicator cannot
-// flicker between octaves at a boundary.
-const SHIFT_HOLD = 12;
+// Outside this the reading is noise, not a voice. The floor matters: with
+// mains hum in the window pitchy locks onto voice+hum common periods (20-55
+// Hz), and anything let through below C2 pinned the indicator to the floor.
+// 63, not 60: bare 60 Hz mains hum reads as a clean 60.0 Hz pitch. C2 (65.4)
+// still clears it.
+const MIN_HZ = 63;
+const MAX_HZ = 1200;
+// Pitchy (McLeod) clarity. Under this the frame is mostly noise or breath, and
+// those frames are where the octave errors and wander come from -- which is
+// why quiet or far-from-the-mic singing used to read differently.
+export const MIN_CLARITY = 0.9;
+// Laptop and headset mics roll off the fundamental of a low voice, so clarity
+// runs lower down there for a perfectly good note.
+export const MIN_CLARITY_LOW = 0.8;
+const LOW_HZ = 150;
+// Noise gate. Only decides whether the indicator is shown; loudness never
+// touches the pitch value itself. Kept low: the same mic roll-off leaves a
+// quiet low note with a fraction of the energy of a quiet high one.
+export const MIN_RMS = 0.005;
+// Ride over a consonant or one missed frame before hiding the indicator.
+const HOLD_MS = 150;
+/**
+ * High-pass in front of the pitch analyser: strips DC offset (which zeroes
+ * pitchy's clarity), handling rumble and most mains hum. Below C2 (65 Hz), so
+ * no sung note is lost.
+ */
+export const PITCH_HIGHPASS_HZ = 70;
 
-const MIN_HZ = 55;
-const MAX_HZ = 1400;
-const MIN_RMS = 0.012;
-const BLEED_RMS = 0.009;
+/**
+ * mic -> high-pass x2 -> analyser, for pitch tracking. Two stages (24 dB/oct):
+ * one still left enough 60 Hz hum to lock pitchy onto voice+hum common periods
+ * on low notes.
+ */
+export function pitchAnalyser(ctx: AudioContext, src: AudioNode, fftSize: number): AnalyserNode {
+  const highpass = () => {
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = PITCH_HIGHPASS_HZ;
+    return hp;
+  };
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = fftSize;
+  analyser.smoothingTimeConstant = 0;
+  src.connect(highpass()).connect(highpass()).connect(analyser);
+  return analyser;
+}
+
+export type PitchReject = "no pitch" | "range" | "clarity" | "rms" | "jump";
+
+/** Why a frame would not be drawn, or null if it is a usable pitch. */
+export function rejectFrame(hz: number | null, clarity: number, rms: number): PitchReject | null {
+  if (hz == null || !Number.isFinite(hz) || hz <= 0) return "no pitch";
+  if (hz < MIN_HZ || hz > MAX_HZ) return "range";
+  if (clarity < (hz < LOW_HZ ? MIN_CLARITY_LOW : MIN_CLARITY)) return "clarity";
+  if (rms < MIN_RMS) return "rms";
+  return null;
+}
 const MEDIAN_N = 5;
-const EMA = 0.36;
-const MAX_ST_PER_SEC = 34;
-// Absolute singable bounds. The live indicator must never be clamped to the
-// melody's range: doing that makes singing above the tune look identical to
-// singing exactly at the top of it.
-const SING_MIN_MIDI = 36;
-const SING_MAX_MIDI = 96;
+const EMA = 0.5;
+// A move this big between frames is suspect: pitch detectors slip by an octave
+// (or a fifth) for a frame or two. It must persist JUMP_CONFIRM frames to be
+// believed, so real leaps still land, ~50ms late.
+const JUMP_ST = 7;
+const JUMP_CONFIRM = 3;
 const ATTRACT_CENTS = 40;
 const TRAIL_SEC = 1.35;
 
@@ -118,39 +163,12 @@ function median(values: number[]): number {
   return ((b ?? a) + a) / 2;
 }
 
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, n));
-}
-
-/**
- * Correct a detector octave error, in either direction.
- *
- * Only fires when the reading is within OCTAVE_TOL of an exact octave away
- * from where we were AND that reading is a big jump. A genuine slide is
- * continuous and never lands on 12.00 semitones, so this leaves real singing
- * alone. An earlier version shifted up unconditionally whenever +12 landed
- * nearer the previous note, which turned every genuine downward interval into
- * a jump up and ratcheted the display to the ceiling.
- */
-const OCTAVE_TOL = 0.45;
-const OCTAVE_MIN_JUMP = 7;
-
-function fixOctave(raw: number, previous: number): number {
-  const delta = raw - previous;
-  if (Math.abs(delta) < OCTAVE_MIN_JUMP) return raw;
-  for (const shift of [12, -12, 24, -24]) {
-    if (Math.abs(delta + shift) <= OCTAVE_TOL) return raw + shift;
-  }
-  return raw;
-}
-
 /**
  * Display-only smoother. Scoring still uses raw frames.
  *
- * Direction is always true: higher Hz moves up the staff. The returned `midi`
- * is folded into the melody's octave so a low voice singing the tune correctly
- * two octaves down still reads as on the line; `rawMidi` carries the pitch
- * actually sung, for labelling.
+ * Returns the pitch actually sung, in fractional MIDI, never folded or
+ * clamped, so the meter can map it straight onto a fixed range. `inTune` is
+ * octave-independent: a bass singing the tune an octave down still lights up.
  */
 export function smoothLivePitch(
   state: PitchSmoothState,
@@ -159,71 +177,57 @@ export function smoothLivePitch(
     clarity: number;
     rms: number;
     targetMidi: number | null;
-    restMidi: number;
-    minMidi: number;
-    maxMidi: number;
     playheadSec: number;
     nowMs: number;
   },
-): { midi: number; rawMidi: number | null; inTune: boolean; tracking: boolean } {
-  const dt = state.lastTs ? Math.min(0.08, (input.nowMs - state.lastTs) / 1000) : 1 / 60;
-  state.lastTs = input.nowMs;
-  if (state.midi == null) state.midi = input.restMidi;
+): {
+  midi: number | null;
+  rawMidi: number | null;
+  inTune: boolean;
+  tracking: boolean;
+  reject: PitchReject | null;
+} {
+  // Rejected frames never reach midiFromHz or the smoother: they only let the
+  // hold run out.
+  let reject = rejectFrame(input.hz, input.clarity, input.rms);
 
-  const pitched =
-    input.hz != null &&
-    Number.isFinite(input.hz) &&
-    input.clarity >= 0.35 &&
-    input.hz >= MIN_HZ &&
-    input.hz <= MAX_HZ &&
-    input.rms >= MIN_RMS;
-
-  let tracking = false;
-  if (pitched && input.hz != null) {
-    let raw = midiFromHz(input.hz);
-    raw = fixOctave(raw, state.midi);
-
-    const looksLikeBleed =
-      input.rms < BLEED_RMS &&
-      input.targetMidi != null &&
-      Math.abs(wrapMidi(raw, input.targetMidi) - input.targetMidi) < 0.3;
-    if (!looksLikeBleed) {
-      tracking = true;
-      state.rawMidi = raw;
-
-      // Fold into the melody's octave, with hysteresis so it cannot flicker.
-      const anchor = input.targetMidi ?? input.restMidi;
-      const want = 12 * Math.round((anchor - raw) / 12);
-      if (want === state.octaveShift) {
-        state.pendingCount = 0;
-      } else if (want === state.pendingShift) {
-        if (++state.pendingCount >= SHIFT_HOLD) {
-          state.octaveShift = want;
-          state.pendingCount = 0;
-          state.buf = [];
-          if (state.midi != null) state.midi = raw + want;
-        }
-      } else {
-        state.pendingShift = want;
-        state.pendingCount = 1;
+  if (reject == null && input.hz != null) {
+    const raw = midiFromHz(input.hz);
+    state.rawMidi = raw;
+    if (state.midi != null && Math.abs(raw - state.midi) >= JUMP_ST) {
+      reject = "jump";
+      if (state.jumpMidi != null && Math.abs(raw - state.jumpMidi) < 1) state.jumpCount++;
+      else {
+        state.jumpMidi = raw;
+        state.jumpCount = 1;
       }
-
-      const folded = raw + state.octaveShift;
-      state.buf.push(folded);
+      if (state.jumpCount >= JUMP_CONFIRM) {
+        reject = null;
+        state.midi = raw;
+        state.buf = [raw];
+        state.jumpMidi = null;
+        state.lastPitchedMs = input.nowMs;
+      }
+    } else {
+      state.jumpMidi = null;
+      state.buf.push(raw);
       if (state.buf.length > MEDIAN_N) state.buf.shift();
-      let next = median(state.buf);
-      next = state.midi + (next - state.midi) * EMA;
-      const maxStep = MAX_ST_PER_SEC * dt;
-      const delta = next - state.midi;
-      if (Math.abs(delta) > maxStep) next = state.midi + Math.sign(delta) * maxStep;
-      state.midi = clamp(next, SING_MIN_MIDI, SING_MAX_MIDI);
+      const m = median(state.buf);
+      state.midi = state.midi == null ? m : state.midi + (m - state.midi) * EMA;
+      state.lastPitchedMs = input.nowMs;
     }
-  } else {
+  }
+
+  const tracking = state.midi != null && input.nowMs - state.lastPitchedMs <= HOLD_MS;
+  if (!tracking) {
+    state.midi = null;
     state.buf = [];
+    state.jumpMidi = null;
   }
 
   const inTune =
     tracking &&
+    state.midi != null &&
     input.targetMidi != null &&
     Math.abs(wrapMidi(state.midi, input.targetMidi) - input.targetMidi) * 100 < ATTRACT_CENTS;
 
@@ -232,7 +236,7 @@ export function smoothLivePitch(
   while (state.trail.length && (state.trail[0]?.t ?? 0) < oldest) state.trail.shift();
   if (state.trail.length > 90) state.trail.splice(0, state.trail.length - 90);
 
-  return { midi: state.midi, rawMidi: state.rawMidi, inTune, tracking };
+  return { midi: state.midi, rawMidi: state.rawMidi, inTune, tracking, reject };
 }
 
 export { TRAIL_SEC };
@@ -251,47 +255,6 @@ export function melodyRange(runs: NoteRun[]): { min: number; max: number } {
     const mid = (min + max) / 2;
     min = mid - 4;
     max = mid + 4;
-  }
-  return { min, max };
-}
-
-/**
- * Camera-follow zoom: a tight window around the note being sung (and the next
- * one as it approaches), so live pitch wobble fills the staff. Fitting the
- * whole song — or even every note in the 2s lookahead — left ~20–35st on
- * screen and the live bar barely moved.
- */
-export function windowedMelodyRange(
-  runs: NoteRun[],
-  tNow: number,
-  lookbehind: number,
-  lookahead: number,
-  liveMidi?: number | null,
-): { min: number; max: number } {
-  const visible = runs.filter(
-    (run) => run.endSec >= tNow - lookbehind && run.startSec <= tNow + lookahead,
-  );
-  const sounding = visible.find((run) => run.startSec <= tNow && run.endSec >= tNow);
-  const upcoming = visible
-    .filter((run) => run.startSec > tNow)
-    .sort((a, b) => a.startSec - b.startSec)[0];
-
-  let center: number;
-  if (sounding && upcoming) {
-    const dt = upcoming.startSec - tNow;
-    const blend = dt < 0.4 ? 1 - dt / 0.4 : 0;
-    center = sounding.midi + (upcoming.midi - sounding.midi) * blend;
-  } else {
-    const live = liveMidi != null && Number.isFinite(liveMidi) ? liveMidi : 57;
-    center = sounding?.midi ?? upcoming?.midi ?? live;
-  }
-
-  const half = 2.55;
-  let min = center - half;
-  let max = center + half;
-  if (liveMidi != null && Number.isFinite(liveMidi)) {
-    min = Math.min(min, liveMidi - 1.25);
-    max = Math.max(max, liveMidi + 1.25);
   }
   return { min, max };
 }
