@@ -6,7 +6,7 @@
  * Attach once per track. Re-attaching on every parent render (speaker ticks,
  * lyric cues, timers) blacks out the video and tears down remote audio.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Track, type Participant, type TrackPublication } from "livekit-client";
 import { boostRemoteAudioTrack } from "./levels.ts";
 
@@ -53,12 +53,15 @@ function Tile({
   isLocal,
   waiting = false,
   cue = null,
+  menu = null,
 }: {
   participant: Participant;
   singing: boolean;
   isLocal: boolean;
   waiting?: boolean;
   cue?: "you" | "them" | "together" | "wait" | null;
+  /** Safety controls ("…") for a remote tile. */
+  menu?: ReactNode;
 }) {
   const videoRef = useAttachedMedia<HTMLVideoElement>(participant, Track.Source.Camera);
   const cameraPub = publicationOf(participant, Track.Source.Camera);
@@ -79,6 +82,7 @@ function Tile({
         {participant.name || participant.identity}
         {isLocal ? " (you)" : ""}
       </div>
+      {menu}
     </div>
   );
 }
@@ -103,6 +107,7 @@ export function CameraPane({
   emptyLabel,
   waiting = false,
   cue = null,
+  menu = null,
 }: {
   participant: Participant | undefined;
   singing: boolean;
@@ -110,6 +115,11 @@ export function CameraPane({
   emptyLabel: string;
   waiting?: boolean;
   cue?: "you" | "them" | "together" | "wait" | null;
+  /**
+   * Safety controls. Rendered on the pane, not the tile, so the menu stays
+   * mounted when blocking swaps the camera for an empty tile.
+   */
+  menu?: ReactNode;
 }) {
   return (
     <div className="stage-cam">
@@ -127,6 +137,7 @@ export function CameraPane({
       ) : (
         <EmptyTile label={emptyLabel} />
       )}
+      {menu}
     </div>
   );
 }
@@ -136,11 +147,14 @@ export default function VideoGrid({
   activeIdentity,
   localIdentity,
   compact = false,
+  renderMenu,
 }: {
   participants: Participant[];
   activeIdentity: string | null;
   localIdentity: string | null;
   compact?: boolean;
+  /** Safety controls for each remote tile. */
+  renderMenu?: (participant: Participant) => ReactNode;
 }) {
   if (participants.length === 0) {
     return (
@@ -160,6 +174,7 @@ export default function VideoGrid({
               participant={participant}
               singing={participant.identity === activeIdentity}
               isLocal={isLocal}
+              menu={!isLocal && renderMenu ? renderMenu(participant) : null}
             />
             {!isLocal && <RemoteAudio participant={participant} />}
           </div>

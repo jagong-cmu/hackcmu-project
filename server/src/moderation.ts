@@ -1,7 +1,7 @@
 /**
  * Room safety: report, block, remove (issue #9).
  *
- * Rules (documented in PRD §6.6):
+ * Rules (documented in PRD §6.5):
  * - Report: anyone, about anyone seated in their room. Short reason + optional
  *   note. Stored in Mongo `reports` and always logged. ReportLimit per
  *   ReportWindowMs per reporter; repeat reports of the same person in the same
@@ -34,6 +34,7 @@ import {
   ReportWindowMs,
   RoomBanMs,
   ServerEvents,
+  votesToRemove,
   type Mode,
   type ReportReason,
   type SafetyAck,
@@ -339,9 +340,7 @@ const isOneOnOne = (room: Room) => room.mode !== "chaos";
 // ---------------------------------------------------------------------------
 
 /** Votes to remove someone from Chaos: strict majority of the others, min 2. */
-export function votesNeeded(othersLive: number): number {
-  return Math.max(2, Math.floor(othersLive / 2) + 1);
-}
+export const votesNeeded = votesToRemove;
 
 export type KickDecision =
   | { kind: "kick" }

@@ -62,6 +62,14 @@ export const ReportLimit = 5;
 export const ReportWindowMs = 10 * 60_000;
 /** Per player: at most BlockLimit blocks per ReportWindowMs. */
 export const BlockLimit = 20;
+/**
+ * Chaos vote-kick: votes needed to remove someone, given how many *other*
+ * people are live in the room. A strict majority, never fewer than 2, so one
+ * person can never remove another alone.
+ */
+export function votesToRemove(othersLive: number): number {
+  return Math.max(2, Math.floor(othersLive / 2) + 1);
+}
 /** A room ban lasts as long as a LiveKit token, so a 4-digit code can be reused later. */
 export const RoomBanMs = 2 * 60 * 60_000;
 
