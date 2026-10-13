@@ -7,9 +7,10 @@
  * publishable key. That works for both legacy HS256 projects and the newer
  * asymmetric signing keys, and needs no secret on this box.
  *
- * Enforcement is on whenever SUPABASE_URL + SUPABASE_ANON_KEY (or the VITE_
- * twins the web build uses) are visible here. Set REQUIRE_SUPABASE_AUTH=0 to
- * fall back to the old trust-the-client behaviour (local hacking only).
+ * Enforcement is on only when AUTH_REQUIRED=1 (or the VITE_AUTH_REQUIRED twin
+ * the web build uses) and SUPABASE_URL + SUPABASE_ANON_KEY (or their VITE_
+ * twins) are visible here. Otherwise the server keeps the old
+ * trust-the-client guest behaviour.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -61,7 +62,8 @@ function config(): { url: string; key: string } | null {
 
 /** True when the server can verify tokens and will require them to play. */
 export function authRequired(): boolean {
-  if (process.env.REQUIRE_SUPABASE_AUTH?.trim() === "0") return false;
+  const flag = (process.env.AUTH_REQUIRED ?? process.env.VITE_AUTH_REQUIRED)?.trim();
+  if (flag !== "1") return false;
   return config() !== null;
 }
 

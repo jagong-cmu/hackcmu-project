@@ -2,22 +2,24 @@
  * Supabase Auth client (Google sign-in). Only the public URL + anon /
  * publishable key ever reach the bundle — never the service role key.
  *
- * Unset VITE_SUPABASE_* means "accounts off": the app falls back to the
- * old guest flow so local hacking without a project still works.
+ * Accounts are off unless VITE_AUTH_REQUIRED=1 and VITE_SUPABASE_* are set:
+ * the app falls back to the old guest flow, so the build can ship before the
+ * Supabase project and Google provider are ready.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const required = import.meta.env.VITE_AUTH_REQUIRED?.trim() === "1";
 
 let client: SupabaseClient | null = null;
 
 export function authConfigured(): boolean {
-  return Boolean(url && key);
+  return Boolean(required && url && key);
 }
 
 export function getSupabase(): SupabaseClient | null {
-  if (!url || !key) return null;
+  if (!required || !url || !key) return null;
   if (!client) {
     client = createClient(url, key, {
       auth: {
