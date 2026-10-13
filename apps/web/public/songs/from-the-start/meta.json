@@ -4,6 +4,8 @@
   "artist": "Laufey",
   "clipStartSec": 51.2,
   "clipDurationSec": 20,
+  "firstLyricSec": 4.59,
+  "chorusSec": 51.2,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 179.4,
   "chaosDurationSec": 60

@@ -1,48 +1,28 @@
-import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bloom } from "../theme/Bloom.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { ModeButton } from "./ModeButton.tsx";
-import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
-import { useRoom } from "../rooms/RoomProvider.tsx";
-import { capture, identifyPlayer } from "../analytics/posthog.ts";
+import { capture } from "../analytics/posthog.ts";
 import { useAuth } from "../auth/AuthProvider.tsx";
+import { LegalLinks } from "../legal/LegalLinks.tsx";
 
-
+/**
+ * Landing page. There is no guest name entry: playing needs a Google account,
+ * and the display name comes from it (editable in Settings).
+ */
 export function Home() {
   const navigate = useNavigate();
-  const { hello } = useRoom();
-  const [name, setName] = useState(getDisplayName());
-  const [msg, setMsg] = useState("");
-  const named = validName(name);
-  const { configured, user } = useAuth();
-  // With accounts on, the name comes from Google once you sign in.
-  const signedOut = configured && !user;
+  const { mode, user } = useAuth();
+  const signedOut = mode === "accounts" && !user;
 
-  useEffect(() => {
-    if (user) setName(getDisplayName());
-  }, [user]);
-
-  async function saveName(): Promise<string | null> {
-    if (!validName(name)) {
-      setMsg("Name needs 2–16 characters.");
-      return null;
-    }
-    const saved = await commitDisplayName(name);
-    hello(saved);
-    identifyPlayer();
-    return saved;
-  }
-
-  async function play(e?: FormEvent) {
-    e?.preventDefault();
+  function play() {
     if (signedOut) {
       capture("play pressed", { signedIn: false });
       navigate("/signin?next=%2Fplay");
       return;
     }
-    if (!(await saveName())) return;
     capture("play pressed", {});
+    // /play is behind RequireAuth: with no account config it explains why play is off.
     navigate("/play");
   }
 
@@ -66,34 +46,26 @@ export function Home() {
         </div>
         <p className="home-pitch">1v1 karaoke. Same chorus. They watch you.</p>
 
-        <form className="home-go" onSubmit={(e) => void play(e)}>
-          {signedOut ? null : <label className="home-name">
-            <span>Your name</span>
-            <input
-              value={name}
-              maxLength={16}
-              autoComplete="nickname"
-              autoFocus={!named}
-              placeholder="2–16 characters"
-              aria-invalid={msg ? true : undefined}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (msg) setMsg("");
-              }}
-            />
-          </label>}
-          {msg ? <p className="err home-name-err">{msg}</p> : null}
-
+        <div className="home-go">
           <div className="modes home-play">
             <ModeButton
               label="Play"
-              hint={signedOut ? "sign in with Google" : "pick a mode"}
-              onSelect={() => void play()}
+              hint={
+                signedOut
+                  ? "sign in with Google"
+                  : mode === "unconfigured"
+                    ? "accounts aren't configured"
+                    : "pick a mode"
+              }
+              onSelect={play}
             />
           </div>
-        </form>
-
+        </div>
       </div>
+
+      <footer className="home-legal">
+        <LegalLinks />
+      </footer>
     </main>
   );
 }

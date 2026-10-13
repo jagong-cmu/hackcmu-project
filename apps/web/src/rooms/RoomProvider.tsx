@@ -18,20 +18,26 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   ClientEvents,
   ServerEvents,
+  type ClipAnchor,
   type Mode,
   type PlayerPublic,
   type RoomState,
   type RoomStatus,
   type ScoreCard,
 } from "@karaoke/shared";
-import { getClientId, getDisplayName, setDisplayName, socket } from "./socket.ts";
+import { getDisplayName, helloPayload, recoverSocketAuth, setDisplayName, socket } from "./socket.ts";
 import { syncClock } from "./timeSync.ts";
+import { authHeaders } from "../auth/supabase.ts";
 
 export type ClockPlay = {
   songId: string | null;
   startSec: number;
   durationSec: number;
   playAtUnixMs: number;
+  /** Instrumental lead-in at the top of the clip: not sung, not scored. */
+  leadInSec?: number;
+  /** Which anchor (first lyric / chorus) the clip opens on. Null in Chaos. */
+  anchor?: ClipAnchor | null;
 };
 
 export type MatchOver = {
@@ -120,7 +126,8 @@ function clocksEqual(a: ClockPlay | null, b: ClockPlay | null): boolean {
     a.songId === b.songId &&
     a.startSec === b.startSec &&
     a.durationSec === b.durationSec &&
-    a.playAtUnixMs === b.playAtUnixMs
+    a.playAtUnixMs === b.playAtUnixMs &&
+    (a.leadInSec ?? 0) === (b.leadInSec ?? 0)
   );
 }
 
@@ -165,10 +172,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     void syncClock();
 
     const sayHello = () => {
-      socket.emit(ClientEvents.playerHello, {
-        clientId: getClientId(),
-        displayName: nameRef.current || "Singer",
-      });
+      socket.emit(ClientEvents.playerHello, helloPayload(nameRef.current || "Singer"));
     };
 
     const flushQueue = () => {
@@ -258,6 +262,19 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       if (payload.code === "NO_SESSION") {
         sayHello();
       }
+      // Signed in here but refused there: the token this socket holds is
+      // stale. Refresh it and say hello again (the server re-verifies), or,
+      // if the session is gone, the sign-in gate takes over.
+      if (payload.code === "AUTH_REQUIRED") {
+        void recoverSocketAuth().then((ok) => {
+          if (ok) {
+            setError(null);
+            sayHello();
+          } else if (ok === false) {
+            setError({ code: "AUTH_REQUIRED", message: "Your sign-in expired. Sign in again to play." });
+          }
+        });
+      }
     };
 
     socket.on("connect", onConnect);
@@ -309,7 +326,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       const code = pollCode();
       if (!code) return;
       try {
-        const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`);
+        // Snapshot reads are a play path: the server wants the account token.
+        const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`, {
+          headers: await authHeaders(),
+        });
         if (!res.ok) return;
         const data = (await res.json()) as {
           room?: RoomState;
@@ -387,17 +407,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const name = displayName.trim().slice(0, 16) || "Singer";
     nameRef.current = name;
     setDisplayName(name);
-    socket.emit(ClientEvents.playerHello, { clientId: getClientId(), displayName: name });
+    socket.emit(ClientEvents.playerHello, helloPayload(name));
   }, []);
 
   const queueJoin = useCallback((mode: Mode) => {
     wantQueueRef.current = mode;
     setError(null);
     setQueuedMode(mode);
-    socket.emit(ClientEvents.playerHello, {
-      clientId: getClientId(),
-      displayName: nameRef.current || "Singer",
-    });
+    socket.emit(ClientEvents.playerHello, helloPayload(nameRef.current || "Singer"));
     flushQueueRef.current();
   }, []);
 
@@ -475,10 +492,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!room) return;
     const beat = () => {
-      socket.emit(ClientEvents.playerHello, {
-        clientId: getClientId(),
-        displayName: nameRef.current || "Singer",
-      });
+      socket.emit(ClientEvents.playerHello, helloPayload(nameRef.current || "Singer"));
     };
     beat();
     const id = window.setInterval(beat, 12_000);

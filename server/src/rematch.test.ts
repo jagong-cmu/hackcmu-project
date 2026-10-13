@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { RematchWindowMs, type RematchOffer } from "@karaoke/shared";
+import { MatchCountdownMs, RematchWindowMs, type RematchOffer } from "@karaoke/shared";
 import { addPlayer, clearTimers, createRoom, removePlayer, toPublic } from "./rooms.ts";
 import {
   advanceDue,
@@ -65,12 +65,17 @@ test("opponent accepting inside the window starts the normal countdown", () => {
   const room = resultsRoom();
   try {
     handleRematchRequest(io, room, "a");
+    const before = Date.now();
     handleRematchRequest(io, room, "b");
+    const after = Date.now();
     assert.equal(room.status, "countdown");
     assert.equal(room.settled, false);
     assert.equal(room.rematch, null);
     assert.notEqual(room.songId, "from-the-start", "rematch still skips the last song");
     assert.ok(room.playAtUnixMs && room.playAtUnixMs > Date.now());
+    // Same pre-match countdown as a fresh seat-fill, from the shared constant.
+    assert.ok(room.playAtUnixMs >= before + MatchCountdownMs);
+    assert.ok(room.playAtUnixMs <= after + MatchCountdownMs);
   } finally {
     clearTimers(room);
   }

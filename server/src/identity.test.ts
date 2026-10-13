@@ -10,9 +10,13 @@ import { addPlayer, clearTimers, createRoom, toPublic } from "./rooms.ts";
 import { decideLiveKitAccess, type RoomView } from "./livekitAccess.ts";
 import { hashedPlayerId, publicPlayerId } from "./publicId.ts";
 
-// Guest mode for these tests, whatever the local shell or .env says.
-delete process.env.AUTH_REQUIRED;
+// Dev guest mode (the AUTH_REQUIRED=0 opt-out, non-production only) for these
+// tests, whatever the local shell or .env says.
+process.env.AUTH_REQUIRED = "0";
 delete process.env.VITE_AUTH_REQUIRED;
+delete process.env.NODE_ENV;
+delete process.env.VERCEL;
+delete process.env.RENDER;
 
 const ALICE ="11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const BOB = "22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -33,7 +37,7 @@ test("guest public id is stable, opaque, and not the clientId", () => {
   assert.notEqual(hashedPlayerId(ALICE, "other-secret"), a1, "keyed by the server secret");
 });
 
-test("publicPlayerId hashes in guest mode (AUTH_REQUIRED unset)", () => {
+test("publicPlayerId hashes in dev guest mode (AUTH_REQUIRED=0)", () => {
   assert.notEqual(publicPlayerId(ALICE), ALICE);
   assert.equal(publicPlayerId(ALICE), hashedPlayerId(ALICE));
 });

@@ -4,6 +4,8 @@
   "artist": "Sam Smith",
   "clipStartSec": 64.9,
   "clipDurationSec": 18,
+  "firstLyricSec": 20.27,
+  "chorusSec": 64.9,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 244.2,
   "chaosDurationSec": 60

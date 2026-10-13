@@ -4,6 +4,8 @@
   "artist": "Radiohead",
   "clipStartSec": 64.3,
   "clipDurationSec": 20,
+  "firstLyricSec": 23.06,
+  "chorusSec": 64.35,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 252.9,
   "chaosDurationSec": 60

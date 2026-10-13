@@ -1,7 +1,16 @@
 import { PitchDetector } from "pitchy";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CountdownMs, type MelodyFile, type ScoreCard, type SongMeta } from "@karaoke/shared";
+import {
+  clipWindowFor,
+  MatchCountdownMs,
+  pickClipAnchor,
+  type ClipWindow,
+  type MelodyFile,
+  type ScoreCard,
+  type SongMeta,
+} from "@karaoke/shared";
+import { melodyFrom } from "../lyrics/leadIn.ts";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { authHeaders } from "../auth/supabase.ts";
@@ -25,7 +34,7 @@ import { PageShell } from "../theme/PageShell.tsx";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
 import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
 import { capture } from "../analytics/posthog.ts";
-import { loadVoiceProfile } from "../onboarding/voiceProfile.ts";
+import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -41,7 +50,7 @@ export function Training() {
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
   // Display-only: seeds the pitch line's octave for your voice. Not scoring.
-  const [voiceProfile] = useState(loadVoiceProfile);
+  const voiceProfile = useVoiceProfile();
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [liveCard, setLiveCard] = useState<ScoreBits | null>(null);
   const [scoring, setScoring] = useState(false);
@@ -51,6 +60,17 @@ export function Training() {
   const [clipKey, setClipKey] = useState("");
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const clipKeyRef = useRef("");
+  // This take's window: anchor (first lyric / chorus) minus ClipLeadInMs → end.
+  const [trainingClip, setTrainingClip] = useState<ClipWindow | null>(null);
+  const clipRef = useRef<ClipWindow | null>(null);
+  const leadInActive = Boolean(trainingClip) && (running || countMs != null);
+  const guideMelody = useMemo(
+    () =>
+      melody && leadInActive && trainingClip
+        ? melodyFrom(melody, trainingClip.anchorSec)
+        : melody,
+    [melody, leadInActive, trainingClip],
+  );
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -211,8 +231,14 @@ export function Training() {
     if (!audio) return;
     audio.src = audioUrl;
     audio.volume = 0.8;
-    // Training plays the whole track, not just the ranked clip.
-    audio.currentTime = 0;
+    // Same rule as a match: open ClipLeadInMs before the first lyric or the
+    // chorus (50/50, picked here since Training is solo), then run to the end.
+    const clip = clipWindowFor(meta, "training", pickClipAnchor(meta));
+    const singFrom = clip.anchorSec;
+    clipRef.current = clip;
+    setTrainingClip(clip);
+    setPlayhead(clip.startSec);
+    audio.currentTime = clip.startSec;
 
     // Nothing to cancel on headphones, so the mic is read straight -- no
     // playback tap, no adaptive canceller.
@@ -228,12 +254,12 @@ export function Training() {
     try {
       await audio.play();
       audio.pause();
-      audio.currentTime = 0;
+      audio.currentTime = clip.startSec;
     } catch {
       /* timed play() below will surface a block */
     }
 
-    const armMs = CountdownMs * 2;
+    const armMs = MatchCountdownMs;
     const goAt = Date.now() + armMs;
     setCountMs(armMs);
     setStatus("Your turn to sing. Track starts after the countdown.");
@@ -283,11 +309,12 @@ export function Training() {
         setLiveClarity(yinClarity);
         setLiveRms(rms);
       }
-      if (melody && t - lastLiveScore >= 0.12) {
+      // Nothing to score until the anchor line: the lead-in is instrumental.
+      if (melody && t >= singFrom && t - lastLiveScore >= 0.12) {
         lastLiveScore = t;
         const live = scoreContour(framesRef.current, melody, {
-          startSec: 0,
-          durationSec: Math.max(0.25, t),
+          startSec: singFrom,
+          durationSec: Math.max(0.25, t - singFrom),
         });
         if (!live.silence) {
           setLiveCard({ pitch: live.pitch, tone: live.tone, overall: live.overall });
@@ -332,7 +359,7 @@ export function Training() {
       window.clearInterval(countTimerRef.current);
       countTimerRef.current = 0;
       setCountMs(null);
-      audio.currentTime = 0;
+      audio.currentTime = clip.startSec;
       void audio.play().catch(() => undefined);
       setRunning(true);
       const key = crypto.randomUUID();
@@ -374,12 +401,13 @@ export function Training() {
 
     const startedAt = Date.now();
 
-    // Whole take, from 0:00 — intro silence does not count against the singer.
+    // Whole take from the anchor line on — the lead-in is never scored.
     const frames = framesRef.current;
-    const lastSec = frames.length ? frames[frames.length - 1].timeSec : 1;
+    const singFrom = clipRef.current?.anchorSec ?? 0;
+    const lastSec = frames.length ? frames[frames.length - 1].timeSec : singFrom + 1;
     const dsp = scoreContour(frames, melody, {
-      startSec: 0,
-      durationSec: Math.max(1, lastSec),
+      startSec: singFrom,
+      durationSec: Math.max(1, lastSec - singFrom),
     });
     const lyrics = lrc
       .split("\n")
@@ -447,17 +475,21 @@ export function Training() {
       {!nameOk ? <p className="err">Set a display name in Settings first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
-      <LyricsOverlay lrc={lrc} currentTime={playhead} />
+      <LyricsOverlay
+        lrc={lrc}
+        currentTime={playhead}
+        singFromSec={leadInActive ? trainingClip?.anchorSec : null}
+      />
       <div className="pitch-stage">
         <PitchMeter
-          melody={melody}
+          melody={guideMelody}
           playheadSec={playhead}
           liveHz={liveHz}
           liveClarity={liveClarity}
           liveRms={liveRms}
           voiceProfile={voiceProfile}
         />
-        {running ? <HitCallout grade={gradeLive(melody, playhead, liveHz)} /> : null}
+        {running ? <HitCallout grade={gradeLive(guideMelody, playhead, liveHz)} /> : null}
         {running ? (
           <LiveScoreHud left={{ name: getDisplayName() || "You", card: liveCard, singing: true }} />
         ) : null}

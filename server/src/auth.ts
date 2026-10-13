@@ -1,16 +1,23 @@
 /**
  * Supabase Auth on the server: turn a browser's access token into a trusted
- * player id (the Supabase user id), so the client-sent `clientId` is no longer
- * taken on faith.
+ * player id (the Supabase user id). There is no guest play: every play path
+ * (socket hello and everything seated behind it, score posts, LiveKit tokens,
+ * room snapshots, training scores) needs a verified account.
  *
  * Verification calls Supabase's `GET /auth/v1/user` with the public anon /
  * publishable key. That works for both legacy HS256 projects and the newer
  * asymmetric signing keys, and needs no secret on this box.
  *
- * Enforcement is on only when AUTH_REQUIRED=1 (or the VITE_AUTH_REQUIRED twin
- * the web build uses) and SUPABASE_URL + SUPABASE_ANON_KEY (or their VITE_
- * twins) are visible here. Otherwise the server keeps the old
- * trust-the-client guest behaviour.
+ * Fails closed. Modes (see resolveAuthMode):
+ * - "verify": SUPABASE_URL + SUPABASE_ANON_KEY (or their VITE_ twins) are
+ *   visible. Every play path needs a valid access token.
+ * - "unconfigured": no Supabase config. Play is refused outright (503), never
+ *   downgraded to trusting the client.
+ * - "dev-guest": local development only. AUTH_REQUIRED=0 (or
+ *   VITE_AUTH_REQUIRED=0, so one line in the root .env.local covers both the
+ *   web build and this server) restores the old trust-the-clientId guest mode
+ *   so one developer can play both seats. Ignored when NODE_ENV=production or
+ *   on Vercel / Render, so production cannot switch accounts off via env.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -23,7 +30,7 @@ import type { Server, Socket } from "socket.io";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/** Only the Supabase keys from the repo-root env files, nothing else. */
+/** Only the Supabase keys (and the dev auth opt-out) from the repo-root env files. */
 function rootEnv(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const file of [".env", ".env.local"]) {
@@ -32,7 +39,7 @@ function rootEnv(): Record<string, string> {
     try {
       const parsed = dotenv.parse(readFileSync(p));
       for (const [k, v] of Object.entries(parsed)) {
-        if (k.includes("SUPABASE") && v.trim()) out[k] = v.trim();
+        if ((k.includes("SUPABASE") || k.endsWith("AUTH_REQUIRED")) && v.trim()) out[k] = v.trim();
       }
     } catch {
       /* unreadable env file: ignore */
@@ -41,11 +48,18 @@ function rootEnv(): Record<string, string> {
   return out;
 }
 
-let cachedConfig: { url: string; key: string } | null | undefined;
+type SupabaseConfig = { url: string; key: string };
+let cachedConfig: SupabaseConfig | null | undefined;
+let cachedFile: Record<string, string> | undefined;
 
-function config(): { url: string; key: string } | null {
+function fileEnv(): Record<string, string> {
+  if (!cachedFile) cachedFile = rootEnv();
+  return cachedFile;
+}
+
+function config(): SupabaseConfig | null {
   if (cachedConfig !== undefined) return cachedConfig;
-  const file = rootEnv();
+  const file = fileEnv();
   const pick = (...names: string[]) => {
     for (const n of names) {
       const v = process.env[n]?.trim() || file[n];
@@ -59,12 +73,54 @@ function config(): { url: string; key: string } | null {
   return cachedConfig;
 }
 
-/** True when the server can verify tokens and will require them to play. */
-export function authRequired(): boolean {
-  const flag = (process.env.AUTH_REQUIRED ?? process.env.VITE_AUTH_REQUIRED)?.trim();
-  if (flag !== "1") return false;
-  return config() !== null;
+/** Test-only: pin the Supabase config (null = none), or `undefined` to re-read env. */
+export function setAuthConfigForTests(cfg: SupabaseConfig | null | undefined): void {
+  cachedConfig = cfg;
+  cachedFile = cfg === undefined ? undefined : {};
+  verified.clear();
 }
+
+export type AuthMode = "verify" | "dev-guest" | "unconfigured";
+type Env = Record<string, string | undefined>;
+
+/**
+ * May this process honour the dev opt-out at all? Never in production: not
+ * when NODE_ENV=production, and not on the hosts we deploy to (Vercel sets
+ * VERCEL, Render sets RENDER), whatever NODE_ENV says there.
+ */
+export function devOptOutAllowed(env: Env): boolean {
+  if (env.NODE_ENV?.trim() === "production") return false;
+  if (env.VERCEL?.trim() || env.RENDER?.trim()) return false;
+  return true;
+}
+
+/** Pure: which auth mode an environment ends up in. */
+export function resolveAuthMode(env: Env, hasConfig: boolean): AuthMode {
+  const flag = (env.AUTH_REQUIRED ?? env.VITE_AUTH_REQUIRED)?.trim();
+  if (flag === "0" && devOptOutAllowed(env)) return "dev-guest";
+  return hasConfig ? "verify" : "unconfigured";
+}
+
+export function authMode(): AuthMode {
+  const file = fileEnv();
+  // Process env wins over the root env files; the opt-out flag may live in either.
+  const env: Env = {
+    ...process.env,
+    AUTH_REQUIRED:
+      process.env.AUTH_REQUIRED ??
+      process.env.VITE_AUTH_REQUIRED ??
+      file.AUTH_REQUIRED ??
+      file.VITE_AUTH_REQUIRED,
+  };
+  return resolveAuthMode(env, config() !== null);
+}
+
+/** True unless this is the local dev opt-out: play needs a verified account. */
+export function authRequired(): boolean {
+  return authMode() !== "dev-guest";
+}
+
+const UNCONFIGURED_MESSAGE = "Accounts aren't configured on this server, so play is off.";
 
 type Verified = { userId: string; expiresAtMs: number };
 const verified = new Map<string, Verified>();
@@ -90,21 +146,39 @@ export async function verifyAccessToken(token: unknown): Promise<string | null> 
   if (hit && hit.expiresAtMs > now) return hit.userId;
   if (hit) verified.delete(token);
 
-  try {
-    const res = await fetch(`${cfg.url}/auth/v1/user`, {
-      headers: { apikey: cfg.key, Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return null;
-    const user = (await res.json()) as { id?: unknown };
-    if (typeof user.id !== "string" || !user.id) return null;
-    const exp = jwtExpMs(token) || now + CACHE_MS;
-    if (verified.size > 5000) verified.clear();
-    verified.set(token, { userId: user.id, expiresAtMs: Math.min(exp, now + CACHE_MS) });
-    return user.id;
-  } catch {
-    return null;
+  // One retry on a network error or a 5xx: a cold start or a blip at Supabase
+  // must not leave a signed-in player stuck on "Sign in to play". A 4xx means
+  // the token itself is bad, so that is final.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${cfg.url}/auth/v1/user`, {
+        headers: { apikey: cfg.key, Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.status >= 500) continue;
+      if (!res.ok) return null;
+      const user = (await res.json()) as { id?: unknown };
+      if (typeof user.id !== "string" || !user.id) return null;
+      const exp = jwtExpMs(token) || now + CACHE_MS;
+      if (verified.size > 5000) verified.clear();
+      verified.set(token, { userId: user.id, expiresAtMs: Math.min(exp, now + CACHE_MS) });
+      return user.id;
+    } catch {
+      // network error or timeout: retry once
+    }
   }
+  return null;
+}
+
+/**
+ * Re-verify a socket from a token sent with player:hello. The handshake token
+ * can be missing (the page raced its session restore) or expired (a long-lived
+ * tab); this lets the client heal the socket without reconnecting.
+ */
+export async function refreshSocketAuth(socket: Pick<Socket, "data">, token: unknown): Promise<void> {
+  if (authMode() !== "verify" || typeof token !== "string" || !token) return;
+  const userId = await verifyAccessToken(token);
+  if (userId) socket.data.authUserId = userId;
 }
 
 function bearer(req: Request): string | null {
@@ -116,24 +190,40 @@ function bearer(req: Request): string | null {
 
 export type HttpIdentity =
   | { ok: true; clientId: string }
-  | { ok: false; status: number; message: string };
+  | { ok: false; status: number; code: string; message: string };
 
 /**
- * The player id an HTTP request may act as. With auth on, that is the token's
- * user id and `claimed` must match it (or be absent). With auth off, it is
- * whatever the client claimed, as before.
+ * The player id an HTTP request may act as: the token's user id, with
+ * `claimed` required to match it (or be absent). Only in the dev opt-out is it
+ * whatever the client claimed. No Supabase config means no play at all.
  */
 export async function httpIdentity(req: Request, claimed: unknown): Promise<HttpIdentity> {
   const claim = typeof claimed === "string" ? claimed : "";
-  if (!authRequired()) {
+  const mode = authMode();
+  if (mode === "dev-guest") {
     return claim
       ? { ok: true, clientId: claim }
-      : { ok: false, status: 400, message: "clientId required" };
+      : { ok: false, status: 400, code: "BAD_REQUEST", message: "clientId required" };
+  }
+  if (mode === "unconfigured") {
+    return { ok: false, status: 503, code: "AUTH_UNCONFIGURED", message: UNCONFIGURED_MESSAGE };
   }
   const userId = await verifyAccessToken(bearer(req));
-  if (!userId) return { ok: false, status: 401, message: "sign in to play" };
-  if (claim && claim !== userId) return { ok: false, status: 403, message: "not your player" };
+  if (!userId) return { ok: false, status: 401, code: "UNAUTHORIZED", message: "sign in to play" };
+  if (claim && claim !== userId) {
+    return { ok: false, status: 403, code: "IDENTITY_MISMATCH", message: "not your player" };
+  }
   return { ok: true, clientId: userId };
+}
+
+/**
+ * For reads that act as nobody in particular (room snapshots): a verified
+ * account is enough. The dev opt-out lets anyone through.
+ */
+export async function httpAccount(req: Request): Promise<HttpIdentity> {
+  const mode = authMode();
+  if (mode === "dev-guest") return { ok: true, clientId: "" };
+  return httpIdentity(req, undefined);
 }
 
 /** Verify the handshake token once per connection; never rejects the socket. */
@@ -151,13 +241,27 @@ export function attachSocketAuth(io: Server): void {
   });
 }
 
-/**
- * The player id a socket may use. With auth on, the verified user id (or null
- * when the socket is signed out). With auth off, the client's claim.
- */
-export function socketIdentity(socket: Socket, claimed: unknown): string | null {
-  if (!authRequired()) return typeof claimed === "string" && claimed ? claimed : null;
-  const id = socket.data.authUserId;
-  return typeof id === "string" && id ? id : null;
-}
+export type SocketIdentity =
+  | { ok: true; clientId: string }
+  | { ok: false; code: string; message: string };
 
+/**
+ * The player id a socket may use: the user id verified at handshake. Only in
+ * the dev opt-out is it the client's claim. Signed-out sockets, and every
+ * socket when Supabase is not configured, get no identity and cannot play.
+ */
+export function socketIdentity(socket: Pick<Socket, "data">, claimed: unknown): SocketIdentity {
+  const mode = authMode();
+  if (mode === "dev-guest") {
+    return typeof claimed === "string" && claimed
+      ? { ok: true, clientId: claimed }
+      : { ok: false, code: "BAD_HELLO", message: "clientId required" };
+  }
+  if (mode === "unconfigured") {
+    return { ok: false, code: "AUTH_UNCONFIGURED", message: UNCONFIGURED_MESSAGE };
+  }
+  const id = socket.data?.authUserId;
+  return typeof id === "string" && id
+    ? { ok: true, clientId: id }
+    : { ok: false, code: "AUTH_REQUIRED", message: "Sign in to play." };
+}

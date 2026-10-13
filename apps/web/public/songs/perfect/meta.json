@@ -4,6 +4,8 @@
   "artist": "Ed Sheeran",
   "clipStartSec": 66.3,
   "clipDurationSec": 20,
+  "firstLyricSec": 6.86,
+  "chorusSec": 66.25,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 290.6,
   "chaosDurationSec": 60

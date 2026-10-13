@@ -2,24 +2,33 @@
  * Supabase Auth client (Google sign-in). Only the public URL + anon /
  * publishable key ever reach the bundle — never the service role key.
  *
- * Accounts are off unless VITE_AUTH_REQUIRED=1 and VITE_SUPABASE_* are set:
- * the app falls back to the old guest flow, so the build can ship before the
- * Supabase project and Google provider are ready.
+ * Accounts are required to play. Without VITE_SUPABASE_* the app does not
+ * fall back to guests: play routes say accounts aren't configured. The only
+ * way around that is the local-dev opt-out (VITE_AUTH_REQUIRED=0 under
+ * `vite dev`), see authMode.ts.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveClientAuthMode, type ClientAuthMode } from "./authMode.ts";
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim();
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
-const required = import.meta.env.VITE_AUTH_REQUIRED?.trim() === "1";
+
+export const authMode: ClientAuthMode = resolveClientAuthMode({
+  dev: import.meta.env.DEV,
+  url,
+  key,
+  optOut: import.meta.env.VITE_AUTH_REQUIRED,
+});
 
 let client: SupabaseClient | null = null;
 
+/** True when Google accounts are on (always, outside the dev opt-out, once configured). */
 export function authConfigured(): boolean {
-  return Boolean(required && url && key);
+  return authMode === "accounts";
 }
 
 export function getSupabase(): SupabaseClient | null {
-  if (!required || !url || !key) return null;
+  if (authMode !== "accounts" || !url || !key) return null;
   if (!client) {
     client = createClient(url, key, {
       auth: {

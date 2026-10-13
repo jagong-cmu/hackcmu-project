@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import type { Server } from "socket.io";
 import {
   ClockLeadMs,
+  MatchCountdownMs,
   ForfeitSkipMs,
   EloK,
   ForfeitEloK,
@@ -18,7 +19,12 @@ import {
   SONGS,
   StartingElo,
   SwapMs,
+  RankedClipMaxSec,
+  clipWindowFor,
+  pickClipAnchor,
   songById,
+  type ClipAnchor,
+  type ClipWindow,
   type ScoreCard,
   type SongMeta,
 } from "@karaoke/shared";
@@ -66,8 +72,6 @@ function songFile(id: string, name: string): string | undefined {
   return undefined;
 }
 
-/** Ranked/Duet lobby wait before GO. Shared CountdownMs stays 5s for other beats. */
-const MatchCountdownMs = 10_000;
 /** Last-chance wait for in-flight POSTs across Vercel isolates. */
 const SCORE_WAIT_MS = 8000;
 
@@ -99,18 +103,34 @@ const TEST_SONG: SongMeta = {
   chaosDurationSec: 60,
 };
 
-/** Hard cap so a stale meta.json cannot turn Ranked back into a full verse. */
-const RankedClipMaxSec = 20;
+let anchorRng: () => number = Math.random;
 
-/** Ranked: the song's 15–20s chorus hook. Duet: the whole track. */
-function clipWindow(song: SongMeta, kind: "ranked" | "duet"): { startSec: number; durationSec: number } {
-  if (kind === "duet") {
-    return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
-  }
-  return {
-    startSec: Math.max(0, song.clipStartSec),
-    durationSec: Math.min(RankedClipMaxSec, Math.max(1, song.clipDurationSec)),
-  };
+/** Tests only: make the per-match anchor coin flip deterministic. No arg restores Math.random. */
+export function setClipAnchorRng(rng?: () => number): void {
+  anchorRng = rng ?? Math.random;
+}
+
+/**
+ * The clip both seats play. The anchor (first lyric or chorus) is flipped once
+ * here, on the server, so both players get the same start; audio begins
+ * ClipLeadInMs before it.
+ * Ranked: lead-in + the song's 15–20s hook (capped at RankedClipMaxSec so a
+ * stale meta.json cannot turn Ranked back into a full verse).
+ * Duet: lead-in, then to the end of the track.
+ */
+export function matchClip(
+  song: SongMeta,
+  kind: "ranked" | "duet",
+  rng: () => number = anchorRng,
+): ClipWindow {
+  const window = clipWindowFor(song, kind, pickClipAnchor(song, rng));
+  if (kind === "ranked") window.durationSec = Math.min(RankedClipMaxSec, window.durationSec);
+  return window;
+}
+
+/** Chaos lounges loop whole tracks from 0:00; no anchor, no lead-in. */
+function chaosClip(song: SongMeta): { startSec: number; durationSec: number } {
+  return { startSec: 0, durationSec: Math.max(1, song.duetClipDurationSec) };
 }
 
 function useTestSong(): boolean {
@@ -159,19 +179,31 @@ export function broadcastState(io: Server, room: Room): void {
   void saveRoomSnap(room);
 }
 
-export function publicClock(room: Room): {
+export type ClockPayload = {
   songId: string;
   startSec: number;
   durationSec: number;
   playAtUnixMs: number;
-} | null {
-  if (!room.songId || room.playAtUnixMs == null) return null;
+  /** Seconds of instrumental lead-in at the top of the clip (not scored). */
+  leadInSec: number;
+  anchor: ClipAnchor | null;
+};
+
+function clockPayload(room: Room, playAtUnixMs: number): ClockPayload | null {
+  if (!room.songId) return null;
   return {
     songId: room.songId,
     startSec: room.clipStartSec,
     durationSec: room.clipDurationSec,
-    playAtUnixMs: room.playAtUnixMs,
+    playAtUnixMs,
+    leadInSec: room.clipLeadInSec,
+    anchor: room.clipAnchor,
   };
+}
+
+export function publicClock(room: Room): ClockPayload | null {
+  if (room.playAtUnixMs == null) return null;
+  return clockPayload(room, room.playAtUnixMs);
 }
 
 export function publicScores(room: Room): Record<string, ScoreCard> {
@@ -202,22 +234,16 @@ function scheduleClip(io: Server, room: Room, playAtUnixMs: number): void {
   room.playAtUnixMs = playAtUnixMs;
   room.songStartedAtMs = playAtUnixMs;
   io.to(room.code).emit(ServerEvents.clockPlay, {
+    ...clockPayload(room, playAtUnixMs),
     songId: room.songId,
-    startSec: room.clipStartSec,
-    durationSec: room.clipDurationSec,
-    playAtUnixMs,
   });
 }
 
 /** Late Chaos joiners missed the original clock:play — send it to that socket. */
 export function catchUpClock(io: Server, room: Room, socketId: string): void {
-  if (!room.songId || room.playAtUnixMs == null) return;
-  io.to(socketId).emit(ServerEvents.clockPlay, {
-    songId: room.songId,
-    startSec: room.clipStartSec,
-    durationSec: room.clipDurationSec,
-    playAtUnixMs: room.playAtUnixMs,
-  });
+  const payload = publicClock(room);
+  if (!payload) return;
+  io.to(socketId).emit(ServerEvents.clockPlay, payload);
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +254,7 @@ export function everyoneReady(room: Room): boolean {
   return livePlayers(room).length === 2;
 }
 
-/** Two seated singers in lobby → 10s countdown. No ready taps. */
+/** Two seated singers in lobby → MatchCountdownMs (5s) countdown. No ready taps. */
 export function maybeArmMatch(io: Server, room: Room): void {
   if (room.mode === "chaos") return;
   if (room.status !== "lobby") return;
@@ -237,7 +263,7 @@ export function maybeArmMatch(io: Server, room: Room): void {
 }
 
 /**
- * lobby → countdown 10s → turnA (15–20s chorus hook) → swap 5s → turnB (same) → results.
+ * lobby → countdown 5s (MatchCountdownMs) → turnA (15–20s chorus hook) → swap 5s → turnB (same) → results.
  * Duet collapses the two turns into one shared `live` block for the whole track.
  */
 export function startMatch(io: Server, room: Room): void {
@@ -252,12 +278,15 @@ export function startMatch(io: Server, room: Room): void {
 
   const isDuet = room.mode === "duet";
   const song = pickSong(room.songId);
-  const window = clipWindow(song, isDuet ? "duet" : "ranked");
+  // One anchor flip per match: turn A, turn B, and both laptops share it.
+  const window = matchClip(song, isDuet ? "duet" : "ranked");
   room.songId = song.id;
   room.status = "countdown";
   room.activeSingerId = room.players[0]?.id ?? null;
   room.clipStartSec = window.startSec;
   room.clipDurationSec = window.durationSec;
+  room.clipLeadInSec = window.leadInSec;
+  room.clipAnchor = window.anchor;
   room.matchStartedAtMs = null;
 
   const goAt = Date.now() + MatchCountdownMs;
@@ -619,12 +648,14 @@ function playChaosSong(io: Server, room: Room): void {
     return;
   }
   const song = pickSong(room.songId);
-  const window = clipWindow(song, "duet");
+  const window = chaosClip(song);
   room.songId = song.id;
   room.status = "live";
   room.activeSingerId = null;
   room.clipStartSec = window.startSec;
   room.clipDurationSec = window.durationSec;
+  room.clipLeadInSec = 0;
+  room.clipAnchor = null;
 
   const playAt = Date.now() + ClockLeadMs;
   scheduleClip(io, room, playAt);

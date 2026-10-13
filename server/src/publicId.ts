@@ -6,9 +6,9 @@
  * So it must never leave the server toward other players. Rooms, scores,
  * rematch offers, and LiveKit identities all use the public id from here.
  *
- * - Auth on: the Supabase user id. Knowing it is useless without the
- *   access token, so it is fine to share.
- * - Guest mode: an HMAC of the clientId under a server secret. One-way and
+ * - Accounts (always, outside the local dev opt-out): the Supabase user id.
+ *   Knowing it is useless without the access token, so it is fine to share.
+ * - Dev guest mode (AUTH_REQUIRED=0, never in production): an HMAC of the clientId under a server secret. One-way and
  *   stable across restarts and Vercel isolates (same env everywhere), so a
  *   Mongo room snapshot written by one isolate matches the next.
  */

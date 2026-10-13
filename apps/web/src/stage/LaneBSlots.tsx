@@ -1,11 +1,12 @@
 import { PitchDetector } from "pitchy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { songById, type MelodyFile, type RoomState } from "@karaoke/shared";
+import { singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
 import { parseLrc } from "../lyrics/parseLrc.ts";
+import { inLeadIn, melodyFrom, singFromOf } from "../lyrics/leadIn.ts";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
@@ -23,7 +24,7 @@ import { useStage } from "./StageContext.tsx";
 import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
 import { playheadFromClock } from "./useSharedClock.ts";
 import { useRematchView } from "./useRematchView.ts";
-import { loadVoiceProfile } from "../onboarding/voiceProfile.ts";
+import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
 /** Same song-time on both laptops. Never follow a local <audio> that hasn't sought yet. */
 function displayPlayhead(
@@ -34,6 +35,16 @@ function displayPlayhead(
   const fromClock = playheadFromClock(clockPlay);
   if (fromClock != null) return fromClock;
   if (room?.playAtUnixMs != null && room.songId) {
+    // The server's window (anchor − lead-in) rides on room state.
+    if (room.clipStartSec != null && room.clipDurationSec) {
+      const t = playheadFromClock({
+        songId: room.songId,
+        startSec: room.clipStartSec,
+        durationSec: room.clipDurationSec,
+        playAtUnixMs: room.playAtUnixMs,
+      });
+      if (t != null) return t;
+    }
     const song = songById(room.songId);
     if (song) {
       const together = room.mode === "duet" || room.mode === "chaos";
@@ -54,6 +65,28 @@ function displayPlayhead(
     }
   }
   return audio?.currentTime ?? 0;
+}
+
+/** The current match clip with its lead-in, from clock:play or else room state. */
+function clipOf(
+  clockPlay: ClockPlay | null,
+  room: RoomState | null,
+): { startSec: number; durationSec: number; leadInSec: number } | null {
+  if (clockPlay) {
+    return {
+      startSec: clockPlay.startSec,
+      durationSec: clockPlay.durationSec,
+      leadInSec: clockPlay.leadInSec ?? room?.clipLeadInSec ?? 0,
+    };
+  }
+  if (room?.clipStartSec != null && room.clipDurationSec) {
+    return {
+      startSec: room.clipStartSec,
+      durationSec: room.clipDurationSec,
+      leadInSec: room.clipLeadInSec ?? 0,
+    };
+  }
+  return null;
 }
 
 function isScoringClip(room: RoomState | null, myPlayerId: string | null): boolean {
@@ -92,8 +125,12 @@ export function StageLyrics() {
     room?.status === "turnB" ||
     room?.status === "swap" ||
     room?.status === "live";
+  const clip = clipOf(clockPlay, room ?? null);
   const windowSec =
-    room?.mode === "duet" ? song?.duetClipDurationSec : song?.clipDurationSec;
+    clip?.durationSec ??
+    (room?.mode === "duet" ? song?.duetClipDurationSec : song?.clipDurationSec);
+  // Ranked/Duet open on an instrumental lead-in before the anchor line.
+  const singFromSec = room?.mode === "chaos" ? null : singFromOf(clip);
   useMatchMomentCapture({
     matchKey:
       room?.playAtUnixMs && room.songId ? `${room.code}:${room.songId}:${room.playAtUnixMs}` : "",
@@ -142,8 +179,9 @@ export function StageLyrics() {
       reportDuetVoice(null);
       return;
     }
-    reportDuetVoice(cueAt(lines, t).voice);
-  }, [duetOn, lines, t, reportDuetVoice]);
+    // Nobody's line is live during the lead-in, even if it overlaps one.
+    reportDuetVoice(inLeadIn(t, singFromSec) ? "rest" : cueAt(lines, t).voice);
+  }, [duetOn, lines, t, singFromSec, reportDuetVoice]);
 
   if (!room?.songId) {
     return (
@@ -163,6 +201,7 @@ export function StageLyrics() {
     <LyricsOverlay
       lrc={lines}
       currentTime={t}
+      singFromSec={running ? singFromSec : null}
       duet={
         duetOn && room
           ? {
@@ -186,7 +225,7 @@ export function StagePitch() {
   const [liveRms, setLiveRms] = useState(0);
   const [mineLive, setMineLive] = useState<ScoreBits | null>(null);
   // Display-only: seeds the pitch line's octave for *your* voice. Not scoring.
-  const [voiceProfile] = useState(loadVoiceProfile);
+  const voiceProfile = useVoiceProfile();
   const lrcRef = useRef("");
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
@@ -198,7 +237,11 @@ export function StagePitch() {
   const lastEmitRef = useRef(0);
   const lastScoreAtRef = useRef(0);
   const runningRef = useRef<ScoreBits | null>(null);
-  const clipWindowRef = useRef<{ startSec: number; durationSec: number } | null>(null);
+  const clipWindowRef = useRef<{
+    startSec: number;
+    durationSec: number;
+    leadInSec: number;
+  } | null>(null);
   const melodyRef = useRef(melody);
   const roomRef = useRef(room);
   const myPlayerIdRef = useRef(myPlayerId);
@@ -214,9 +257,7 @@ export function StagePitch() {
   roomRef.current = room;
   myPlayerIdRef.current = myPlayerId;
   clockPlayRef.current = clockPlay;
-  if (clockPlay) {
-    clipWindowRef.current = { startSec: clockPlay.startSec, durationSec: clockPlay.durationSec };
-  }
+  if (clockPlay) clipWindowRef.current = clipOf(clockPlay, room ?? null);
 
   const refreshRunning = (t: number) => {
     if (!singingRef.current || postedRef.current) return;
@@ -226,21 +267,17 @@ export function StagePitch() {
     const clip = clipWindowRef.current;
     const r = roomRef.current;
     if (!mel || !clip || !r) return;
-    const elapsed = Math.max(0.25, t - clip.startSec);
+    // Score from the anchor line on. The lead-in is never sung or scored.
+    const sing = singWindow(clip);
+    if (t < sing.startSec) return;
+    const elapsed = Math.max(0.25, t - sing.startSec);
+    const soFar = { startSec: sing.startSec, durationSec: elapsed };
     const duetSeatNow = duetSeat(r.players, myPlayerIdRef.current);
     const windows =
       r.mode === "duet" && duetSeatNow
-        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, {
-            startSec: clip.startSec,
-            durationSec: elapsed,
-          })
+        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, soFar)
         : undefined;
-    const dsp = scoreContour(
-      framesRef.current,
-      mel,
-      { startSec: clip.startSec, durationSec: elapsed },
-      windows,
-    );
+    const dsp = scoreContour(framesRef.current, mel, soFar, windows);
     if (dsp.silence) return;
     const next = { pitch: dsp.pitch, tone: dsp.tone, overall: dsp.overall };
     runningRef.current = next;
@@ -255,11 +292,13 @@ export function StagePitch() {
     singingRef.current = false;
     postingRef.current = true;
     const duetSeatNow = duetSeat(r.players, myPlayerIdRef.current);
+    // Lead-in excluded: melody coverage only counts notes from the anchor on.
+    const sing = singWindow(clip);
     const windows =
       r.mode === "duet" && duetSeatNow
-        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, clip)
+        ? windowsForSeat(parseLrc(lrcRef.current), duetSeatNow, sing)
         : undefined;
-    const dsp = scoreContour(framesRef.current, mel, clip, windows);
+    const dsp = scoreContour(framesRef.current, mel, sing, windows);
     if (!dsp.silence) {
       const next = { pitch: dsp.pitch, tone: dsp.tone, overall: dsp.overall };
       runningRef.current = next;
@@ -464,12 +503,19 @@ export function StagePitch() {
         room.status === "swap" ||
         room.status === "live"
       : false;
-  const calloutGrade = gradeLive(melody, playhead, shownHz);
+  // Lead-in: hide the notes before the anchor line (a chorus start overlaps
+  // the previous line's tail); the anchor's notes still scroll in ahead of it.
+  const singFrom = room?.mode === "chaos" ? null : singFromOf(clipOf(clockPlay, room ?? null));
+  const guideMelody = useMemo(
+    () => (melody ? melodyFrom(melody, singFrom) : null),
+    [melody, singFrom],
+  );
+  const calloutGrade = gradeLive(guideMelody, playhead, shownHz);
 
   return (
     <div className="pitch-stage">
       <PitchMeter
-        melody={melody}
+        melody={guideMelody}
         playheadSec={playhead}
         liveHz={shownHz}
         liveClarity={shownClarity}

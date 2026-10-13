@@ -109,8 +109,8 @@ Chaos:
 
 1. Match found (queue, friend code, or `0000`).
 2. Two-up video. Mics live in lobby.
-3. Both tap Ready. Server broadcasts countdown + `clock:play`.
-4. 3s countdown. Upcoming lyrics dimmed.
+3. Both seats filled (no Ready tap). Server broadcasts countdown + `clock:play`.
+4. 5s countdown (`MatchCountdownMs`). Upcoming lyrics dimmed.
 5. **Turn A (15s):** same clip for both. Only A’s mic is scored. B is visible and audible socially. A’s numeric score is hidden (“locked in”).
 6. 2s swap beat.
 7. **Turn B (15s):** identical clip and lyrics.

@@ -4,6 +4,8 @@
   "artist": "Justin Bieber",
   "clipStartSec": 45.2,
   "clipDurationSec": 20,
+  "firstLyricSec": 15.81,
+  "chorusSec": 45.17,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 238.7,
   "chaosDurationSec": 60

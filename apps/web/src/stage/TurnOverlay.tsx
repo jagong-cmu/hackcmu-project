@@ -7,13 +7,18 @@ import type { RoomState } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
 import CountdownOverlay from "./CountdownOverlay.tsx";
-import { OverlayHideMs, showCountdownOverlay, showSwapOverlay } from "./formatCountdown.ts";
+import { showCountdownOverlay, showSwapOverlay } from "./formatCountdown.ts";
 
 type Beat =
   | { kind: "turn"; title: string; sub: string }
   | { kind: "together" }
   | { kind: "chaos" }
   | { kind: "time" };
+
+/** What the clip opens on: the server flips first lyric vs chorus per match. */
+function clipPart(room: RoomState): string {
+  return room.clipAnchor === "firstLyric" ? "opening" : "chorus";
+}
 
 function isSingingTurn(room: RoomState, myPlayerId: string | null): boolean {
   if (room.mode === "duet" || room.mode === "chaos") return true;
@@ -57,7 +62,7 @@ export default function TurnOverlay({
         kind: "turn",
         title: mine ? "YOUR TURN" : "WAIT",
         sub: mine
-          ? "Sing this chorus. They are watching."
+          ? `Sing this ${clipPart(room)}. They are watching.`
           : `Don't sing. ${singer?.displayName ?? "They"} have the mic.`,
       });
       return;
@@ -83,8 +88,6 @@ export default function TurnOverlay({
     if (room?.mode !== "chaos" || !clockPlay?.songId) return;
     if (prevSong.current === clockPlay.songId) return;
     prevSong.current = clockPlay.songId;
-    const lead = clockPlay.playAtUnixMs - serverNow();
-    if (lead > OverlayHideMs) return;
     setBeat({ kind: "chaos" });
   }, [room?.mode, clockPlay?.songId, clockPlay?.playAtUnixMs]);
 
@@ -105,8 +108,13 @@ export default function TurnOverlay({
   const hasClock = clockPlay != null || room.playAtUnixMs != null;
   const prePlay = hasClock && msUntil > 0;
   const swapping = room.status === "swap";
+  // Chaos also has a short pre-play lead (ClockLeadMs / 3s on first join); only
+  // the Ranked/Duet pre-match countdown and the ranked swap get the veil.
   const overlayUp =
-    prePlay && (swapping ? showSwapOverlay(msUntil) : showCountdownOverlay(msUntil));
+    prePlay &&
+    (swapping
+      ? showSwapOverlay(msUntil)
+      : room.status === "countdown" && showCountdownOverlay(msUntil));
   const go =
     msUntil <= 0 &&
     msUntil > -1100 &&
@@ -116,15 +124,15 @@ export default function TurnOverlay({
   let guide: { title: string; body: string } | null = null;
   if (room.mode === "ranked" && (room.status === "turnA" || room.status === "turnB")) {
     guide = mine
-      ? { title: "Your turn", body: "Sing this chorus. They wait and watch." }
+      ? { title: "Your turn", body: `Sing this ${clipPart(room)}. They wait and watch.` }
       : { title: "Wait", body: `${themName} is singing. Stay quiet — you go next.` };
   } else if (room.mode === "ranked" && room.status === "countdown") {
     guide = mine
-      ? { title: "Your turn", body: "Sing this chorus." }
+      ? { title: "Your turn", body: `Sing this ${clipPart(room)}.` }
       : { title: "Wait", body: `${themName} sings first. Stay quiet.` };
   } else if (room.mode === "ranked" && room.status === "swap") {
     guide = mine
-      ? { title: "You're next", body: "Same chorus. Get ready." }
+      ? { title: "You're next", body: `Same ${clipPart(room)}. Get ready.` }
       : { title: "Wait", body: `${themName} is up next. Don't sing yet.` };
   } else if (room.mode === "duet" && (room.status === "countdown" || room.status === "live")) {
     guide = {

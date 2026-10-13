@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { PageShell } from "../theme/PageShell.tsx";
-import { clearAuthNext, peekAuthNext, useAuth } from "./AuthProvider.tsx";
+import { AccountsUnavailable, clearAuthNext, peekAuthNext, useAuth } from "./AuthProvider.tsx";
+import { postSignInPath } from "../onboarding/onboardingState.ts";
 import { GoogleButton } from "./GoogleButton.tsx";
 import { safeNext } from "./account.ts";
+import { SignInAgreement } from "../legal/LegalLinks.tsx";
 import "./auth.css";
 
 /** Error Google / Supabase put on the redirect back, in the query or hash. */
@@ -19,11 +21,14 @@ function redirectError(params: URLSearchParams): string | null {
 
 /**
  * /signin — the gate in front of Play, matches, and private-room links.
- * Also the OAuth redirect target: Google sends the browser back here with
- * `?code=`, supabase-js swaps it for a session, and we move on to `next`.
+ * The Google Identity Services button signs in without leaving this page;
+ * the fallback redirect flow (GoogleButton.tsx) lands back here with
+ * `?code=`, supabase-js swaps it for a session, and we move on to `next` —
+ * through onboarding first (/check, then /check/voice) if this account has
+ * never done it.
  */
 export function SignIn() {
-  const { configured, ready, user } = useAuth();
+  const { mode, ready, user, accountFresh, onboarding } = useAuth();
   const [params] = useSearchParams();
   const queryNext = params.get("next");
   const returning = params.has("code");
@@ -31,28 +36,32 @@ export function SignIn() {
   // Where to go after sign-in: the explicit ?next, else what we stashed before
   // leaving for Google.
   const next = safeNext(queryNext ?? peekAuthNext());
-  const done = !configured || (ready && Boolean(user));
+  const signedIn = ready && Boolean(user);
+  const done = mode === "dev-guest" || (signedIn && accountFresh);
 
   useEffect(() => {
     if (done) clearAuthNext();
   }, [done]);
 
-  if (!configured) return <Navigate to={next} replace />;
-  if (ready && user) return <Navigate to={next} replace />;
+  if (mode === "dev-guest") return <Navigate to={next} replace />;
+  if (mode === "unconfigured") return <AccountsUnavailable />;
+  // A brand-new account goes through onboarding once, then on to `next`.
+  if (done) return <Navigate to={postSignInPath(onboarding, next)} replace />;
 
   return (
     <PageShell title="Sign in" tag="Sign in to play. Your ELO follows your account.">
       <div className="auth-card">
-        {!ready || (returning && !urlError) ? (
-          <p className="dim">{returning ? "Signing you in…" : "Checking your session…"}</p>
+        {!ready || signedIn || (returning && !urlError) ? (
+          <p className="dim">{returning || signedIn ? "Signing you in…" : "Checking your session…"}</p>
         ) : (
           <>
-            <GoogleButton next={next} />
+            <GoogleButton next={next} oneTap />
             {urlError ? <p className="err">{urlError}</p> : null}
             <p className="dim auth-note">
               Leaderboard and stats are open to everyone. Matches need an account so
               nobody else can play under your name.
             </p>
+            <SignInAgreement />
           </>
         )}
         {returning && ready && !user && !urlError ? <StuckHint /> : null}

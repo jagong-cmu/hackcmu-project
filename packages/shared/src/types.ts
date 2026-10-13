@@ -14,12 +14,24 @@ export type SongMeta = {
   id: string;
   title: string;
   artist: string;
+  /**
+   * Legacy ranked hook start. Clips now start at `chorusSec` / `firstLyricSec`
+   * minus ClipLeadInMs (see clipWindow.ts); this is only the chorus fallback.
+   */
   clipStartSec: number;
+  /** Ranked hook length that is sung (15–20s), not counting the lead-in. */
   clipDurationSec: number;
+  /** Clip anchor: timestamp of the first sung line in lyrics.lrc. */
+  firstLyricSec?: number;
+  /** Clip anchor: timestamp of the chorus hook's first line in lyrics.lrc. */
+  chorusSec?: number;
   duetClipStartSec: number;
   duetClipDurationSec: number;
   chaosDurationSec: number;
 };
+
+/** Which lyric anchor a clip starts from (minus ClipLeadInMs). */
+export type ClipAnchor = "chorus" | "firstLyric";
 
 export type MelodyFile = {
   sampleRateHz: number;
@@ -59,6 +71,14 @@ export type RoomState = {
   activeSingerId: string | null;
   playAtUnixMs: number | null;
   playheadSec: number;
+  /** Ranked/Duet: which anchor this match's clip starts from. Null in lobby / Chaos. */
+  clipAnchor?: ClipAnchor | null;
+  /** Song time the clip's audio starts at (anchor − lead-in). */
+  clipStartSec?: number;
+  /** Whole clip length, lead-in included. */
+  clipDurationSec?: number;
+  /** Instrumental lead-in before the anchor line: not sung, not scored. */
+  clipLeadInSec?: number;
   /** Ranked/Duet results only: an open rematch offer both seats must confirm. */
   rematch?: RematchOffer | null;
   /** Why the last rematch offer closed without starting a match. Cleared by a new offer. */

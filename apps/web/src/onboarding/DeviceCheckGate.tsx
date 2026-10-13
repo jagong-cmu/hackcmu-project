@@ -1,15 +1,26 @@
 import type { ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
-import { checkPathFor, deviceCheckCleared } from "./deviceCheck.ts";
+import { useAuth } from "../auth/AuthProvider.tsx";
+import { checkPathFor } from "./deviceCheck.ts";
 import { voiceCheckPathFor } from "./voiceProfile.ts";
 
 /**
- * Route wrapper: a singer who has never run the mic + camera check is sent
- * there first, then returned to exactly where they were headed.
+ * Route wrapper (safety net behind the post-sign-in redirect): an account that
+ * has never been through onboarding is sent to the mic + camera check first,
+ * then returned to exactly where it was headed. Keyed to the account record,
+ * so it never re-runs on a new browser for an account that already did it.
  */
 export function DeviceCheckGate({ children }: { children: ReactNode }) {
   const loc = useLocation();
-  if (deviceCheckCleared()) return <>{children}</>;
+  const { needsOnboarding, accountFresh } = useAuth();
+  if (!needsOnboarding) return <>{children}</>;
+  if (!accountFresh) {
+    return (
+      <main className="page bloom-page shell">
+        <p className="dim auth-wait">Checking your account…</p>
+      </main>
+    );
+  }
   return <Navigate to={checkPathFor(loc.pathname + loc.search)} replace />;
 }
 

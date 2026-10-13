@@ -1,65 +1,46 @@
 /**
- * Persistence for the mic + camera check that runs before a singer's first
- * real match. Every storage access is wrapped: private windows and blocked
- * site data throw, and the check must never break the play flow.
+ * Per-machine bits of the mic + camera check: which mic and camera this
+ * browser picked, plus the /check path helpers.
+ *
+ * Whether the check has been done is NOT stored here: that is per account
+ * (onboardingState.ts / accountOnboarding.ts). Every storage access is
+ * wrapped: private windows and blocked site data throw, and the check must
+ * never break the play flow.
  */
 
-const DONE_KEY = "karaoke.deviceCheck.v1";
-const SKIP_KEY = "karaoke.deviceCheck.skipped";
 const MIC_KEY = "karaoke.device.mic";
 const CAM_KEY = "karaoke.device.camera";
 
 export const CheckPath = "/check";
 
-/** In-memory fallbacks for when storage is unavailable. */
-let doneThisTab = false;
-let skippedThisTab = false;
-
-function read(store: () => Storage, key: string): string | null {
+function read(key: string): string | null {
   try {
-    return store().getItem(key);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function write(store: () => Storage, key: string, value: string | null): void {
+function write(key: string, value: string): void {
   try {
-    if (value == null) store().removeItem(key);
-    else store().setItem(key, value);
+    window.localStorage.setItem(key, value);
   } catch {
-    /* storage blocked; the in-memory flag covers this tab */
+    /* storage blocked; LiveKit falls back to the default devices */
   }
 }
 
-const local = () => window.localStorage;
-const session = () => window.sessionStorage;
-
-/** True once the singer has passed the check, or skipped it this session. */
-export function deviceCheckCleared(): boolean {
-  if (doneThisTab || skippedThisTab) return true;
-  return read(local, DONE_KEY) === "1" || read(session, SKIP_KEY) === "1";
-}
-
-export function markDeviceCheckDone(devices: { micId?: string; cameraId?: string }): void {
-  doneThisTab = true;
-  write(local, DONE_KEY, "1");
-  if (devices.micId) write(local, MIC_KEY, devices.micId);
-  if (devices.cameraId) write(local, CAM_KEY, devices.cameraId);
-}
-
-/** "Skip for now" lets them through for this session only. */
-export function skipDeviceCheckForSession(): void {
-  skippedThisTab = true;
-  write(session, SKIP_KEY, "1");
+/** Remember the devices that passed the check on this machine. */
+export function saveDevicePrefs(devices: { micId?: string; cameraId?: string }): void {
+  if (devices.micId) write(MIC_KEY, devices.micId);
+  if (devices.cameraId) write(CAM_KEY, devices.cameraId);
 }
 
 export function preferredMicId(): string | undefined {
-  return read(local, MIC_KEY) || undefined;
+  return read(MIC_KEY) || undefined;
 }
 
 export function preferredCameraId(): string | undefined {
-  return read(local, CAM_KEY) || undefined;
+  return read(CAM_KEY) || undefined;
 }
 
 /** Only same-origin paths, so `?next=` can't bounce anyone off-site. */

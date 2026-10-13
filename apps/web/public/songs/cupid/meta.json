@@ -4,6 +4,8 @@
   "artist": "FIFTY FIFTY",
   "clipStartSec": 42.3,
   "clipDurationSec": 18,
+  "firstLyricSec": 4.08,
+  "chorusSec": 42.31,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 191.6,
   "chaosDurationSec": 60

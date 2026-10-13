@@ -9,6 +9,7 @@ import {
   chaosLoungeName,
   DemoRoomCode,
   isPublicChaosCode,
+  MatchCountdownMs,
   songById,
   votesToRemove,
 } from "@karaoke/shared";
@@ -25,6 +26,9 @@ import TurnBadge from "./TurnBadge.tsx";
 import ClipTimer from "./ClipTimer.tsx";
 import TurnOverlay from "./TurnOverlay.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
+
+/** Pre-match countdown in whole seconds, for lobby copy. */
+const countdownSec = Math.round(MatchCountdownMs / 1000);
 
 export default function Stage() {
   const { code = DemoRoomCode } = useParams();
@@ -204,7 +208,7 @@ export default function Stage() {
   const waitingHint = !room
     ? "Joining the room…"
     : room.players.length < 2
-      ? "Waiting for someone to sit down — match starts in 10 seconds once they do."
+      ? `Waiting for someone to sit down — match starts in ${countdownSec} seconds once they do.`
       : room.status === "countdown"
         ? "Match starts on GO."
         : room.players.length >= 2
@@ -240,7 +244,7 @@ export default function Stage() {
             <span>
               {isChaos
                 ? "Send this to a friend — they can walk in anytime."
-                : "Match starts in 10 seconds when you both sit down."}
+                : `Match starts in ${countdownSec} seconds when you both sit down.`}
             </span>
           </div>
         ) : null}

@@ -4,6 +4,8 @@
   "artist": "Coldplay",
   "clipStartSec": 65.2,
   "clipDurationSec": 20,
+  "firstLyricSec": 9.01,
+  "chorusSec": 65.18,
   "duetClipStartSec": 0,
   "duetClipDurationSec": 255.1,
   "chaosDurationSec": 60

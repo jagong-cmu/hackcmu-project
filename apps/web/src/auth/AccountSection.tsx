@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider.tsx";
 import { GoogleButton } from "./GoogleButton.tsx";
+import { SignInAgreement } from "../legal/LegalLinks.tsx";
 import "./auth.css";
 
 /** Settings block: who you are signed in as, and the way out. */
@@ -14,6 +15,7 @@ export function AccountSection() {
       <section className="settings-account">
         <p className="dim">Sign in to play matches and keep your ELO.</p>
         <GoogleButton next="/settings" ghost />
+        <SignInAgreement />
       </section>
     );
   }
