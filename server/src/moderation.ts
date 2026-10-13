@@ -44,7 +44,7 @@ import {
   type SafetyState,
 } from "@karaoke/shared";
 import { getDb } from "./db.ts";
-import { cleanText } from "./hardening.ts";
+import { cleanText, logOnce } from "./hardening.ts";
 import { liveKitRoomName, readLiveKitConfig } from "./livekit.ts";
 import {
   createRoom,
@@ -511,21 +511,30 @@ export function liveKitApiHost(wsUrl: string): string {
   return wsUrl.replace(/^wss:\/\//i, "https://").replace(/^ws:\/\//i, "http://");
 }
 
-/** End this identity's LiveKit connection. False when unconfigured or not there. */
-export async function removeFromLiveKit(code: string, identity: string): Promise<boolean> {
+/**
+ * End this identity's LiveKit connection. False when unconfigured or not
+ * there. `quiet` (routine leaves, where "not connected" is the usual answer)
+ * logs failures at most once per 30s instead of every time. Never throws.
+ */
+export async function removeFromLiveKit(
+  code: string,
+  identity: string,
+  opts: { quiet?: boolean } = {},
+): Promise<boolean> {
   const config = readLiveKitConfig();
-  if (!config) return false;
-  const client = new RoomServiceClient(
-    liveKitApiHost(config.wsUrl),
-    config.apiKey,
-    config.apiSecret,
-  );
+  if (!config || !code || !identity) return false;
   try {
+    const client = new RoomServiceClient(
+      liveKitApiHost(config.wsUrl),
+      config.apiKey,
+      config.apiSecret,
+    );
     await client.removeParticipant(liveKitRoomName(code), identity);
     return true;
   } catch (err) {
     // Not connected (already gone, or camera never opened) is fine.
-    console.warn("[safety] livekit removeParticipant", code, identity, String(err));
+    if (opts.quiet) logOnce("livekit removeParticipant (leave)")(err);
+    else console.warn("[safety] livekit removeParticipant", code, identity, String(err));
     return false;
   }
 }

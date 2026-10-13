@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { addPlayer, clearTimers, createRoom, toPublic } from "./rooms.ts";
 import { decideLiveKitAccess, type RoomView } from "./livekitAccess.ts";
+import { mintToken, TOKEN_TTL_SECONDS } from "./livekit.ts";
 import { hashedPlayerId, publicPlayerId } from "./publicId.ts";
 
 // Dev guest mode (the AUTH_REQUIRED=0 opt-out, non-production only) for these
@@ -135,15 +136,17 @@ test("unseated user is refused even with a valid room code", () => {
   assert.equal(!res.ok && res.status, 403);
 });
 
-test("unknown room is refused", () => {
+test("unknown room gets the same answer as an unseated one (no existence oracle)", () => {
   const res = decideLiveKitAccess({ code: "9999", room: undefined, clientId: ALICE });
-  assert.equal(!res.ok && res.code, "ROOM_NOT_FOUND");
-  assert.equal(!res.ok && res.status, 404);
+  const unseated = decideLiveKitAccess({ code: "1234", room: roomWith("1234", BOB), clientId: ALICE });
+  assert.equal(!res.ok && res.code, "NOT_SEATED");
+  assert.equal(!res.ok && res.status, 403);
+  assert.deepEqual(res, unseated);
 });
 
 test("room that does not match the requested code is refused", () => {
   const res = decideLiveKitAccess({ code: "1234", room: roomWith("4321", ALICE), clientId: ALICE });
-  assert.equal(!res.ok && res.code, "ROOM_NOT_FOUND");
+  assert.equal(!res.ok && res.code, "NOT_SEATED");
 });
 
 test("missing or malformed code is a bad request", () => {
@@ -173,4 +176,21 @@ test("chaos walk-in gets a token once chaos:join seated them", () => {
   } finally {
     clearTimers(lounge);
   }
+});
+
+test("LiveKit join tokens live 15 minutes, not 2 hours (audit #5)", async () => {
+  assert.equal(TOKEN_TTL_SECONDS, 15 * 60);
+  const jwt = await mintToken(
+    { apiKey: "key", apiSecret: "secret-secret-secret-secret-1234", wsUrl: "wss://x" },
+    "4821",
+    "p_abc",
+    "Alice",
+  );
+  const claims = JSON.parse(Buffer.from(jwt.split(".")[1], "base64url").toString()) as {
+    exp: number;
+    nbf?: number;
+    iat?: number;
+  };
+  const life = claims.exp - Math.floor(Date.now() / 1000);
+  assert.ok(life > 14 * 60 && life <= 15 * 60, `token lifetime ${life}s`);
 });

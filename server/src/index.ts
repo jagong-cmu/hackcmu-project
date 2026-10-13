@@ -83,8 +83,18 @@ import {
   sanitizeDisplayName,
   sanitizePitchSample,
 } from "./hardening.ts";
-import { attachSocketAuth, authMode, httpAccount, httpIdentity, refreshSocketAuth, socketIdentity } from "./auth.ts";
 import {
+  attachSocketAuth,
+  authMode,
+  clearSocketAuth,
+  httpAccount,
+  httpIdentity,
+  refreshSocketAuth,
+  socketAuthExpired,
+  socketIdentity,
+} from "./auth.ts";
+import {
+  canReadRoom,
   createWindowGate,
   HelloVerifyLimit,
   HelloVerifyWindowMs,
@@ -93,6 +103,7 @@ import {
   joinLimitKey,
   JoinRateLimitedCode,
   joinRateLimitedMessage,
+  RoomSnapshotNotFound,
   RoomUnavailableCode,
   roomUnavailableMessage,
 } from "./abuseLimits.ts";
@@ -108,6 +119,7 @@ import {
   markPrivateRoom,
   openLoungeFor,
   registerSafety,
+  removeFromLiveKit,
 } from "./moderation.ts";
 
 // Last resort: a stray rejection or throw is logged, never fatal to the instance.
@@ -226,8 +238,11 @@ app.post("/api/livekit/token", asyncRoute(async (req, res) => {
 }));
 
 app.get("/api/rooms/:code", asyncRoute(async (req, res) => {
-  // Polling this advances the room clock and prunes dead seats, so it is a
-  // play path too: signed-in accounts only.
+  // Seated players only. Everyone else, signed in or not seated yet, gets the
+  // same 404 as "no such room", so this cannot be used to find live private
+  // codes or read other rooms' names and scores. The poll (RoomProvider)
+  // ignores a 404 until room:join has seated it. Polling also advances the
+  // room clock and prunes dead seats; only seated callers trigger that.
   const who = await httpAccount(req);
   if (!who.ok) {
     res.status(who.status).json({ code: who.code, message: who.message });
@@ -235,8 +250,8 @@ app.get("/api/rooms/:code", asyncRoute(async (req, res) => {
   }
   const code = roomCodeOf(req.params.code);
   const room = code ? await ensureRoom(code) : undefined;
-  if (!room) {
-    res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
+  if (!room || !canReadRoom(room, who.clientId)) {
+    res.status(404).json(RoomSnapshotNotFound);
     return;
   }
   pruneRoom(room);
@@ -336,7 +351,38 @@ function seat(socketId: string, room: Room): boolean {
   return true;
 }
 
-function leaveCurrentRoom(socketId: string, opts: { forfeit: boolean } = { forfeit: true }): void {
+/** How long a dropped socket has to come back before its LiveKit connection is ended. */
+const MEDIA_DROP_GRACE_MS = 20_000;
+
+/**
+ * End a departed player's LiveKit connection (best effort): LiveKit tokens
+ * cannot be revoked, so leaving the room has to drop the media session too.
+ * "now" for deliberate exits; "later" for a dropped socket, which usually
+ * reconnects and re-seats within seconds, so only drop it if it has not.
+ */
+function dropMedia(code: string, playerId: string, when: "now" | "later"): void {
+  if (!readLiveKitConfig()) return;
+  if (when === "now") {
+    void removeFromLiveKit(code, playerId, { quiet: true }).catch(logOnce("livekit drop on leave"));
+    return;
+  }
+  const timer = setTimeout(() => {
+    void (async () => {
+      for (const s of sessions.values()) {
+        if (s.playerId === playerId && s.roomCode === code) return;
+      }
+      const room = (await ensureRoom(code)) ?? getRoom(code);
+      if (room?.players.some((p) => p.id === playerId)) return;
+      await removeFromLiveKit(code, playerId, { quiet: true });
+    })().catch(logOnce("livekit drop after disconnect"));
+  }, MEDIA_DROP_GRACE_MS);
+  timer.unref?.();
+}
+
+function leaveCurrentRoom(
+  socketId: string,
+  opts: { forfeit: boolean; media?: "now" | "later" } = { forfeit: true },
+): void {
   const session = sessionOf(socketId);
   const room = roomOfSession(session);
   if (!session || !room) return;
@@ -349,6 +395,7 @@ function leaveCurrentRoom(socketId: string, opts: { forfeit: boolean } = { forfe
     removePlayer(room, player.id);
     // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
     rematchSeatLeft(room, player.id);
+    dropMedia(room.code, player.id, opts.media ?? "now");
   }
 
   io.sockets.sockets.get(socketId)?.leave(room.code);
@@ -451,17 +498,33 @@ io.on("connection", (socket) => {
   // Token checks cost a Supabase round trip, so a socket gets a few per window.
   const helloVerifyGate = createWindowGate(HelloVerifyLimit, HelloVerifyWindowMs);
 
+  /**
+   * Accounts on, and this socket's verified token has expired (or was
+   * dropped as expired): refuse play events until a hello re-verifies it.
+   * AUTH_REQUIRED makes the client refresh its session and say hello again
+   * (RoomProvider onError). The seat is kept, so nobody forfeits over this.
+   */
+  const authLapsed = (): boolean => {
+    if (authMode() !== "verify") return false;
+    if (socket.data.authUserId && !socketAuthExpired(socket)) return false;
+    fail(socket, "AUTH_REQUIRED", "Your sign-in expired. Sign in again to play.");
+    return true;
+  };
+
   socket.on(ClientEvents.playerHello, safeHandler(socket, ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId: claimedId, displayName, accessToken } = (payload ?? {}) as Record<string, unknown>;
-    // Not verified at handshake (session restored late, or the token had
-    // expired): re-verify in place from the token sent with this hello. Only
-    // then do we await, so an already-verified hello still seats the session
-    // synchronously before a following room:create / room:ready.
-    // Re-verification is rate limited per socket; hellos from an
+    // Not verified at handshake (session restored late), or the verified
+    // token has since expired: re-verify in place from the token sent with
+    // this hello. Only then do we await, so an already-verified hello still
+    // seats the session synchronously before a following room:create /
+    // room:ready. Re-verification is rate limited per socket; hellos from an
     // already-verified socket do not count.
-    if (!socket.data.authUserId && typeof accessToken === "string" && accessToken && authMode() === "verify") {
+    const needsVerify = !socket.data.authUserId || socketAuthExpired(socket);
+    if (needsVerify && typeof accessToken === "string" && accessToken && authMode() === "verify") {
       if (helloVerifyGate()) await refreshSocketAuth(socket, accessToken);
     }
+    // Still expired: this socket is signed out until a fresh token arrives.
+    if (socketAuthExpired(socket)) clearSocketAuth(socket);
     // The verified Supabase user id, never whatever was sent. Every other
     // play event needs the session this creates, so this is the socket gate.
     const who = socketIdentity(socket, claimedId);
@@ -527,6 +590,7 @@ io.on("connection", (socket) => {
   socket.on(ClientEvents.queueJoin, safeHandler(socket, ClientEvents.queueJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
+    if (authLapsed()) return;
 
     const mode = modeOf(payload);
     if (!mode || !isQueueMode(mode)) return fail(socket, "BAD_MODE", "ranked or duet only");
@@ -603,6 +667,7 @@ io.on("connection", (socket) => {
   socket.on(ClientEvents.roomCreate, safeHandler(socket, ClientEvents.roomCreate, (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
+    if (authLapsed()) return;
 
     const mode = modeOf(payload);
     leaveCurrentRoom(socket.id);
@@ -643,6 +708,7 @@ io.on("connection", (socket) => {
   socket.on(ClientEvents.roomJoin, safeHandler(socket, ClientEvents.roomJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
+    if (authLapsed()) return;
 
     const code = roomCodeOf(fieldOf(payload, "code"));
     if (!code) return fail(socket, "BAD_CODE", "enter a 4-digit code");
@@ -673,6 +739,7 @@ io.on("connection", (socket) => {
   socket.on(ClientEvents.chaosJoin, safeHandler(socket, ClientEvents.chaosJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
+    if (authLapsed()) return;
 
     const raw = roomCodeOf(fieldOf(payload, "code"));
     if (raw && !isPublicChaosCode(raw) && !/^\d{4}$/.test(raw)) {
@@ -759,6 +826,7 @@ io.on("connection", (socket) => {
   }
 
   socket.on(ClientEvents.roomReady, safeHandler(socket, ClientEvents.roomReady, async () => {
+    if (authLapsed()) return;
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos") return;
     const { room, player } = seated;
@@ -775,12 +843,14 @@ io.on("connection", (socket) => {
   }));
 
   socket.on(ClientEvents.rematchRequest, safeHandler(socket, ClientEvents.rematchRequest, async () => {
+    if (authLapsed()) return;
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos" || !seated.player) return;
     handleRematchRequest(io, seated.room, seated.player.id);
   }));
 
   socket.on(ClientEvents.rematchCancel, safeHandler(socket, ClientEvents.rematchCancel, async () => {
+    if (authLapsed()) return;
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos" || !seated.player) return;
     handleRematchCancel(io, seated.room, seated.player.id);
@@ -812,7 +882,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", safeHandler(socket, "disconnect", () => {
     dequeue(socket.id);
     void forgetWaiter({ socketId: socket.id }).catch(logOnce("forgetWaiter"));
-    leaveCurrentRoom(socket.id);
+    leaveCurrentRoom(socket.id, { forfeit: true, media: "later" });
     sessions.delete(socket.id);
   }));
 });

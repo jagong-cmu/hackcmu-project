@@ -1,9 +1,9 @@
 /**
- * Room-code brute force (audit #4) and Supabase verification amplification
- * on player:hello (#8).
+ * Room-code brute force (audit #4), room snapshot reads (#12) and Supabase
+ * verification amplification on player:hello (#8).
  *
  * Unit tests for the limiter, plus two real servers (index.ts in a child
- * process): one in the dev opt-out for joins, one in verify
+ * process): one in the dev opt-out for joins and snapshots, one in verify
  * mode against a stub Supabase that counts calls.
  *
  * Run: MONGODB_URI= npx tsx --test server/src/abuseLimits.test.ts
@@ -18,6 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { after, before, describe, test } from "node:test";
 import {
+  canReadRoom,
   createWindowGate,
   isGuardedRoomCode,
   JoinAttemptLimiter,
@@ -102,6 +103,14 @@ test("window gate: at most N per window", () => {
   assert.equal(gate(10), false);
   assert.equal(gate(29_999), false);
   assert.equal(gate(30_000), true, "first hit aged out");
+});
+
+test("room snapshots: seated callers only", () => {
+  const room = { players: [{ clientId: "a" }, { clientId: "b" }] };
+  assert.equal(canReadRoom(room, "a"), true);
+  assert.equal(canReadRoom(room, "c"), false);
+  assert.equal(canReadRoom(room, ""), false, "nobody (dev opt-out without a header)");
+  assert.equal(canReadRoom(undefined, "a"), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -197,7 +206,7 @@ async function startServer(env: Record<string, string>): Promise<{ base: string;
 }
 
 // ---------------------------------------------------------------------------
-// Dev opt-out server: generic join errors and the join limit
+// Dev opt-out server: generic join errors, join limit, snapshot reads
 // ---------------------------------------------------------------------------
 
 describe("live server (dev opt-out)", () => {
@@ -309,6 +318,37 @@ describe("live server (dev opt-out)", () => {
     }
   });
 
+  test("GET /api/rooms/:code: seated players only, one 404 for everyone else", async () => {
+    const { host, code } = await hostRoom("duet");
+    const taken = new Set([code]);
+    const get = async (c: string, clientId?: string) => {
+      const res = await fetch(`${base}/api/rooms/${c}`, {
+        headers: clientId ? { "X-Client-Id": clientId } : {},
+      });
+      return { status: res.status, body: (await res.json()) as { room?: { code: string }; code?: string } };
+    };
+    const seated = await get(code, host.clientId);
+    assert.equal(seated.status, 200);
+    assert.equal(seated.body.room?.code, code);
+
+    const stranger = await get(code, randomUUID());
+    const anonymous = await get(code);
+    const missing = await get(freeCode(taken, 3131), host.clientId);
+    assert.equal(stranger.status, 404);
+    assert.deepEqual(stranger, anonymous);
+    assert.deepEqual(stranger, missing, "exists-but-not-yours looks exactly like does-not-exist");
+    assert.equal(JSON.stringify(stranger.body).includes(code), false);
+
+    // A guest who just joined can read it.
+    const guest = mk();
+    await guest.hello();
+    assert.equal((await guest.emitAndWait("room:join", { code }))?.event, "match:found");
+    assert.equal((await get(code, guest.clientId)).status, 200);
+    // And after leaving, cannot.
+    guest.s.emit("room:leave");
+    await new Promise((r) => setTimeout(r, 200));
+    assert.equal((await get(code, guest.clientId)).status, 404);
+  });
 });
 
 // ---------------------------------------------------------------------------

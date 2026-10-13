@@ -25,7 +25,7 @@ import {
   type RoomStatus,
   type ScoreCard,
 } from "@karaoke/shared";
-import { getDisplayName, helloPayload, recoverSocketAuth, setDisplayName, socket } from "./socket.ts";
+import { getClientId, getDisplayName, helloPayload, recoverSocketAuth, setDisplayName, socket } from "./socket.ts";
 import { syncClock } from "./timeSync.ts";
 import { authHeaders } from "../auth/supabase.ts";
 
@@ -326,9 +326,13 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       const code = pollCode();
       if (!code) return;
       try {
-        // Snapshot reads are a play path: the server wants the account token.
+        // Snapshot reads are a play path: the server wants the account token,
+        // and only answers players seated in this room. Until room:join has
+        // seated us (possibly on another server instance) it says 404, which
+        // we ignore: room:state over the socket covers that window. The
+        // client id header only matters in the local dev opt-out.
         const res = await fetch(`/api/rooms/${encodeURIComponent(code)}`, {
-          headers: await authHeaders(),
+          headers: { ...(await authHeaders()), "X-Client-Id": getClientId() },
         });
         if (!res.ok) return;
         const data = (await res.json()) as {
