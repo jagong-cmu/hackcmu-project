@@ -491,6 +491,10 @@ export function StageResults() {
   const { room, myPlayerId } = useStage();
   const { matchOver, scores, roomLeave, rematchRequest, rematchCancel } = useRoom();
   const rematch = useRematchView(room, myPlayerId);
+  // Keep the opponent's name for the results card/video after they leave.
+  const lastOpponentRef = useRef<string | undefined>(undefined);
+  const seatedOpponent = room?.players.find((p) => p.id !== myPlayerId)?.displayName;
+  if (seatedOpponent) lastOpponentRef.current = seatedOpponent;
   if (!room || !myPlayerId) return null;
   if (room.status === "results" && !matchOver) return <ScoringWait />;
   if (!matchOver) return null;
@@ -521,7 +525,10 @@ export function StageResults() {
       you={you}
       youName="You"
       opponent={oppCard}
-      opponentName={opponent?.displayName ?? "Them"}
+      opponentName={opponent?.displayName ?? lastOpponentRef.current ?? "Them"}
+      shareName={room.players.find((p) => p.id === myPlayerId)?.displayName}
+      forfeit={Boolean(matchOver.forfeit)}
+      opponentLeft={!opponent && Boolean(lastOpponentRef.current)}
       revealOpponent
       winnerId={rankedWinner}
       youId={myPlayerId}

@@ -1,3 +1,18 @@
+import {
+  BLUE,
+  BLUE_DEEP,
+  DANGER,
+  DIM,
+  eloLabel,
+  FG,
+  GOOD,
+  INK,
+  loadCardFonts,
+  paintBloom,
+  paintWordmark,
+  roundRect,
+  wrapText,
+} from "./cardPaint.ts";
 import type { MatchMoment } from "./matchMoment.ts";
 
 export type ShareCardInput = {
@@ -19,66 +34,8 @@ export type ShareCardInput = {
 const W = 1080;
 const H = 1350;
 
-const INK = "#04060c";
-const FG = "#ffffff";
-const DIM = "rgba(206, 224, 255, 0.62)";
-const BLUE = "#79b4ff";
-const BLUE_DEEP = "#1b4fa3";
-const GOOD = "#3ee08a";
-const DANGER = "#ff8a8a";
-
-async function loadFonts() {
-  await document.fonts.ready;
-  await Promise.all([
-    document.fonts.load("400 96px 'Bebas Neue'"),
-    document.fonts.load("600 42px Outfit"),
-    document.fonts.load("500 28px Outfit"),
-    document.fonts.load("400 24px Outfit"),
-  ]);
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
-function wrap(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines: number,
-) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  const shown = lines.slice(0, maxLines);
-  if (lines.length > maxLines) shown[maxLines - 1] = `${shown[maxLines - 1]}\u2026`;
-  shown.forEach((entry, i) => ctx.fillText(entry, x, y + i * lineHeight));
-  return shown.length;
-}
-
 export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
-  await loadFonts();
+  await loadCardFonts();
 
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -89,37 +46,8 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, W, H);
 
-  const bloom = ctx.createRadialGradient(W * 0.5, 210, 20, W * 0.5, 280, 640);
-  bloom.addColorStop(0, "rgba(79, 151, 245, 0.38)");
-  bloom.addColorStop(0.45, "rgba(27, 79, 163, 0.16)");
-  bloom.addColorStop(1, "rgba(4, 6, 12, 0)");
-  ctx.fillStyle = bloom;
-  ctx.fillRect(0, 0, W, 760);
-
-  ctx.fillStyle = FG;
-  ctx.font = "400 64px 'Bebas Neue', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  const brand = "ARIA";
-  const brandGap = 18;
-  const brandWidth =
-    [...brand].reduce((sum, ch) => sum + ctx.measureText(ch).width, 0) + brandGap * (brand.length - 1);
-  let brandX = W / 2 - brandWidth / 2;
-  for (const ch of brand) {
-    ctx.fillText(ch, brandX + ctx.measureText(ch).width / 2, 44);
-    brandX += ctx.measureText(ch).width + brandGap;
-  }
-
-  ctx.strokeStyle = "rgba(121, 180, 255, 0.35)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(360, 118);
-  ctx.lineTo(720, 118);
-  ctx.stroke();
-  ctx.fillStyle = BLUE;
-  ctx.beginPath();
-  ctx.arc(W / 2, 118, 3.5, 0, Math.PI * 2);
-  ctx.fill();
+  paintBloom(ctx, W * 0.5, 280, 640, 760, W);
+  paintWordmark(ctx, W / 2, 44, 64);
 
   const frameX = 48;
   const frameY = 136;
@@ -211,11 +139,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   const chips: string[] = [];
   if (input.shared != null) chips.push(`Shared ${Math.round(input.shared)}`);
   if (input.eloDelta != null) {
-    chips.push(
-      input.eloDelta === 0
-        ? "ELO unchanged"
-        : `${input.eloDelta > 0 ? "+" : ""}${input.eloDelta} ELO`,
-    );
+    chips.push(eloLabel(input.eloDelta));
   }
   if (chips.length) {
     ctx.fillStyle = input.eloDelta && input.eloDelta < 0 ? DANGER : BLUE;
@@ -228,7 +152,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   if (verdict) {
     ctx.fillStyle = "rgba(206, 224, 255, 0.78)";
     ctx.font = "400 26px Outfit, sans-serif";
-    wrap(ctx, verdict, W / 2, y, frameW - 24, 34, 3);
+    wrapText(ctx, verdict, W / 2, y, frameW - 24, 34, 3);
     y += 90;
   }
 

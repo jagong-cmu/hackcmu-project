@@ -9,5 +9,6 @@
       "@karaoke/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../../packages/shared/src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../../packages/shared/src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }
