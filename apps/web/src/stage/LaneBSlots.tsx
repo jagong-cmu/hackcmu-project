@@ -24,7 +24,11 @@ import { useStage } from "./StageContext.tsx";
 import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
 import { playheadFromClock } from "./useSharedClock.ts";
 import { useRematchView } from "./useRematchView.ts";
+import { isScoringClip, shouldStartTake, takeKey } from "./takeKey.ts";
 import { useVoiceProfile } from "../auth/AuthProvider.tsx";
+
+/** pitch:live send gap: 20/s, the server's per-socket relay cap. */
+const PitchLiveMinGapMs = 50;
 
 /** Same song-time on both laptops. Never follow a local <audio> that hasn't sought yet. */
 function displayPlayhead(
@@ -87,15 +91,6 @@ function clipOf(
     };
   }
   return null;
-}
-
-function isScoringClip(room: RoomState | null, myPlayerId: string | null): boolean {
-  if (!room || !myPlayerId || room.mode === "chaos") return false;
-  if (room.mode === "duet") return room.status === "live";
-  return (
-    (room.status === "turnA" || room.status === "turnB") &&
-    room.activeSingerId === myPlayerId
-  );
 }
 
 export function StageLyrics() {
@@ -231,7 +226,7 @@ export function StagePitch() {
   const singingRef = useRef(false);
   const postedRef = useRef(false);
   /** The clip the current take belongs to, and its match (echoed in the score POST). */
-  const takeRef = useRef("");
+  const takesRef = useRef<Set<string>>(new Set());
   const matchIdRef = useRef<number | null>(null);
   const postingRef = useRef(false);
   const scoringRef = useRef(false);
@@ -404,7 +399,9 @@ export function StagePitch() {
       setLiveClarity(clarity);
       setLiveRms(rms);
       const now = performance.now();
-      if (now - lastEmitRef.current < 40) return;
+      // Time-based, not per frame: the server relays at most 20/s per socket,
+      // and a 40ms gate sent ~24/s on 120/144Hz displays (excess dropped).
+      if (now - lastEmitRef.current < PitchLiveMinGapMs) return;
       lastEmitRef.current = now;
       const run = runningRef.current;
       emitRef.current({
@@ -458,12 +455,13 @@ export function StagePitch() {
   }, [micStream, audioRef]);
 
   useEffect(() => {
-    if (!room || !isScoringClip(room, myPlayerId) || singingRef.current) return;
+    if (!room || singingRef.current) return;
     // One take per clip: a room update that lands while this clip's score is
-    // in flight (or paused after a refusal) must not restart it.
-    const take = `${room.matchId ?? ""}:${room.status}:${room.playAtUnixMs ?? ""}`;
-    if (takeRef.current === take) return;
-    takeRef.current = take;
+    // in flight (or paused after a refusal) must not restart it. The key is
+    // matchId + seat + status, not playAt (differs per server instance).
+    const take = takeKey(room, myPlayerId);
+    if (!shouldStartTake(take, takesRef.current)) return;
+    takesRef.current.add(take);
     matchIdRef.current = room.matchId ?? null;
     framesRef.current = [];
     postedRef.current = false;
