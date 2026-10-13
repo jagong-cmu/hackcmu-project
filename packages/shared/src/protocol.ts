@@ -14,6 +14,16 @@ export const ClientEvents = {
   rematchCancel: "rematch:cancel",
   chaosJoin: "chaos:join",
   pitchLive: "pitch:live",
+  /** Ask for this room's safety state (host, vote tallies, my blocks). Acked with SafetyState. */
+  safetySync: "safety:sync",
+  /** Report someone in your room. Payload: SafetyReportRequest. Acked with SafetyAck. */
+  safetyReport: "safety:report",
+  /** Block someone. Payload: { targetId }. Stored per player; you are never matched again. */
+  safetyBlock: "safety:block",
+  /** Remove someone: host kick in private rooms, a vote in Chaos. Payload: { targetId }. */
+  safetyKick: "safety:kick",
+  /** Ranked/Duet: leave with no rating change after blocking or reporting the opponent. */
+  safetyLeave: "safety:leave",
 } as const;
 
 export const ServerEvents = {
@@ -25,8 +35,45 @@ export const ServerEvents = {
   scoreReady: "score:ready",
   matchOver: "match:over",
   pitchLive: "pitch:live",
+  /** Room-level SafetyState, broadcast when the host or a vote tally changes. */
+  safetyState: "safety:state",
+  /** You were removed from a room and cannot rejoin it. Payload: SafetyRemoved. */
+  safetyRemoved: "safety:removed",
+  /** A safety action changed your room (opponent left, someone was removed). SafetyNotice. */
+  safetyNotice: "safety:notice",
   error: "error",
 } as const;
+
+/** `error` code when a removed player tries to rejoin that room. */
+export const RemovedFromRoomCode = "REMOVED_FROM_ROOM";
+
+export const ReportReasons = [
+  "harassment",
+  "sexual",
+  "hate",
+  "violence",
+  "underage",
+  "spam",
+  "other",
+] as const;
+export const ReportNoteMax = 280;
+/** Per reporter: at most ReportLimit reports per ReportWindowMs. */
+export const ReportLimit = 5;
+export const ReportWindowMs = 10 * 60_000;
+/** Per player: at most BlockLimit blocks per ReportWindowMs. */
+export const BlockLimit = 20;
+/** Lifetime cap on how many players one player can block (also caps no-penalty leaves). */
+export const MaxBlockedPlayers = 10;
+/**
+ * Chaos vote-kick: votes needed to remove someone, given how many *other*
+ * people are live in the room. A strict majority, never fewer than 2, so one
+ * person can never remove another alone.
+ */
+export function votesToRemove(othersLive: number): number {
+  return Math.max(2, Math.floor(othersLive / 2) + 1);
+}
+/** A room ban lasts as long as a LiveKit token, so a 4-digit code can be reused later. */
+export const RoomBanMs = 2 * 60 * 60_000;
 
 export const ScorePostPath = "/api/turns/:roomId/score";
 export const DemoRoomCode = "0000";

@@ -6,7 +6,8 @@ import {
   composeShareImage,
   shareFilename,
 } from "./composeShareImage.ts";
-import { extForMime, waitForCurrentReel } from "./matchReel.ts";
+import { extForMime, feedMatchReelResults, waitForCurrentReel } from "./matchReel.ts";
+import { buildReelResults, OutroMs, ResultsWaitMs } from "./reelResults.ts";
 import { ScoreBurst } from "./ScoreBurst.tsx";
 import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
@@ -101,6 +102,12 @@ type Props = {
   /** Withdraw my offer or decline theirs. */
   onRematchCancel?: () => void;
   onAgain?: () => void;
+  /** Your real name for the match video ("You" reads oddly in a shared clip). */
+  shareName?: string;
+  /** The match ended because someone left. */
+  forfeit?: boolean;
+  /** The opponent's seat emptied before results; show them as left. */
+  opponentLeft?: boolean;
 };
 
 export function ResultsModal({
@@ -121,6 +128,9 @@ export function ResultsModal({
   rematch,
   onRematchCancel,
   onAgain,
+  shareName,
+  forfeit,
+  opponentLeft,
 }: Props) {
   const moment = useMatchMoment();
   const reel = useMatchReel();
@@ -162,6 +172,33 @@ export function ResultsModal({
     gemini !== coach.line &&
     gemini !== "We couldn't hear you.";
 
+  // Close the match video on this card. Re-fed whenever the numbers change
+  // (Gemini's line lands after the DSP scores); the reel draws the newest.
+  const reelFeed = JSON.stringify(
+    buildReelResults({
+      you,
+      youName: shareName?.trim() || youName,
+      opponent: opponent ?? null,
+      opponentName,
+      versus: Boolean(opponent) || Boolean(opponentLeft),
+      opponentLeft,
+      revealOpponent,
+      winnerId,
+      youId,
+      opponentId,
+      eloDelta,
+      shared,
+      forfeit,
+      songTitle,
+      songArtist,
+      kicker: coach.kicker,
+      caption: showGemini ? gemini : coach.line,
+    }),
+  );
+  useEffect(() => {
+    feedMatchReelResults(JSON.parse(reelFeed));
+  }, [reelFeed]);
+
   const heroTarget = shared != null ? shared : you.overall;
   const shown = useCountUp(you.silence ? 0 : heroTarget, true);
   const burstCount = you.silence ? 0 : you.overall >= 80 ? 36 : you.overall >= 55 ? 22 : 0;
@@ -183,7 +220,8 @@ export function ResultsModal({
     if (sharing) return;
     setSharing(true);
     try {
-      const video = reel ?? (await waitForCurrentReel(4500));
+      // A held reel may still be waiting on scores or rendering its outro.
+      const video = reel ?? (await waitForCurrentReel(ResultsWaitMs + OutroMs + 2500));
       if (video) {
         if (sheet?.owned && sheet.url) URL.revokeObjectURL(sheet.url);
         setCopied(false);
@@ -265,12 +303,14 @@ export function ResultsModal({
           </p>
         ) : null}
         {showGemini ? <p className="verdict">{gemini}</p> : null}
-        {reel || moment ? (
+        {reel || moment || reelPending ? (
           <button type="button" className="results-moment" onClick={() => void openShare()}>
             {moment ? (
               <img src={moment.url} alt="" />
+            ) : reel ? (
+              <video src={reel.url} muted playsInline preload="metadata" />
             ) : (
-              <video src={reel!.url} muted playsInline preload="metadata" />
+              <span className="moment-pending" aria-hidden="true" />
             )}
             <span className="moment-label">{reel ? "Match video" : reelPending ? "Finishing video…" : "Share"}</span>
           </button>

@@ -45,6 +45,9 @@ export function Leaderboard() {
           Duet highs
         </button>
       </div>
+      <p className="dim">
+        Casual ladder. Each singer’s browser scores their own take, so nothing here is verified.
+      </p>
       {tab === "ranked" ? (
         <table className="board">
           <thead>

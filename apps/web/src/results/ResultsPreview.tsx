@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResultsModal, ScoringWait } from "./ResultsModal.tsx";
 import { seedPreviewMoment } from "./matchMoment.ts";
+import { ReelOutroPreview, ReelRunPreview } from "./ReelPreview.tsx";
 
 const MOCK: ScoreCard = {
   overall: 87,
@@ -25,8 +26,17 @@ const MOCK_THEM: ScoreCard = {
 /**
  * Dev-only stage for the score reveal. Open /results-preview.
  * Add ?wait=1 for the judging booth, ?loss=1 for a loss, ?low=1 for a rough take.
+ * ?outro=ranked (or loss/draw/duet/solo/forfeit) for the match-video outro,
+ * ?reel=1 to record a fake match end to end.
  */
 export function ResultsPreview() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("outro")) return <ReelOutroPreview />;
+  if (params.has("reel")) return <ReelRunPreview />;
+  return <ResultsCardPreview />;
+}
+
+function ResultsCardPreview() {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const wait = params.has("wait");

@@ -45,7 +45,7 @@ function isSinging(video: HTMLVideoElement): boolean {
   return Boolean(video.closest(".tile.singing"));
 }
 
-function hudSong(): string {
+export function hudSong(): string {
   return (document.querySelector(".stage-song")?.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 

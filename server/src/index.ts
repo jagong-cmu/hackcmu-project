@@ -19,6 +19,7 @@ import {
   ClientEvents,
   DemoRoomCode,
   isPublicChaosCode,
+  RemovedFromRoomCode,
   ServerEvents,
   StartingElo,
   type Mode,
@@ -32,7 +33,6 @@ import {
   dropDeadPlayers,
   ensurePermanentRooms,
   createRoom,
-  findOpenPublicChaosLounge,
   getRoom,
   isFull,
   livePlayers,
@@ -68,9 +68,11 @@ import {
   sharedPairOrWait,
 } from "./liveState.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
+import { decideLiveKitAccess } from "./livekitAccess.ts";
+import { publicPlayerId } from "./publicId.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
-import { attachSocketAuth, httpIdentity, registerAuthRoutes, socketIdentity } from "./auth.ts";
+import { attachSocketAuth, httpIdentity, socketIdentity } from "./auth.ts";
 import {
   posthogConfigured,
   trackChaosJoined,
@@ -78,6 +80,13 @@ import {
   trackRoomCreated,
   trackScoreSubmitted,
 } from "./analytics.ts";
+import {
+  isBannedFromRoom,
+  isBannedLocal,
+  markPrivateRoom,
+  openLoungeFor,
+  registerSafety,
+} from "./moderation.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -98,7 +107,6 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json({ limit: "256kb" }));
 registerLaneBRoutes(app);
-registerAuthRoutes(app);
 attachSocketAuth(io);
 
 /** Per-socket identity. Rooms hold the authoritative player record. */
@@ -141,6 +149,9 @@ app.get("/api/health", async (_req, res) => {
 /**
  * LiveKit join token. The API secret stays server-side; the client only ever
  * sees a scoped, expiring JWT plus the public ws URL.
+ *
+ * Room codes are guessable, so a token is only minted for a player already
+ * seated in that room, as their public player id (see livekitAccess.ts).
  */
 app.post("/api/livekit/token", async (req, res) => {
   const config = readLiveKitConfig();
@@ -152,20 +163,46 @@ app.post("/api/livekit/token", async (req, res) => {
     return;
   }
 
-  const { code, identity, displayName } = req.body ?? {};
-  if (typeof code !== "string" || typeof identity !== "string") {
-    res.status(400).json({ code: "BAD_REQUEST", message: "code and identity required" });
+  const who = await httpIdentity(req, req.body?.clientId);
+  if (!who.ok) {
+    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
+    return;
+  }
+  const rawCode: unknown = req.body?.code;
+  const code = typeof rawCode === "string" ? rawCode.trim() : rawCode;
+  const room =
+    typeof code === "string" && code ? ((await ensureRoom(code)) ?? getRoom(code)) : undefined;
+  const access = decideLiveKitAccess({
+    code,
+    room,
+    clientId: who.clientId,
+    requested: req.body?.identity,
+  });
+  if (!access.ok) {
+    res.status(access.status).json({ code: access.code, message: access.message });
+    return;
+  }
+  // Removal ejects the seat too; this also covers a stale snapshot that still seats them.
+  if (await isBannedFromRoom(access.roomCode, access.identity)) {
+    res.status(403).json({ code: RemovedFromRoomCode, message: "removed from this room" });
     return;
   }
 
-  const token = await mintToken(
-    config,
-    code,
-    identity,
-    typeof displayName === "string" ? displayName : "Singer",
-  );
-  res.json({ token, wsUrl: config.wsUrl, room: liveKitRoomName(code) });
+  const token = await mintToken(config, access.roomCode, access.identity, access.displayName);
+  res.json({
+    token,
+    wsUrl: config.wsUrl,
+    room: liveKitRoomName(access.roomCode),
+    identity: access.identity,
+  });
 });
+
+/** Error code for a failed httpIdentity check. */
+function httpIdentityCode(status: number): string {
+  if (status === 401) return "UNAUTHORIZED";
+  if (status === 403) return "IDENTITY_MISMATCH";
+  return "BAD_REQUEST";
+}
 
 /**
  * Score upload. The client runs the DSP locally and posts numbers — never a
@@ -220,9 +257,12 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
   }
   const who = await httpIdentity(req, req.body?.clientId);
   if (!who.ok) {
-    res.status(who.status).json({ code: "UNAUTHORIZED", message: who.message });
+    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
     return;
   }
+  // Verified identity only: with auth on, the token's user id; in guest mode,
+  // the secret clientId, which other players never see. A body naming someone
+  // else's public id cannot post for them.
   const clientId = who.clientId;
 
   const player = room.players.find((p) => p.clientId === clientId);
@@ -276,6 +316,7 @@ function seat(socketId: string, room: Room): boolean {
 
   pruneRoom(room);
 
+  if (isBannedLocal(room.code, session.playerId)) return false;
   const alreadyHere = room.players.some((p) => p.clientId === session.clientId);
   if (!alreadyHere && isFull(room)) return false;
 
@@ -305,7 +346,7 @@ function seat(socketId: string, room: Room): boolean {
   return true;
 }
 
-function leaveCurrentRoom(socketId: string): void {
+function leaveCurrentRoom(socketId: string, opts: { forfeit: boolean } = { forfeit: true }): void {
   const session = sessionOf(socketId);
   const room = roomOfSession(session);
   if (!session || !room) return;
@@ -313,7 +354,8 @@ function leaveCurrentRoom(socketId: string): void {
   const player = room.players.find((p) => p.id === session.playerId);
   if (player) {
     player.connected = false;
-    forfeitFor(io, room, player);
+    // Safety exits (kicked, or leaving someone you blocked/reported) carry no forfeit.
+    if (opts.forfeit) forfeitFor(io, room, player);
     removePlayer(room, player.id);
     // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
     rematchSeatLeft(room, player.id);
@@ -405,6 +447,16 @@ function announceQueueMatch(
   return true;
 }
 
+// Report / block / remove (moderation.ts). Its own socket handlers; these are the hooks it needs.
+registerSafety(io, {
+  sessionOf,
+  resolveRoom: async (code) => (await ensureRoom(code)) ?? getRoom(code),
+  socketsOf: (playerId, code) =>
+    [...sessions].filter(([, s]) => s.playerId === playerId && s.roomCode === code).map(([id]) => id),
+  eject: (socketId, opts) => leaveCurrentRoom(socketId, opts),
+  broadcast: (room) => broadcastState(io, room),
+});
+
 io.on("connection", (socket) => {
   socket.on(ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId: claimedId, displayName } = (payload ?? {}) as Record<string, unknown>;
@@ -430,7 +482,9 @@ io.on("connection", (socket) => {
       existing && existing.clientId === clientId
         ? { ...existing, displayName: name }
         : {
-            playerId: clientId,
+            // Never the clientId: that is the credential, and this id is
+            // broadcast to everyone in the room.
+            playerId: publicPlayerId(clientId),
             clientId,
             displayName: name,
             elo: existing?.elo ?? StartingElo,
@@ -441,8 +495,8 @@ io.on("connection", (socket) => {
     const emitOk = () =>
       socket.emit(ServerEvents.playerOk, {
         player: {
+          // The client learns its own public id here and matches "me" by it.
           id: session.playerId,
-          clientId: session.clientId,
           displayName: session.displayName,
           elo: session.elo,
         },
@@ -565,6 +619,7 @@ io.on("connection", (socket) => {
     }
 
     const room = createRoom(mode);
+    markPrivateRoom(room, session.playerId);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId });
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
@@ -577,6 +632,9 @@ io.on("connection", (socket) => {
     const code = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
     const room = (await ensureRoom(code)) ?? getRoom(code);
     if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
+    if (await isBannedFromRoom(room.code, session.playerId)) {
+      return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
+    }
 
     if (session.roomCode === room.code) {
       broadcastState(io, room);
@@ -599,12 +657,18 @@ io.on("connection", (socket) => {
       return fail(socket, "BAD_CODE", "enter a 4-digit code");
     }
 
-    let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : findOpenPublicChaosLounge();
+    if (raw && (await isBannedFromRoom(raw, session.playerId))) {
+      return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
+    }
+    let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : openLoungeFor(session.playerId);
     if (raw) {
       if (room && room.mode !== "chaos") {
         return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
       }
-      room ??= createRoom("chaos", raw, false);
+      if (!room) {
+        room = createRoom("chaos", raw, false);
+        if (!isPublicChaosCode(raw)) markPrivateRoom(room, session.playerId);
+      }
     }
 
     if (!room) return fail(socket, "ROOM_NOT_FOUND", "no open lounge");
@@ -620,7 +684,7 @@ io.on("connection", (socket) => {
 
     if (!seat(socket.id, room)) {
       if (!raw) {
-        room = findOpenPublicChaosLounge();
+        room = openLoungeFor(session.playerId);
         if (seat(socket.id, room)) {
           trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
           socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });

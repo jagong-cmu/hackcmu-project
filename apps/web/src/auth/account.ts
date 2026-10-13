@@ -1,18 +1,18 @@
 /**
  * Point the local player identity (the `karaoke.clientId` every socket hello
- * and score post uses) at the signed-in Supabase user, and carry any rating
- * this browser earned before accounts over to that user.
+ * and score post uses) at the signed-in Supabase user. Accounts start with a
+ * fresh rating: guest ratings are not carried over (guest ids were once
+ * visible to opponents, so owning one proves nothing).
  */
 import type { User } from "@supabase/supabase-js";
 import { getDisplayName, validName } from "../home/identity.ts";
-import { authHeaders } from "./supabase.ts";
 
 const ID = "karaoke.clientId";
 /** The pre-account id (PR #5 guest uuid, or a PR #3 email account id). */
 const GUEST = "karaoke.guestClientId";
 /** The Supabase user this browser is currently bound to (Google era). */
 const ACCOUNT = "karaoke.accountId";
-/** A legacy id still waiting to be linked server-side (retried on next load). */
+/** Left over from guest-rating linking; cleared on bind. */
 const PENDING_LINK = "karaoke.pendingLink";
 
 function read(key: string): string | null {
@@ -33,16 +33,16 @@ function write(key: string, value: string | null): void {
 
 /**
  * Make `userId` the player id. If this browser was playing under some other
- * id that was not a previous Google-era account (a guest uuid or a PR #3
- * email account id), remember it so its ELO can be linked.
+ * id that was not a previous Google-era account, remember it so signing out
+ * returns to it.
  */
 export function bindAccount(userId: string): void {
   const current = read(ID);
   const previousAccount = read(ACCOUNT);
   if (current && current !== userId && current !== previousAccount) {
     write(GUEST, current);
-    write(PENDING_LINK, current);
   }
+  write(PENDING_LINK, null);
   write(ACCOUNT, userId);
   write(ID, userId);
 }
@@ -53,30 +53,6 @@ export function unbindAccount(): void {
   const guest = read(GUEST);
   if (guest) write(ID, guest);
   else write(ID, crypto.randomUUID());
-}
-
-/**
- * Ask the server to move the pending legacy rating onto the account. The
- * server allows each legacy id to be claimed once, and only into an account
- * with no ranked matches yet. Returns true when a rating was carried over.
- */
-export async function linkPendingRating(): Promise<boolean> {
-  const legacy = read(PENDING_LINK);
-  if (!legacy) return false;
-  try {
-    const res = await fetch("/api/player/link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-      body: JSON.stringify({ legacyClientId: legacy }),
-    });
-    // 501 = server has no auth configured; nothing to link, stop retrying.
-    if (res.ok || res.status === 501) write(PENDING_LINK, null);
-    if (!res.ok) return false;
-    const json = (await res.json()) as { linked?: boolean };
-    return Boolean(json.linked);
-  } catch {
-    return false; /* retry next load */
-  }
 }
 
 function fit(name: unknown): string | null {

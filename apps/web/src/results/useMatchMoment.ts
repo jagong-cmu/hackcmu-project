@@ -12,7 +12,7 @@ import {
   matchReelPending,
   resetMatchReel,
   startMatchReel,
-  stopMatchReel,
+  holdMatchReel,
   subscribeMatchReel,
   type MatchReel,
 } from "./matchReel.ts";
@@ -71,7 +71,7 @@ export function useMatchMomentCapture({
     if (shouldRecord) startMatchReel(matchKey, micStream);
     if (settle) {
       flushCapture(matchKey);
-      void stopMatchReel(matchKey);
+      holdMatchReel(matchKey);
     }
   }, [matchKey, singing, shouldRecord, windowMs, micStream, settle, reset]);
 }

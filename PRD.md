@@ -44,7 +44,7 @@ If cameras, mics, or shared playback fail, the social product fails even if scor
 - Catalog larger than six tracks.
 - Training a custom pitch model. Use essentia.js / `pitchy` vs `melody.json`.
 - Custom ELO library. Standard K=32 math.
-- Moderation, reports, kicks (mute toggle only).
+- A moderation dashboard or human review queue. Report, block, and remove ship in-room (§6.5); reviewing reports is a Mongo query for now.
 - Mobile-native apps. Desktop Chrome only.
 - Spectators, best-of-3, call-and-response duet, host song picker.
 - Paid cloud (Vultr, billed Gemini, Atlas above M0).
@@ -65,9 +65,9 @@ No spectator role in v1.
 
 - Display name, 2–16 characters, prompted once.
 - Random avatar color.
-- Stable `clientId` (UUID) in `localStorage` with the name.
-- ELO and history key off `clientId`, not the display name. Duplicate names are allowed.
-- No auth.
+- Accounts: Supabase Google sign-in when `AUTH_REQUIRED=1`. ELO and history then key off the Supabase user id. Every account starts with a fresh rating; guest ratings are not carried over, because guest ids were once visible to opponents.
+- Guest mode (accounts off): a stable random `clientId` (UUID) in `localStorage` with the name. ELO and history key off it, not the display name. Duplicate names are allowed.
+- The `clientId` is a secret. Other players only ever see a public player id (the Supabase user id, or a server-side hash of the `clientId` for guests).
 
 ---
 
@@ -156,6 +156,44 @@ Persistent lounge, not a match. **No scoring.**
 - All mics and cameras live. Lyrics always on.
 - No Ready, no Next button in v1.
 
+### 6.5 Safety: report, block, remove
+
+Ranked, Duet, and Chaos put strangers on live camera and mic. Every remote
+camera tile has a **“…”** button with three actions. The server enforces the
+rules in `server/src/moderation.ts`; the client only offers what the server
+accepts.
+
+- **Report.** Anyone can report anyone seated in their room. Pick a short
+  reason (harassment, sexual content, hate, violence or threats, may be under
+  13, spam, other) and add an optional note of up to 280 characters. “Also
+  block” is on by default. The server stores the reporter id, the reported id,
+  the room code, the mode, the reason, the note, and a timestamp in Mongo
+  `reports`. It also logs every report, so reports survive an Atlas outage.
+  Each person can send 5 reports per 10 minutes. A repeat report of the same
+  person in the same room is acknowledged but not stored again.
+- **Block.** Blocking someone hides and mutes them on your screen right away:
+  the client unsubscribes from their camera and mic. Blocks are stored by
+  player id in Mongo `blocks`, so they persist. The matchmaker never pairs
+  two players if either one has blocked the other, in both the in-memory and
+  the Mongo queue. The blocked person is not told. Each player can block at most
+  10 people in total (this also caps no-penalty leaves), and no more than
+  20 blocks per 10 minutes.
+- **Remove.** Who can remove whom depends on the room:
+
+  | Room | Rule |
+  |---|---|
+  | Private room (made with Create or a 4-digit Chaos code) | The **host** (the person who made it) removes anyone immediately, in any mode. |
+  | Chaos (public lounge, or a private one if you are not the host) | **Vote kick.** A strict majority of the *other* live people must vote, with a minimum of 2 votes (3 people → 2, 5 → 3). One person can never remove another alone. With only two people in the room, use Block. Nobody sees who voted. |
+  | Ranked / Duet, not host | **No kick.** Once you block or report your opponent, you can **leave the match with no rating change** for either player. The match ends and your opponent is told “Your opponent left the match.” A plain leave still counts as a forfeit. |
+
+  A removed player gets disconnected from LiveKit
+  (`RoomServiceClient.removeParticipant`). They are banned from that room code
+  for 2 hours, which is the LiveKit token lifetime. The ban lives in memory and
+  in Mongo `roomBans`. A banned player can't rejoin by code or by the Chaos
+  auto-pick, and the LiveKit token endpoint won't issue them a new token
+  (`isBannedFromRoom`). If a 1v1 is in progress when the host removes the
+  opponent, the match ends with no rating change.
+
 ---
 
 ## 7. Cameras, mics, instrumental
@@ -228,7 +266,7 @@ Clip windows start at the **chorus**.
 3. Compare to `melody.json`, octave-invariant, skip unvoiced frames.
 4. Map mean cents error to 0–100 so a casual in-tune chorus lands **70–85**.
 5. Tone from pitch stability + harmonic-to-noise. `overall = round(0.7 * pitch + 0.3 * tone)`.
-6. Client POSTs the ScoreCard. Server trusts it (anti-cheat out of scope).
+6. Client POSTs the ScoreCard as the verified player. The server checks who is posting but trusts the numbers (no server-side scoring; anti-cheat out of scope).
 7. Gemini may receive the **numbers + lyric text** and return a verdict. It must not overwrite pitch/tone.
 
 **ELO (Ranked only)**
@@ -236,6 +274,7 @@ Clip windows start at the **chorus**.
 - Start 1000, K=32, standard expected score. Win 1, loss 0, draw 0.5.
 - Show `+18` / `-18` on results.
 - Ladder: name, rating, matches played.
+- ELO is **casual and unverified**: each client scores its own take, so a modified client can post any number. The UI says so on the Ranked picker and the leaderboard.
 
 ---
 
@@ -324,7 +363,7 @@ Stop at the first row you can demo if time dies.
 | A7 | FIFO matchmaking. |
 | A8 | Local instrumentals, not YouTube. |
 | A9 | Line-timed LRC. |
-| A10 | Client DSP is judge of record. Server trusts the posted ScoreCard. Gemini is verdict only. |
+| A10 | Scores are client-computed: the singer’s own browser DSP is judge of record, and the server trusts the posted ScoreCard numbers (it only verifies who posted them). Ranked ELO and the ladder are therefore casual and unverified, and labeled that way. Gemini is verdict only. |
 | A11 | Chaos is P1, no score, join/leave, cap 8, 60s cuts. |
 | A12 | Desktop Chrome. |
 | A13 | No in-app recording. |

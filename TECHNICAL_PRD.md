@@ -136,8 +136,7 @@ export type SongMeta = {
 };
 
 export type PlayerPublic = {
-  id: string;
-  clientId: string;
+  id: string; // public id, never the clientId
   displayName: string;
   elo: number;
 };
@@ -162,7 +161,11 @@ Client → server: `player:hello { clientId, displayName }`, `queue:join { mode 
 
 Server → client: `player:ok { player }`, `room:state`, `match:found`, `clock:play { songId, startSec, durationSec, playAtUnixMs }`, `score:ready { playerId, score }`, `match:over { scores, winnerId, eloDelta, forfeit? }`, `error { code, message }`.
 
-**Score upload (not audio):** `POST /api/turns/:roomId/score` with `{ clientId, score: ScoreCard }` after the local DSP run. Lane B implements the handler + Gemini verdict merge. Lane A mounts the route and advances the turn machine when both Ranked scores (or both Duet scores) are in.
+**Identity:** the server resolves who a request is from (`server/src/auth.ts`): the Supabase user id from the bearer token / socket handshake when `AUTH_REQUIRED=1`, else the client's `clientId`. In guest mode the `clientId` is the credential, so it never leaves the server: `player:ok`, `room:state`, scores, and LiveKit identities use a public `id` (`server/src/publicId.ts`: the Supabase user id with auth on, else `p_` + HMAC of the `clientId` under `PLAYER_ID_SECRET`, falling back to a hash of other server secrets). Clients match "me" by the `id` from `player:ok`.
+
+**LiveKit token:** `POST /api/livekit/token` with `{ code, identity?, clientId }` plus the `Authorization` header when signed in. The token is minted only for a player seated in that room (`server/src/livekitAccess.ts`), with the seat's public id as LiveKit identity. Errors: `400 BAD_REQUEST`, `401 UNAUTHORIZED`, `403 NOT_SEATED`, `403 IDENTITY_MISMATCH`, `404 ROOM_NOT_FOUND`.
+
+**Score upload (not audio):** `POST /api/turns/:roomId/score` with `{ clientId, score: ScoreCard }` after the local DSP run. The poster is the verified identity, never a body field naming someone else. The numbers are trusted as sent (client-computed; Ranked ELO is casual). Lane B implements the handler + Gemini verdict merge. Lane A mounts the route and advances the turn machine when both Ranked scores (or both Duet scores) are in.
 
 Do not send 15s blobs over Socket.IO.
 

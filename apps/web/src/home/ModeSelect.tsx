@@ -6,7 +6,7 @@ import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
 
 /** Each card drops you straight into that mode's own queue (or solo Training). */
 const MODES = [
-  { mode: "ranked", label: "Ranked", hint: "1v1 · same chorus · winner takes ELO", to: "/play/ranked?go=1" },
+  { mode: "ranked", label: "Ranked", hint: "1v1 · same chorus · casual ELO", to: "/play/ranked?go=1" },
   { mode: "duet", label: "Duet", hint: "sing together · one shared score", to: "/play/duet?go=1" },
   { mode: "chaos", label: "Chaos", hint: "drop into a lounge · no score", to: "/play/chaos?go=1" },
   { mode: "training", label: "Training", hint: "solo · live pitch · scored", to: "/training" },
