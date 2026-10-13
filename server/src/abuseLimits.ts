@@ -7,7 +7,8 @@
  *
  * - One answer for every miss. A code that does not exist, a room that is
  *   full, and a room of the wrong mode all get the same ROOM_UNAVAILABLE
- *   error on join. Only someone already seated there learns more.
+ *   error on join, and GET /api/rooms/:code answers the same 404 for "no such
+ *   room" and "you are not seated there". Only someone seated learns more.
  * - Failed joins are limited per verified account (per socket in the dev
  *   opt-out): JoinFailLimit distinct codes per JoinFailWindowMs, then a
  *   JoinCooldownMs cool-down in which every join to a private code is refused
@@ -149,3 +150,17 @@ export function createWindowGate(limit: number, windowMs: number): (now?: number
 /** player:hello may trigger at most this many token verifications per socket per window. */
 export const HelloVerifyLimit = 5;
 export const HelloVerifyWindowMs = 30_000;
+
+/**
+ * May this caller read a room snapshot? Only when seated there. Everyone
+ * else, including signed-in strangers, gets the same 404 as "no such room".
+ */
+export function canReadRoom(
+  room: { players: ReadonlyArray<{ clientId: string }> } | undefined,
+  clientId: string,
+): boolean {
+  if (!room || !clientId) return false;
+  return room.players.some((p) => p.clientId === clientId);
+}
+
+export const RoomSnapshotNotFound = { code: "ROOM_NOT_FOUND", message: "no such room" } as const;

@@ -66,12 +66,38 @@ Audit findings: client-trusted scores (critical) and double ELO settlement acros
 - **Settlement.** `finishMatch` atomically claims `settledMatchId` on the `liveRooms` doc before it persists anything. Only the winning instance rates the match. The others take the result it publishes and emit the same `match:over`. On top of that, `matches` has a unique partial index on `{roomId, matchId}`, and the doc is inserted *before* ELO moves. A second settlement therefore hits E11000 and applies nothing. Without Mongo, behaviour is unchanged: there is a single instance.
 - **Client.** It echoes `matchId` and treats 409s as final, except `TURN_NOT_ENDED`, which retries after a pause. A room update can no longer restart a take whose score is in flight.
 - Verified: typecheck, build, and 240/240 tests (18 new, including a two-isolate settlement race on an in-memory Mongo). Also the peer e2e suite, and a two-socket ranked match. In that match, early, duplicate and post-settlement posts were refused, and it settled once at +16/−16.
+### 6. Abuse limits, needs review: room snapshots, socket token expiry, LiveKit token life (`harden/abuse-limits-review`, stacked on entry 4)
+Audit findings #5, #12 and #19, plus a second room-existence oracle found while fixing #4.
+- **LiveKit token endpoint (#4 follow-up).** `/api/livekit/token` answered 404 for "no such room" and 403 for "not seated", with no limit, so it could enumerate private codes on its own. Both now get `403 NOT_SEATED`. The client already retries on both codes.
+  - The peer e2e suite's "unknown room is refused" check expects 404, so it now fails by design. Every other check passes.
+- **Room snapshots (#12).** `GET /api/rooms/:code` only answers callers seated in that room. Everyone else gets the same 404 as a code that doesn't exist. The `pruneRoom`/`advanceDue` side effects now run only for seated callers.
+  - RoomProvider is the only caller. It polls `/room/:code` before `room:join` has seated it, and right after a join that landed on another instance. In both windows it already ignores non-OK responses, and `room:state` over the socket covers them.
+  - In the dev opt-out the poll sends `X-Client-Id` so local play still works.
+- **Sockets authorised forever (#19).** The verified token's `exp` is now stored on the socket.
+  - Once `exp` plus 30s has passed, `player:hello` re-verifies from the `accessToken` it carries. The in-room heartbeat sends one every 12s.
+  - If re-verification fails, the socket is signed out, and play events (`queue:join`, `room:create`, `room:join`, `chaos:join`, `room:ready`, rematch) answer `AUTH_REQUIRED`. The client already recovers from that by refreshing its session.
+  - The seat is kept, so nobody forfeits. `pitch:live` and safety events are not gated: they only act inside a room the socket is already seated in.
+- **LiveKit tokens (#5).** The TTL is down from 2h to 15 min. LiveKit tokens can't be revoked, so leaving now ends the media session as well (best-effort `removeParticipant`, logged at most every 30s):
+  - straight away on `room:leave`, switching rooms, queueing, a safety leave or an ejection
+  - 20s after a socket disconnect, and only if the player hasn't re-seated in that room by then
+  - A connected participant is unaffected by token expiry, because LiveKit pushes refreshed tokens to live connections. `useLiveKit` now rejoins with a freshly minted token after an unexpected disconnect (up to 5 times per stage, with backoff, never after leaving on purpose). The server refuses that token if the player is no longer seated or was removed.
+- **Why held for review.**
+  - The token endpoint now returns a different status.
+  - Expiry gating could briefly return `AUTH_REQUIRED` to a backgrounded tab still holding a stale token.
+  - The delayed media drop may not fire on Vercel.
+  - The client rejoin logic is covered by unit tests only, not tried in a browser.
+- Verified:
+  - typecheck and build
+  - 251/251 tests, 9 more than entry 4
+  - the peer e2e socket suite: 23/24, the one failure being the expected LiveKit 404 → 403 change
+  - a full ranked match over two sockets, with the same results as main
 
 ## Open items (need a decision or larger change)
 - Rate limits are per instance (room joins, hello verification, reports, blocks, votes). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.
 - A fresh handshake per connection can still cost one Supabase call per unique, well-formed but forged JWT. A per-IP connection limit (e.g. Vercel WAF rate limit on `/socket.io`) would cap it.
 - Private ranked rooms (room codes) are still rated. Whether friends' rooms should move ELO is a product call; unchanged.
+- On Vercel, the 20s delayed LiveKit drop after a socket disconnect only fires if the instance stays alive that long. An explicit `room:leave` (pagehide, navigation) drops the media session straight away.
 - Full Content-Security-Policy: draft in docs/csp-draft.md. Ship as Report-Only first.
 - Song lyrics may not be bundled with the Vercel API function, so Gemini falls back to cleaned client lyrics. Add `includeFiles` for `apps/web/public/songs/*/lyrics.lrc` to the api service.
 - react-router v6 → v7 upgrade to clear the remaining advisories. Our own `next=` handling goes through `safeNext`; check whether any `<Link>`/`navigate` takes user input.

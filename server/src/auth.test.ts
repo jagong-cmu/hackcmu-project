@@ -13,11 +13,14 @@ import {
   devOptOutAllowed,
   httpAccount,
   httpIdentity,
+  clearSocketAuth,
   refreshSocketAuth,
   RejectedTokenCacheMax,
   rejectedTokenCacheSize,
   resolveAuthMode,
   setAuthConfigForTests,
+  SocketAuthGraceMs,
+  socketAuthExpired,
   socketIdentity,
   verifyAccessToken,
 } from "./auth.ts";
@@ -314,4 +317,56 @@ test("the negative cache is bounded", async () => {
   } finally {
     f.restore();
   }
+});
+
+// ---------------------------------------------------------------------------
+// Socket auth expiry (audit #19)
+// ---------------------------------------------------------------------------
+
+test("a verified socket records its token expiry and lapses after exp + grace", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    const s: { data: { authUserId: string | null; authExpMs?: number } } = { data: { authUserId: null } };
+    await refreshSocketAuth(s, fakeJwt("exp-8", 600));
+    assert.equal(s.data.authUserId, ALICE);
+    const exp = s.data.authExpMs ?? 0;
+    assert.ok(Math.abs(exp - (Date.now() + 600_000)) < 2000, "exp comes from the token");
+    assert.equal(socketAuthExpired(s), false);
+    assert.equal(socketAuthExpired(s, exp + SocketAuthGraceMs - 1), false, "grace period");
+    assert.equal(socketAuthExpired(s, exp + SocketAuthGraceMs + 1), true);
+    clearSocketAuth(s);
+    assert.equal(socketIdentity(s, ALICE).ok, false, "a cleared socket must re-verify");
+  } finally {
+    f.restore();
+  }
+});
+
+test("an expired socket heals with a fresh token sent with hello", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    const s = { data: { authUserId: ALICE, authExpMs: Date.now() - 10 * 60_000 } };
+    assert.equal(socketAuthExpired(s), true);
+    await refreshSocketAuth(s, fakeJwt("fresh-9", 3600));
+    assert.equal(socketAuthExpired(s), false);
+    assert.equal(s.data.authUserId, ALICE);
+  } finally {
+    f.restore();
+  }
+});
+
+test("sockets with no recorded expiry (dev opt-out, unverified) never lapse", () => {
+  assert.equal(socketAuthExpired({ data: { authUserId: null } }), false);
+  assert.equal(socketAuthExpired({ data: { authUserId: ALICE } }), false);
+  assert.equal(socketAuthExpired({ data: {} }), false);
+});
+
+test("dev opt-out room snapshot reader comes from X-Client-Id (or nobody)", async () => {
+  setEnv({ AUTH_REQUIRED: "0" });
+  setAuthConfigForTests(null);
+  assert.deepEqual(await httpAccount(req({ "x-client-id": ALICE })), { ok: true, clientId: ALICE });
+  assert.deepEqual(await httpAccount(req()), { ok: true, clientId: "" });
 });

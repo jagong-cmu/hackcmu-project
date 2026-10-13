@@ -242,6 +242,25 @@ export async function verifyAccessToken(token: unknown): Promise<string | null> 
   return (await verifyAccessTokenDetailed(token))?.userId ?? null;
 }
 
+/** How long past its token's `exp` a socket stays authorised before it must re-verify. */
+export const SocketAuthGraceMs = 30_000;
+
+/**
+ * Has this socket's verified token run out (plus grace)? Sockets in the dev
+ * opt-out, or never verified, carry no expiry and are never "expired".
+ */
+export function socketAuthExpired(socket: Pick<Socket, "data">, now = Date.now()): boolean {
+  const exp: unknown = socket.data?.authExpMs;
+  if (!socket.data?.authUserId || typeof exp !== "number" || exp <= 0) return false;
+  return now > exp + SocketAuthGraceMs;
+}
+
+/** Forget a socket's verified identity: it gets AUTH_REQUIRED until it re-verifies. */
+export function clearSocketAuth(socket: Pick<Socket, "data">): void {
+  socket.data.authUserId = null;
+  socket.data.authExpMs = 0;
+}
+
 /**
  * Re-verify a socket from a token sent with player:hello. The handshake token
  * can be missing (the page raced its session restore) or expired (a long-lived
@@ -249,8 +268,11 @@ export async function verifyAccessToken(token: unknown): Promise<string | null> 
  */
 export async function refreshSocketAuth(socket: Pick<Socket, "data">, token: unknown): Promise<void> {
   if (authMode() !== "verify" || typeof token !== "string" || !token) return;
-  const userId = await verifyAccessToken(token);
-  if (userId) socket.data.authUserId = userId;
+  const ok = await verifyAccessTokenDetailed(token);
+  if (ok) {
+    socket.data.authUserId = ok.userId;
+    socket.data.authExpMs = ok.expMs;
+  }
 }
 
 function bearer(req: Request): string | null {
@@ -289,12 +311,17 @@ export async function httpIdentity(req: Request, claimed: unknown): Promise<Http
 }
 
 /**
- * For reads that act as nobody in particular (room snapshots): a verified
- * account is enough. The dev opt-out lets anyone through.
+ * Who is reading (room snapshots): the verified account. In the dev opt-out
+ * it is whatever the `X-Client-Id` header claims, or "" (nobody) without one.
+ * Callers decide what "nobody" may see.
  */
 export async function httpAccount(req: Request): Promise<HttpIdentity> {
   const mode = authMode();
-  if (mode === "dev-guest") return { ok: true, clientId: "" };
+  if (mode === "dev-guest") {
+    const raw = req.headers?.["x-client-id"];
+    const claim = typeof raw === "string" ? raw.trim().slice(0, 128) : "";
+    return { ok: true, clientId: claim };
+  }
   return httpIdentity(req, undefined);
 }
 
@@ -302,12 +329,14 @@ export async function httpAccount(req: Request): Promise<HttpIdentity> {
 export function attachSocketAuth(io: Server): void {
   io.use((socket, next) => {
     const token = (socket.handshake.auth as { token?: unknown } | undefined)?.token;
-    void verifyAccessToken(token)
-      .then((userId) => {
-        socket.data.authUserId = userId;
+    void verifyAccessTokenDetailed(token)
+      .then((ok) => {
+        socket.data.authUserId = ok?.userId ?? null;
+        socket.data.authExpMs = ok?.expMs ?? 0;
       })
       .catch(() => {
         socket.data.authUserId = null;
+        socket.data.authExpMs = 0;
       })
       .finally(() => next());
   });

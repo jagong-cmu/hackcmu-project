@@ -22,7 +22,6 @@ export type RoomView = {
 
 export type LiveKitAccessError =
   | "BAD_REQUEST"
-  | "ROOM_NOT_FOUND"
   | "NOT_SEATED"
   | "IDENTITY_MISMATCH";
 
@@ -47,11 +46,11 @@ export function decideLiveKitAccess(input: {
   if (typeof code !== "string" || !code.trim()) {
     return { ok: false, status: 400, code: "BAD_REQUEST", message: "room code required" };
   }
-  if (!room || room.code !== code.trim()) {
-    return { ok: false, status: 404, code: "ROOM_NOT_FOUND", message: "no such room" };
-  }
-  const seat = room.players.find((p) => p.clientId === clientId);
-  if (!seat) {
+  // "No such room" and "not seated there" are one answer, so this endpoint
+  // cannot be used to find out which private codes exist (abuseLimits.ts).
+  const seat =
+    room && room.code === code.trim() ? room.players.find((p) => p.clientId === clientId) : undefined;
+  if (!room || !seat) {
     return {
       ok: false,
       status: 403,

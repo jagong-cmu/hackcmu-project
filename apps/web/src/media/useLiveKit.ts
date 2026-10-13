@@ -4,10 +4,11 @@
  * Connects on mount, tears down on unmount, and re-renders whenever the
  * participant set or their tracks change.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   connectToStage,
   type CaptureState,
+  DisconnectReason,
   LiveKitUnconfiguredError,
   micStreamOf,
   Room,
@@ -18,6 +19,7 @@ import {
   whyFailed,
 } from "./livekit.ts";
 import { unlockSharedAudio, sharedAudioContext } from "./audioContext.ts";
+import { rejoinDelayMs } from "./rejoin.ts";
 import type { Participant } from "livekit-client";
 
 export type LiveKitState = {
@@ -56,6 +58,13 @@ export function useLiveKit(
     camera: false,
     error: null,
   });
+
+  // Bumped to reconnect from scratch (fresh token) after an unexpected drop.
+  const [rejoin, setRejoin] = useState(0);
+  const rejoinsRef = useRef(0);
+  useEffect(() => {
+    rejoinsRef.current = 0;
+  }, [code, identity]);
 
   useEffect(() => {
     if (!code || !identity) return;
@@ -98,7 +107,30 @@ export function useLiveKit(
       setStatus("idle");
       setCapture({ mic: false, camera: false, error: null });
     };
-  }, [code, identity, displayName]);
+  }, [code, identity, displayName, rejoin]);
+
+  // The SDK resumes and reconnects on its own with server-refreshed tokens.
+  // If it gives up (or the server dropped us while we still hold the seat),
+  // fetch a fresh token and join again. The server refuses a token if we
+  // are no longer seated or were removed, which ends the retries.
+  useEffect(() => {
+    if (!room) return;
+    let timer: number | undefined;
+    const onDisconnected = (reason?: DisconnectReason) => {
+      const intentional =
+        reason === DisconnectReason.CLIENT_INITIATED || reason === DisconnectReason.DUPLICATE_IDENTITY;
+      if (intentional) return;
+      rejoinsRef.current += 1;
+      const delay = rejoinDelayMs(rejoinsRef.current, { intentional });
+      if (delay === null) return;
+      timer = window.setTimeout(() => setRejoin((n) => n + 1), delay);
+    };
+    room.on(RoomEvent.Disconnected, onDisconnected);
+    return () => {
+      room.off(RoomEvent.Disconnected, onDisconnected);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [room]);
 
   // LiveKit mutates its participant objects in place, so mirror its events into
   // a counter and recompute the list from the room each time.

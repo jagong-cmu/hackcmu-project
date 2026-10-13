@@ -5,7 +5,7 @@
  * element on each client and must never be published as a track — routing it
  * through WebRTC would re-encode it and desync the two sides.
  */
-import { Room, RoomEvent, Track } from "livekit-client";
+import { DisconnectReason, Room, RoomEvent, Track } from "livekit-client";
 import { sharedAudioContext } from "./audioContext.ts";
 import { boostRemoteAudioTrack } from "./levels.ts";
 import { preferredCameraId, preferredMicId } from "../onboarding/deviceCheck.ts";
@@ -210,4 +210,4 @@ export function micStreamOf(room: Room): MediaStream | null {
   return new MediaStream([track]);
 }
 
-export { Room, RoomEvent, Track };
+export { DisconnectReason, Room, RoomEvent, Track };

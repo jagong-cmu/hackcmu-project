@@ -6,7 +6,14 @@
  */
 import { AccessToken } from "livekit-server-sdk";
 
-const TOKEN_TTL = "2h";
+/**
+ * Short on purpose: a token is not revoked when its player leaves, so its life
+ * is the window in which it could be replayed. A connected participant stays
+ * connected past expiry (the LiveKit server pushes refreshed tokens to live
+ * connections, which the SDK uses for its own reconnects), and the client
+ * mints a fresh one if it has to rejoin from scratch (media/useLiveKit.ts).
+ */
+export const TOKEN_TTL_SECONDS = 15 * 60;
 
 export type LiveKitConfig = {
   apiKey: string;
@@ -39,7 +46,7 @@ export async function mintToken(
   const token = new AccessToken(config.apiKey, config.apiSecret, {
     identity,
     name: displayName,
-    ttl: TOKEN_TTL,
+    ttl: TOKEN_TTL_SECONDS,
   });
   token.addGrant({
     room: liveKitRoomName(code),
