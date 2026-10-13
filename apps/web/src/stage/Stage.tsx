@@ -106,7 +106,7 @@ export default function Stage() {
   const song = room?.songId ? songById(room.songId) : undefined;
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
 
-  const visible = livekit.participants.filter((p) => !blockedIdentities.has(p.identity));
+  const visible = livekit.participants.filter((p) => !safety.blocked.has(p.identity));
   const them = visible.find((p) => p.identity !== identity);
   const you = livekit.participants.find((p) => p.identity === identity);
   const opponent = !isChaos ? room?.players.find((p) => p.id !== me?.id) : undefined;
