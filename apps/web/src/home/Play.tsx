@@ -8,7 +8,11 @@ import { PageShell } from "../theme/PageShell.tsx";
 type PlayMode = Extract<Mode, "ranked" | "duet" | "chaos">;
 
 const PRIVATE_MODES: { mode: PlayMode; label: string; blurb: string }[] = [
-  { mode: "ranked", label: "Ranked", blurb: "Same 20-second chorus. You then them. Winner takes casual ELO." },
+  {
+    mode: "ranked",
+    label: "Ranked",
+    blurb: "Same 20-second chorus. You then them. A friendly match: private rooms don't affect ELO.",
+  },
   { mode: "duet", label: "Duet", blurb: "Sing the whole song together. One shared score. No ELO." },
   { mode: "chaos", label: "Chaos", blurb: "A lounge for your crew. Cameras and lyrics. No score." },
 ];

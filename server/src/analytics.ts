@@ -174,10 +174,12 @@ export async function trackMatchCompleted(input: {
   songId: string | null;
   roomCode: string;
   forfeit?: boolean;
+  /** Ranked: false for a friendly (private room) match, which is not counted as ranked. */
+  rated?: boolean;
   distinctId?: string;
 }): Promise<void> {
   const inc: Partial<Record<StatKey, number>> = {};
-  if (input.mode === "ranked") inc.matchesRanked = 1;
+  if (input.mode === "ranked" && input.rated !== false) inc.matchesRanked = 1;
   else if (input.mode === "duet") inc.matchesDuet = 1;
   if (input.forfeit) inc.matchesForfeit = 1;
   await bumpStats(inc);
@@ -186,6 +188,7 @@ export async function trackMatchCompleted(input: {
     song_id: input.songId,
     room_code: input.roomCode,
     forfeit: Boolean(input.forfeit),
+    rated: input.mode === "ranked" ? input.rated !== false : false,
   });
 }
 
@@ -225,6 +228,9 @@ export async function trackChaosJoined(input: { roomCode: string; distinctId: st
   captureEvent(input.distinctId, "chaos joined", { room_code: input.roomCode });
 }
 
+/** Ranked matches that moved ELO: excludes friendly rated:false docs (older docs lack the field). */
+export const RatedRankedMatches = { mode: "ranked", rated: { $ne: false } } as const;
+
 export async function getArenaStats(): Promise<ArenaStats> {
   const empty: ArenaStats = {
     ok: true,
@@ -239,7 +245,8 @@ export async function getArenaStats(): Promise<ArenaStats> {
   try {
     const [counters, ranked, duet, forfeits, playerCount] = await Promise.all([
       db.collection<ArenaCounters>("arenaStats").findOne({ _id: TOTALS_ID }),
-      matches(db).countDocuments({ mode: "ranked" }),
+      // Friendly (private room) matches are recorded rated:false and are not ranked.
+      matches(db).countDocuments(RatedRankedMatches),
       matches(db).countDocuments({ mode: "duet" }),
       matches(db).countDocuments({ forfeit: true }),
       players(db).countDocuments(),

@@ -57,6 +57,7 @@ export function ModeSelect() {
         >
           Make a private room
         </Link>
+        {" "}· friendly matches, no ELO
       </p>
       <DeviceCheckLink next="/play" />
     </PageShell>

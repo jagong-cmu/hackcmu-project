@@ -109,6 +109,17 @@ export default function Stage() {
   const loungeName = chaosLoungeName(code);
   const song = room?.songId ? songById(room.songId) : undefined;
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
+  // Private Ranked rooms are friendly: same match, no ELO for either player.
+  const friendly = room?.mode === "ranked" && room.rated === false;
+  // Leaving now is a forfeit: rated Ranked, between the countdown and the result.
+  const leaveForfeits =
+    room?.mode === "ranked" &&
+    room.rated !== false &&
+    (room.status === "countdown" ||
+      room.status === "turnA" ||
+      room.status === "swap" ||
+      room.status === "turnB" ||
+      (room.status === "results" && !matchOver));
 
   const visible = livekit.participants.filter((p) => !safety.blocked.has(p.identity));
   const them = visible.find((p) => p.identity !== identity);
@@ -146,6 +157,7 @@ export default function Stage() {
         target={{ id: player.id, name: player.displayName }}
         rule={rule}
         oneOnOne={!isChaos}
+        leaveForfeits={leaveForfeits}
         safety={safety}
         onLeft={() => navigate("/")}
         onToast={isChaos ? setToast : undefined}
@@ -224,6 +236,14 @@ export default function Stage() {
             ← leave
           </Link>
           <strong>{loungeName ?? `Room ${code}`}</strong>
+          {friendly ? (
+            <span
+              className="stage-friendly"
+              title="Private rooms are friendly matches. Nobody's ELO changes."
+            >
+              Friendly match · doesn't affect ELO
+            </span>
+          ) : null}
           {song ? (
             <span className="stage-song">
               {song.title}
@@ -244,7 +264,9 @@ export default function Stage() {
             <span>
               {isChaos
                 ? "Send this to a friend — they can walk in anytime."
-                : `Match starts in ${countdownSec} seconds when you both sit down.`}
+                : friendly
+                  ? `Friendly match: doesn't affect ELO. Starts in ${countdownSec} seconds when you both sit down.`
+                  : `Match starts in ${countdownSec} seconds when you both sit down.`}
             </span>
           </div>
         ) : null}
@@ -304,7 +326,9 @@ export default function Stage() {
             <p className="warn">
               You blocked {opponent?.displayName ?? "your opponent"}.{" "}
               <button type="button" className="link" onClick={() => void leaveSafely()}>
-                leave the match · no rating change
+                {leaveForfeits
+                  ? "leave the match · counts as a forfeit"
+                  : "leave the match · no rating change"}
               </button>
             </p>
           )}

@@ -25,7 +25,8 @@ const MOCK_THEM: ScoreCard = {
 
 /**
  * Dev-only stage for the score reveal. Open /results-preview.
- * Add ?wait=1 for the judging booth, ?loss=1 for a loss, ?low=1 for a rough take.
+ * Add ?wait=1 for the judging booth, ?loss=1 for a loss, ?low=1 for a rough take,
+ * ?friendly=1 for an unrated private-room match.
  * ?outro=ranked (or loss/draw/duet/solo/forfeit) for the match-video outro,
  * ?reel=1 to record a fake match end to end.
  */
@@ -43,6 +44,7 @@ function ResultsCardPreview() {
   const loss = params.has("loss");
   const low = params.has("low");
   const split = !params.has("solo");
+  const friendly = params.has("friendly");
   const [showWait, setShowWait] = useState(wait);
 
   useEffect(() => {
@@ -74,7 +76,8 @@ function ResultsCardPreview() {
       winnerId={split ? (loss ? "b" : "a") : null}
       youId="a"
       opponentId="b"
-      eloDelta={split ? (loss ? -12 : 16) : null}
+      eloDelta={split && !friendly ? (loss ? -12 : 16) : null}
+      unrated={split && friendly}
       songTitle="Viva La Vida"
       songArtist="Coldplay"
       onHome={() => navigate("/")}

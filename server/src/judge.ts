@@ -55,6 +55,8 @@ type PendingTurn = {
   outcome?: 0 | 0.5 | 1;
   /** Room.matchId: the {roomId, matchId} idempotency key on the matches doc. */
   matchId?: number | null;
+  /** Ranked only. False for a friendly (private room) match: recorded, never rated. */
+  rated?: boolean;
   entries: Array<{
     clientId: string;
     displayName: string;
@@ -260,6 +262,52 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
 
   const outcome = turn.outcome ?? outcomeFromScores(a.score.overall, b.score.overall);
   const winnerId = outcome === 0.5 ? "draw" : outcome === 1 ? a.clientId : b.clientId;
+  const forfeitField = turn.forfeit ? { forfeit: true } : {};
+
+  if (turn.rated === false) {
+    // Friendly match: keep the record (history, the {roomId, matchId}
+    // idempotency key), but never touch ELO or matchesPlayed. Stats that
+    // count ranked matches skip rated:false docs (analytics.ts).
+    if (db) {
+      await upsertPlayer(db, a.clientId, a.displayName);
+      await upsertPlayer(db, b.clientId, b.displayName);
+      try {
+        await matches(db).insertOne({
+          roomId: turn.roomId,
+          mode: "ranked",
+          songId: turn.songId,
+          a: { clientId: a.clientId, displayName: a.displayName, score: a.score },
+          b: { clientId: b.clientId, displayName: b.displayName, score: b.score },
+          winnerId,
+          eloDelta: null,
+          rated: false,
+          ...forfeitField,
+          ...matchKey,
+          createdAt: new Date(),
+        });
+      } catch (err) {
+        if (!isDuplicateKey(err)) throw err;
+        return { complete: true, duplicate: true, mode: "ranked", rated: false, winnerId, eloDelta: null };
+      }
+    }
+    void trackMatchCompleted({
+      mode: turn.mode,
+      songId: turn.songId,
+      roomCode: turn.roomId,
+      forfeit: Boolean(turn.forfeit),
+      rated: false,
+      distinctId: a.clientId,
+    }).catch(logOnce("trackMatchCompleted"));
+    return {
+      complete: true,
+      mode: "ranked",
+      rated: false,
+      scores: { [a.clientId]: a.score, [b.clientId]: b.score },
+      winnerId,
+      eloDelta: null,
+    };
+  }
+
   let delta = { a: 0, b: 0 };
   if (db) {
     const pa = await upsertPlayer(db, a.clientId, a.displayName);
@@ -278,6 +326,8 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
         b: { clientId: b.clientId, displayName: b.displayName, score: b.score, elo: pb.elo },
         winnerId,
         eloDelta: delta,
+        rated: true,
+        ...forfeitField,
         ...matchKey,
         createdAt: new Date(),
       });
@@ -332,6 +382,8 @@ export async function persistSeatedMatch(input: {
   forfeit?: boolean;
   outcome?: 0 | 0.5 | 1;
   matchId?: number | null;
+  /** Ranked: false for a friendly (private room) match. Recorded, no ELO; returns 0. */
+  rated?: boolean;
 }): Promise<number> {
   if (input.mode === "chaos" || input.players.length < 2) return 0;
   const [a, b] = input.players;
@@ -346,6 +398,7 @@ export async function persistSeatedMatch(input: {
     forfeit: input.forfeit,
     outcome: input.outcome,
     matchId: input.matchId,
+    rated: input.rated,
     entries: [
       { clientId: a.clientId, displayName: a.displayName, score: sa },
       { clientId: b.clientId, displayName: b.displayName, score: sb },

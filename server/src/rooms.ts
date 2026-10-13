@@ -8,6 +8,7 @@
 import {
   ChaosCap,
   DemoRoomCode,
+  ForfeitSkipMs,
   isPublicChaosCode,
   PublicChaosPrefix,
   publicChaosIndex,
@@ -48,6 +49,18 @@ export type Room = {
 
   /** Permanent rooms (0000) survive going empty. */
   persistent: boolean;
+
+  /**
+   * Ranked only: does a match here move ELO? Fixed when the room is made and
+   * kept across rematches. Queue (matchmaking) rooms and the 0000 demo room
+   * are rated; private rooms (room:create) are friendly and unrated.
+   * Persisted in the room snapshot so every isolate agrees.
+   */
+  rated: boolean;
+  /** Made with a shareable code (room:create, or a typed 4-digit Chaos code). In the snapshot. */
+  isPrivate: boolean;
+  /** Public id of whoever made a private room; they may kick. In the snapshot. */
+  hostId: string | null;
 
   /** Clip window currently scheduled, for late-join playhead math. */
   clipStartSec: number;
@@ -103,6 +116,9 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     activeSingerId: null,
     playAtUnixMs: null,
     persistent,
+    rated: true,
+    isPrivate: false,
+    hostId: null,
     clipStartSec: 0,
     clipDurationSec: 0,
     clipLeadInSec: 0,
@@ -289,6 +305,33 @@ export function resetToLobby(room: Room): void {
 }
 
 /**
+ * A Ranked/Duet match is under way: counting down, singing, swapping, or on
+ * the results screen before it has been settled. Leaving now is a forfeit.
+ */
+export function matchInProgress(room: Room): boolean {
+  if (room.mode === "chaos") return false;
+  if (room.status === "results") return !room.settled && room.matchId != null;
+  return (
+    room.status === "countdown" ||
+    room.status === "turnA" ||
+    room.status === "swap" ||
+    room.status === "turnB" ||
+    room.status === "live"
+  );
+}
+
+/**
+ * A forfeit right now would move ELO: a rated Ranked room, mid-match, at
+ * least ForfeitSkipMs after the first clip began (shorter ones are thrown
+ * away, PRD §6.1).
+ */
+export function forfeitWouldRate(room: Room, now = Date.now()): boolean {
+  if (room.mode !== "ranked" || !room.rated || !matchInProgress(room)) return false;
+  if (room.matchStartedAtMs === null) return false;
+  return now - room.matchStartedAtMs >= ForfeitSkipMs;
+}
+
+/**
  * Seconds into the current clip right now. Chaos uses this so a late joiner
  * seeks to where everyone else already is.
  */
@@ -322,5 +365,7 @@ export function toPublic(room: Room): RoomState {
     matchId: room.matchId,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
+    rated: room.rated,
+    isPrivate: room.isPrivate,
   };
 }

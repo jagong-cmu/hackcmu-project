@@ -32,6 +32,7 @@ import {
   clearTimers,
   later,
   livePlayers,
+  matchInProgress,
   resetToLobby,
   toPublic,
   type Player,
@@ -677,9 +678,42 @@ export async function finishMatch(
     }
   }
 
-  const rateRanked =
-    room.mode === "ranked" && (!forfeit || !forfeit.underMinimum);
-  if (rateRanked) {
+  // Friendly (private) rooms never move ELO: same match, same result screen,
+  // no rating. Their result is still recorded, marked rated:false.
+  const counts = !forfeit || !forfeit.underMinimum;
+  const rateRanked = room.mode === "ranked" && room.rated && counts;
+  const friendlyRanked = room.mode === "ranked" && !room.rated && counts;
+  if (friendlyRanked) {
+    room.lastEloDelta = 0;
+    const [a, b] = seated;
+    if (a && b) {
+      const filled = new Map<string, ScoreCard>();
+      for (const player of seated) {
+        const card = scores[player.id];
+        if (card) filled.set(player.id, card);
+      }
+      const sa = scores[a.id]?.overall ?? 0;
+      const sb = scores[b.id]?.overall ?? 0;
+      const outcome = forfeit
+        ? forfeit.winnerId === a.id
+          ? 1
+          : forfeit.winnerId === b.id
+            ? 0
+            : 0.5
+        : outcomeFromScores(sa, sb);
+      await persistSeatedMatch({
+        code: room.code,
+        mode: room.mode,
+        songId: room.songId,
+        players: seated,
+        scores: filled,
+        forfeit: Boolean(forfeit),
+        outcome,
+        matchId,
+        rated: false,
+      }).catch(logOnce("persistSeatedMatch"));
+    }
+  } else if (rateRanked) {
     const [a, b] = seated;
     const sa = a ? scores[a.id]?.overall ?? 0 : 0;
     const sb = b ? scores[b.id]?.overall ?? 0 : 0;
@@ -737,19 +771,16 @@ export async function finishMatch(
   room.playAtUnixMs = null;
   room.lastWinnerId = winnerId;
 
+  if (!rateRanked) room.lastEloDelta = 0;
   const payload: MatchOverPayload = {
     scores,
     winnerId,
     eloDelta: room.lastEloDelta ?? 0,
-    ...(forfeit
-      ? {
-          forfeit: true,
-          // A forfeit under ForfeitSkipMs is thrown away rather than rated, and
-          // a rated forfeit uses K=16 not K=32 (PRD §6.1). Lane B needs this
-          // flag to apply that — it is not derivable from the other fields.
-          rated: !forfeit.underMinimum,
-        }
-      : {}),
+    // Ranked: whether ELO moved. False in a friendly (private) room, and for
+    // a forfeit under ForfeitSkipMs (thrown away rather than rated; a rated
+    // forfeit uses K=16 not K=32, PRD §6.1).
+    ...(room.mode === "ranked" || forfeit ? { rated: rateRanked } : {}),
+    ...(forfeit ? { forfeit: true } : {}),
   };
   // Isolates that lost the claim show this exact result (convergeSettlement).
   if (claim === "won" && matchId != null) {
@@ -762,18 +793,15 @@ export async function finishMatch(
 }
 
 /**
- * A disconnect mid-match hands the win to whoever is left. Matches shorter than
- * ForfeitSkipMs are discarded entirely rather than rated (PRD §6.1).
+ * A disconnect or leave mid-match hands the win to whoever is left. Matches
+ * shorter than ForfeitSkipMs are discarded entirely rather than rated (PRD
+ * §6.1). "Mid-match" runs from the countdown until the result is settled, so
+ * leaving on the results screen while the scores are still coming in is a
+ * forfeit too (before, it settled with one seat and moved no ELO).
+ * The safety:leave path (moderation.ts) comes through here as well.
  */
 export function forfeitFor(io: Server, room: Room, leaver: Player): void {
-  if (room.mode === "chaos") return;
-  const inMatch =
-    room.status === "countdown" ||
-    room.status === "turnA" ||
-    room.status === "swap" ||
-    room.status === "turnB" ||
-    room.status === "live";
-  if (!inMatch) return;
+  if (!matchInProgress(room)) return;
 
   const survivor = room.players.find((p) => p.id !== leaver.id && p.connected);
   const elapsed =

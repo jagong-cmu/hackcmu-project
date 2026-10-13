@@ -88,6 +88,8 @@ type Props = {
   youId?: string;
   opponentId?: string;
   eloDelta?: number | null;
+  /** Friendly match (private room): show "Unrated" instead of any ELO line. */
+  unrated?: boolean;
   shared?: number | null;
   songTitle?: string;
   songArtist?: string;
@@ -119,7 +121,8 @@ export function ResultsModal({
   winnerId,
   youId,
   opponentId,
-  eloDelta,
+  eloDelta: eloDeltaIn,
+  unrated = false,
   shared,
   songTitle,
   songArtist,
@@ -132,6 +135,8 @@ export function ResultsModal({
   forfeit,
   opponentLeft,
 }: Props) {
+  // An unrated match never shows (or shares) an ELO change, not even "unchanged".
+  const eloDelta = unrated ? null : eloDeltaIn;
   const moment = useMatchMoment();
   const reel = useMatchReel();
   const reelPending = useMatchReelPending();
@@ -297,6 +302,7 @@ export function ResultsModal({
           </div>
         )}
         {shared != null ? <p className="shared">Shared score {shared}</p> : null}
+        {unrated && revealOpponent ? <p className="elo friendly">Unrated — friendly match</p> : null}
         {eloDelta != null && revealOpponent ? (
           <p className={`elo ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
             {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : ""}${eloDelta} ELO`}

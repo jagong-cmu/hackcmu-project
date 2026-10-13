@@ -34,6 +34,12 @@ export type MatchDoc = {
   eloDelta: { a: number; b: number } | null;
   forfeit?: boolean;
   /**
+   * Ranked: false for a friendly match (private room): recorded, never rated,
+   * and left out of ranked match counts. Absent on older docs, which were all
+   * rated. Duet docs leave it unset.
+   */
+  rated?: boolean;
+  /**
    * Room.matchId of the live match this doc settles. Unique with roomId
    * (partial index), so one match can never be written — or rated — twice.
    * Absent on docs written before the index existed.

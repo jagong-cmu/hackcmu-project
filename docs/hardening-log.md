@@ -92,11 +92,37 @@ Audit findings #5, #12 and #19, plus a second room-existence oracle found while 
   - the peer e2e socket suite: 23/24, the one failure being the expected LiveKit 404 → 403 change
   - a full ranked match over two sockets, with the same results as main
 
-## Open items (need a decision or larger change)
+### 7. Product: private Ranked rooms are unrated; report-then-leave is a forfeit (`feat/private-unrated-report-forfeit`)
+Product decisions closing the "private ranked rooms are rated" open item and audit findings #6 (report-then-leave dodges ELO) and #13 (host/private flag per instance).
+- **Friendly rooms.** A Ranked room made with `room:create` plays exactly like Ranked but never moves ELO.
+  - `Room.rated` (plus `isPrivate`, `hostId`) is set when the room is made and kept by `resetToLobby`, so a rematch stays unrated. Queue rooms and `0000` stay rated.
+  - All three are in the `liveRooms` snapshot, so every instance agrees. They only ever move toward private/unrated in `applySnap`, so a stale snapshot cannot re-rate a friendly room or hand it a new host.
+  - Old snapshots without the fields: a room this instance already knows keeps its flags. A room first built from an old snapshot is rated, public and hostless, which is the behaviour before this change. Rooms live at most 2h, so this only matters during the deploy.
+  - `finishMatch` skips ELO for unrated rooms, including forfeits and the cross-instance claim path (the claim winner publishes the unrated result; losers converge on it). It still writes a `matches` doc with `rated: false` and `eloDelta: null`, and never touches `players.elo` or `matchesPlayed`. `/api/stats` counts ranked matches with `rated: {$ne: false}`, and the PostHog/`arenaStats` counter skips them. The leaderboard reads `players`, so it never sees them.
+  - `match:over` for Ranked now always carries `rated`, with `eloDelta: 0` when unrated. `room:state` carries `rated` and `isPrivate`.
+  - Audit #13: `isPrivate`/`hostId` moved off the per-instance WeakMap in `moderation.ts` onto the Room/snapshot. A host can now kick from an instance that only knows the room from Mongo. Vote tallies and the report/block "flagged" set are still per instance.
+- **Report-then-leave.** `safety:leave` mid-match in a rated Ranked room ejects with `forfeit: true`, through the same `forfeitFor` path as any other leave (K=16; thrown away under `ForfeitSkipMs`).
+  - "Mid-match" is now one helper, `matchInProgress`: countdown, turnA/swap/turnB/live, or results before settlement. The results case is new for every leave. Before, a leave there settled with one seat and persisted no ELO, so a plain leave could dodge a loss too.
+  - The report is still recorded. Lobby leaves stay free ("You left. No rating change."). Duet and friendly rooms keep the old behaviour: no rating, back to the lobby.
+  - The ack carries `forfeit`. Copy: "You left. This counts as a forfeit." The opponent is told "Your opponent left the match. You win by forfeit."
+- **Client copy.**
+  - Stage header chip in friendly rooms: "Friendly match · doesn't affect ELO". Lobby code bar: "Friendly match: doesn't affect ELO. Starts in 5 seconds when you both sit down."
+  - Results: "Unrated — friendly match" in place of the ELO line. The match video and share card get no ELO delta.
+  - Private-room picker: "Same 20-second chorus. You then them. A friendly match: private rooms don't affect ELO." Home: "Make a private room · friendly matches, no ELO".
+  - The safety sheet's leave button reads "Leave match · counts as a forfeit" mid-match (else "· no rating change"), with a line saying the report is in either way. The blocked banner and the 1v1 fine print say the same. `/results-preview?friendly=1` previews the unrated card.
+- Verified:
+  - typecheck and build
+  - 285/285 tests, 16 new in `friendlyRooms.test.ts`: rated queue room, friendly settle, two-isolate claim race, host kick from a snapshot-only isolate, rematch, friendly forfeit, snapshot round trip and old snapshots, stats, and report-then-leave in turnB, unsettled results, countdown, lobby and a friendly room
+  - the peer e2e socket suite: 23/24, the one failure being the known entry-6 403
+  - the full ranked match script unchanged (queue, +16/−16)
+  - a new variants script: a private match settles unrated, and its rematch stays unrated; a queue match where seat A reports and leaves at turnA+6s settles once as a rated forfeit (−8/+8)
+
 - Rate limits are per instance (room joins, hello verification, reports, blocks, votes). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.
 - A fresh handshake per connection can still cost one Supabase call per unique, well-formed but forged JWT. A per-IP connection limit (e.g. Vercel WAF rate limit on `/socket.io`) would cap it.
-- Private ranked rooms (room codes) are still rated. Whether friends' rooms should move ELO is a product call; unchanged.
+- The `0000` demo room is still rated, and anyone who knows the code can join it. Consider making it friendly too.
+- `room:create` picks its code against this instance's rooms only. A leftover `liveRooms` snapshot with the same code (up to 2h) can merge into the new room. The flags are safe (they only move toward private), but other state is not. Use `generateSharedCode` there.
+- `safety:leave` needs a report or block recorded on the same instance (the "flagged" set is per instance). On Vercel the leave can be refused after a report on another instance. The ordinary leave still works, and it forfeits the same way.
 - On Vercel, the 20s delayed LiveKit drop after a socket disconnect only fires if the instance stays alive that long. An explicit `room:leave` (pagehide, navigation) drops the media session straight away.
 - Full Content-Security-Policy: draft in docs/csp-draft.md. Ship as Report-Only first.
 - Song lyrics may not be bundled with the Vercel API function, so Gemini falls back to cleaned client lyrics. Add `includeFiles` for `apps/web/public/songs/*/lyrics.lrc` to the api service.

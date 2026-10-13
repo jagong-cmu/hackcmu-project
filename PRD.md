@@ -99,7 +99,7 @@ Chaos:
 
 ### 6.1 Ranked (primary)
 
-**Players:** 2. **ELO:** yes. **Goal:** higher overall score on the same 15s clip.
+**Players:** 2. **ELO:** yes, for matchmaking (Random queue) and `0000`. **Friendly (private) rooms are unrated:** a Ranked room made with Create (a 4-digit code for a friend) plays exactly the same (same chorus, turns, scoring, results, rematch) but never moves either player's ELO or the ladder. The lobby/stage shows "Friendly match · doesn't affect ELO" and results show "Unrated — friendly match". A rematch in a private room stays unrated. **Goal:** higher overall score on the same 15s clip.
 
 **Who is A / B:** first to join the room is Player A and sings first.
 
@@ -114,14 +114,14 @@ Chaos:
 5. **Turn A (15s):** same clip for both. Only A’s mic is scored. B is visible and audible socially. A’s numeric score is hidden (“locked in”).
 6. 2s swap beat.
 7. **Turn B (15s):** identical clip and lyrics.
-8. Reveal both ScoreCards, winner, ELO delta.
+8. Reveal both ScoreCards, winner, ELO delta (or "Unrated — friendly match" in a private room).
 9. Rematch (new random song, same pair) or Leave.
 
 **Win rules**
 
 - Higher `overall` wins.
 - Tie: “Draw”, ELO unchanged.
-- Disconnect after start: remaining player wins by forfeit. Skip ELO if the match ran under 5s. Otherwise apply forfeit with K=16 (not 32).
+- Disconnect or leave after start (countdown through results, until the result is settled): remaining player wins by forfeit. Skip ELO if the match ran under 5s. Otherwise apply forfeit with K=16 (not 32). Leaving after reporting or blocking the opponent is no exception (see §6.5). In a friendly room a forfeit moves no ELO either.
 
 **On stage:** opponent cam large, self pip, current + next lyric, 15s timer, YOUR TURN / THEIR TURN, live pitch meter for the active singer.
 
@@ -184,7 +184,7 @@ accepts.
   |---|---|
   | Private room (made with Create or a 4-digit Chaos code) | The **host** (the person who made it) removes anyone immediately, in any mode. |
   | Chaos (public lounge, or a private one if you are not the host) | **Vote kick.** A strict majority of the *other* live people must vote, with a minimum of 2 votes (3 people → 2, 5 → 3). One person can never remove another alone. With only two people in the room, use Block. Nobody sees who voted. |
-  | Ranked / Duet, not host | **No kick.** Once you block or report your opponent, you can **leave the match with no rating change** for either player. The match ends and your opponent is told “Your opponent left the match.” A plain leave still counts as a forfeit. |
+  | Ranked / Duet, not host | **No kick.** Once you block or report your opponent, you can leave. From the lobby (before the match starts) that costs nothing: “You left. No rating change.” Mid-match in a rated Ranked room it **counts as a forfeit**, exactly like any other leave (the report is still recorded): “You left. This counts as a forfeit.”, and your opponent is told “Your opponent left the match. You win by forfeit.” The app says so before you leave. In Duet or a friendly room nobody's rating changes and the match just ends. |
 
   A removed player gets disconnected from LiveKit
   (`RoomServiceClient.removeParticipant`). They are banned from that room code
@@ -273,7 +273,7 @@ Clip windows start at the **chorus**.
 
 - Start 1000, K=32, standard expected score. Win 1, loss 0, draw 0.5.
 - Show `+18` / `-18` on results.
-- Ladder: name, rating, matches played.
+- Ladder: name, rating, matches played. Friendly (private room) matches are recorded but count toward neither.
 - ELO is **casual and unverified**: each client scores its own take, so a modified client can post any number. The UI says so on the Ranked picker and the leaderboard.
 
 ---
@@ -323,7 +323,7 @@ A song does not ship until all four files in section 8 exist. Shipping three com
 1. Set a name and enable camera in under 20 seconds.
 2. Two friends share a 4-digit code and see each other’s faces.
 3. Ranked: same 15s chorus, lyrics highlight, A then B, two ScoreCards, a winner.
-4. Ranked ELO changes and appears on the ladder.
+4. Ranked ELO changes and appears on the ladder (matchmaking / `0000`; private rooms are friendly and unrated).
 5. Duet Together lands a shared score on the duet board.
 6. Training on one laptop: meter moves, score appears.
 7. Current lyric is readable without hunting.

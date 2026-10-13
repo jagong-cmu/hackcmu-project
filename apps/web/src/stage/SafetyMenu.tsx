@@ -73,14 +73,20 @@ export default function SafetyMenu({
   target,
   rule,
   oneOnOne,
+  leaveForfeits = false,
   safety,
   onLeft,
   onToast,
 }: {
   target: { id: string; name: string };
   rule: RemoveRule;
-  /** Ranked/Duet: after a block or report, offer the no-penalty leave. */
+  /** Ranked/Duet: after a block or report, offer to leave the match. */
   oneOnOne: boolean;
+  /**
+   * Leaving right now is a forfeit (rated Ranked, mid-match). Live from the
+   * room state, so the warning follows the match as the sheet stays open.
+   */
+  leaveForfeits?: boolean;
   safety: SafetyApi;
   onLeft: () => void;
   /** Echo results on the stage too: a Chaos block hides this tile (and its sheet) at once. */
@@ -197,8 +203,10 @@ export default function SafetyMenu({
               </div>
               {oneOnOne && rule.kind === "none" ? (
                 <p className="safety-fine">
-                  You can't remove someone from a 1v1. Block or report them and you can leave with
-                  no rating change.
+                  You can't remove someone from a 1v1. Block or report them and you can leave.
+                  {leaveForfeits
+                    ? " The match is on, so leaving now counts as a forfeit."
+                    : " Leaving now doesn't change anyone's rating."}
                 </p>
               ) : null}
               <div className="safety-foot">
@@ -336,6 +344,12 @@ export default function SafetyMenu({
               <p className="safety-kicker">Done</p>
               <h2 className="safety-title">{result.removed ? "Removed" : "Thanks"}</h2>
               <p className="safety-body">{result.message}</p>
+              {oneOnOne && result.canLeave && leaveForfeits ? (
+                <p className="safety-fine">
+                  Your report is in either way. Leaving mid-match counts as a forfeit: it's
+                  rated as a loss, like any other leave.
+                </p>
+              ) : null}
               {error ? <p className="safety-error">{error}</p> : null}
               <div className="safety-foot">
                 {oneOnOne && result.canLeave ? (
@@ -349,7 +363,11 @@ export default function SafetyMenu({
                       disabled={busy}
                       onClick={() => void leave()}
                     >
-                      {busy ? "Leaving…" : "Leave match · no rating change"}
+                      {busy
+                        ? "Leaving…"
+                        : leaveForfeits
+                          ? "Leave match · counts as a forfeit"
+                          : "Leave match · no rating change"}
                     </button>
                   </>
                 ) : (
