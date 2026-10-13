@@ -53,7 +53,7 @@ function geminiResponse(): Response {
 }
 
 before(async () => {
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
     if (!url.includes("generativelanguage.googleapis.com")) return realFetch(input, init);
     gemini.calls++;
