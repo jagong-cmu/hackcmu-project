@@ -48,6 +48,7 @@ import {
   requestRematch,
 } from "./rematch.ts";
 import { trackMatchStarted, trackSongPlayed } from "./analytics.ts";
+import { logOnce } from "./hardening.ts";
 
 const songDirs = [
   path.resolve(process.cwd(), "apps/web/public/songs"),
@@ -176,7 +177,7 @@ function songFor(room: Room): SongMeta | undefined {
 
 export function broadcastState(io: Server, room: Room): void {
   io.to(room.code).emit(ServerEvents.roomState, toPublic(room));
-  void saveRoomSnap(room);
+  void saveRoomSnap(room).catch(logOnce("saveRoomSnap"));
 }
 
 export type ClockPayload = {
@@ -438,10 +439,10 @@ function awaitScores(io: Server, room: Room): void {
   room.playAtUnixMs = null;
   broadcastState(io, room);
   if (scoresAreIn(room)) {
-    void finishMatch(io, room);
+    void finishMatch(io, room).catch(logOnce("finishMatch"));
     return;
   }
-  later(room, SCORE_WAIT_MS, () => void finishMatch(io, room));
+  later(room, SCORE_WAIT_MS, () => void finishMatch(io, room).catch(logOnce("finishMatch")));
 }
 
 /** Called by the score route. Returns true once the match has been settled. */
@@ -453,10 +454,10 @@ export function recordScore(
 ): boolean {
   room.scores.set(playerId, score);
   emitScoreReady(io, room, playerId, score);
-  void saveRoomSnap(room);
+  void saveRoomSnap(room).catch(logOnce("saveRoomSnap"));
 
   if (scoresAreIn(room) && (room.status === "results" || room.status === "live")) {
-    void finishMatch(io, room);
+    void finishMatch(io, room).catch(logOnce("finishMatch"));
     return true;
   }
   return false;
@@ -554,9 +555,7 @@ export async function finishMatch(
       songId: room.songId,
       players: room.players,
       scores: room.scores,
-    }).catch(() => {
-      /* leaderboard best-effort */
-    });
+    }).catch(logOnce("persistSeatedMatch"));
   }
 
   room.status = "results";
@@ -608,7 +607,7 @@ export function forfeitFor(io: Server, room: Room, leaver: Player): void {
       underMinimum: elapsed < ForfeitSkipMs,
     },
     seated,
-  );
+  ).catch(logOnce("finishMatch"));
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@
  */
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { StartingElo } from "../../packages/shared/src/index.ts";
+import { sanitizeDisplayName } from "./hardening.ts";
 
 const DB_NAME = "karaoke-arena";
 
@@ -100,9 +101,9 @@ export function duetScores(db: Db): Collection<DuetScoreDoc> {
 export async function upsertPlayer(
   db: Db,
   clientId: string,
-  displayName: string,
+  displayName: unknown,
 ): Promise<PlayerDoc> {
-  const name = displayName.trim().slice(0, 16) || "Singer";
+  const name = sanitizeDisplayName(displayName);
   const now = new Date();
   await players(db).updateOne(
     { clientId },
@@ -141,7 +142,7 @@ export async function upsertDuetBest(
   nameB: string,
   shared: number,
 ): Promise<void> {
-  const names = [nameA.trim(), nameB.trim()].sort((x, y) =>
+  const names = [sanitizeDisplayName(nameA), sanitizeDisplayName(nameB)].sort((x, y) =>
     x.localeCompare(y),
   ) as [string, string];
   const now = new Date();

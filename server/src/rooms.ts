@@ -22,6 +22,7 @@ import {
   type RoomStatus,
   type ScoreCard,
 } from "@karaoke/shared";
+import { logOnce } from "./hardening.ts";
 
 export type Player = PlayerPublic & {
   /**
@@ -240,7 +241,12 @@ export function clearTimers(room: Room): void {
 export function later(room: Room, ms: number, fn: () => void): NodeJS.Timeout {
   const timer = setTimeout(() => {
     room.timers.delete(timer);
-    fn();
+    // A throw in a room timer is logged, never an uncaught exception.
+    try {
+      fn();
+    } catch (err) {
+      logOnce("room timer")(err);
+    }
   }, ms);
   room.timers.add(timer);
   return timer;

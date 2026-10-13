@@ -44,6 +44,7 @@ import {
   type SafetyState,
 } from "@karaoke/shared";
 import { getDb } from "./db.ts";
+import { cleanText } from "./hardening.ts";
 import { liveKitRoomName, readLiveKitConfig } from "./livekit.ts";
 import {
   createRoom,
@@ -406,9 +407,14 @@ export function publicSafetyState(room: Room): SafetyState {
 
 const reported = new Set<string>();
 
+/** A string field of a socket payload, else "" (never coerces an object). */
+function stringField(payload: unknown, key: string): string {
+  const v = payload && typeof payload === "object" ? (payload as Record<string, unknown>)[key] : undefined;
+  return typeof v === "string" ? v.slice(0, 128) : "";
+}
+
 function cleanNote(raw: unknown): string {
-  if (typeof raw !== "string") return "";
-  return raw.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, ReportNoteMax);
+  return cleanText(raw, ReportNoteMax);
 }
 
 export async function persistReport(doc: ReportDoc): Promise<"mongo" | "log"> {
@@ -546,7 +552,7 @@ export function createSafety(deps: SafetyDeps) {
     const targetId = typeof body.targetId === "string" ? body.targetId : "";
     const target = ctx.room.players.find((p) => p.id === targetId);
     if (!target || target.id === ctx.me.id) return deny("report", "Pick someone in this room.", targetId);
-    const reason = (ReportReasons as readonly string[]).includes(String(body.reason))
+    const reason = (ReportReasons as readonly string[]).includes(typeof body.reason === "string" ? body.reason : "")
       ? (body.reason as ReportReason)
       : null;
     if (!reason) return deny("report", "Pick a reason.", targetId);
@@ -586,7 +592,7 @@ export function createSafety(deps: SafetyDeps) {
   async function block(socketId: string, payload: unknown): Promise<SafetyAck> {
     const ctx = await context(socketId);
     if (!ctx?.me) return deny("block", "Join the room first.");
-    const targetId = String(((payload ?? {}) as { targetId?: unknown }).targetId ?? "");
+    const targetId = stringField(payload, "targetId");
     const target = ctx.room.players.find((p) => p.id === targetId);
     if (!target || target.id === ctx.me.id) return deny("block", "Pick someone in this room.", targetId);
     await hydrateBlocks(ctx.me.id);
@@ -611,7 +617,7 @@ export function createSafety(deps: SafetyDeps) {
     const ctx = await context(socketId);
     if (!ctx?.me) return deny("kick", "Join the room first.");
     const { room, me } = ctx;
-    const targetId = String(((payload ?? {}) as { targetId?: unknown }).targetId ?? "");
+    const targetId = stringField(payload, "targetId");
     const meta = metaOf(room);
     const decision = kickRule({
       mode: room.mode,
