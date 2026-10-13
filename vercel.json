@@ -7,7 +7,11 @@
       "installCommand": "cd ../.. && npm install --include=optional && npm install --no-save @rollup/rollup-linux-x64-gnu",
       "buildCommand": "cd ../.. && npm -w apps/web run build",
       "outputDirectory": "dist",
-      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+      "rewrites": [
+        { "source": "/privacy", "destination": "/privacy/index.html" },
+        { "source": "/terms", "destination": "/terms/index.html" },
+        { "source": "/(.*)", "destination": "/index.html" }
+      ]
     },
     "api": {
       "root": "server",

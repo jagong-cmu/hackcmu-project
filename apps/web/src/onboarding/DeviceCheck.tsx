@@ -1,6 +1,7 @@
 /**
- * Mic + camera check, run once before a singer's first real match and
- * re-runnable from Settings and the mode picker.
+ * Mic + camera check: step one of onboarding, run once per account (right
+ * after a new account signs in, or before its first match) and re-runnable
+ * from Settings and the mode picker.
  *
  * Opens the same raw capture LiveKit will (no AEC / AGC / noise suppression),
  * so the meter shows the levels the scorer will actually see. Every track is
@@ -11,15 +12,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageShell } from "../theme/PageShell.tsx";
 import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
-import {
-  deviceCheckCleared,
-  markDeviceCheckDone,
-  preferredCameraId,
-  preferredMicId,
-  safeNext,
-  skipDeviceCheckForSession,
-} from "./deviceCheck.ts";
-import { shouldOfferVoiceCheck, voiceCheckPathFor } from "./voiceProfile.ts";
+import { useAuth } from "../auth/AuthProvider.tsx";
+import { preferredCameraId, preferredMicId, safeNext, saveDevicePrefs } from "./deviceCheck.ts";
+import { deviceStepPatch, shouldOfferVoice } from "./onboardingState.ts";
+import { voiceCheckPathFor } from "./voiceProfile.ts";
 import "./deviceCheck.css";
 
 type Kind = "mic" | "camera";
@@ -128,7 +124,9 @@ export function DeviceCheck() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
-  const [rerun] = useState(() => deviceCheckCleared());
+  const { onboarding, needsOnboarding, saveOnboarding } = useAuth();
+  // Frozen at mount: finishing step one flips the account to onboarded.
+  const [rerun] = useState(() => !needsOnboarding);
 
   const [busy, setBusy] = useState(true);
   const [mic, setMic] = useState<MediaStreamTrack | null>(null);
@@ -387,16 +385,15 @@ export function DeviceCheck() {
   const anyProblem = micProblem != null || camProblem != null;
 
   function leave(kind: "done" | "skip") {
-    if (kind === "done") {
-      markDeviceCheckDone({ micId: micId || undefined, cameraId: camId || undefined });
-    } else {
-      skipDeviceCheckForSession();
-    }
+    // Device ids are per machine; the "onboarded" record goes on the account.
+    if (kind === "done") saveDevicePrefs({ micId: micId || undefined, cameraId: camId || undefined });
+    // Skipping counts as done for the account: it is not offered again.
+    saveOnboarding(deviceStepPatch(onboarding, kind === "done" ? "done" : "skipped"));
     // Release the devices before the next page (and LiveKit) asks for them.
     generation.current++;
     stopAll();
     // First pass through onboarding: step two is the voice range check.
-    if (kind === "done" && !rerun && shouldOfferVoiceCheck()) navigate(voiceCheckPathFor(next));
+    if (kind === "done" && !rerun && shouldOfferVoice(onboarding)) navigate(voiceCheckPathFor(next));
     else navigate(next);
   }
 
@@ -481,7 +478,7 @@ export function DeviceCheck() {
         </button>
         {!rerun ? (
           <button type="button" className="dc-skip" onClick={() => leave("skip")}>
-            Skip for now
+            Skip (run it later from Settings)
           </button>
         ) : null}
       </div>

@@ -190,6 +190,12 @@
 .lyrics-cue.you,
 .lyrics-cue.together { color: var(--gold, #c9a227); }
 .lyrics-cue.them { color: var(--cream, #f4efe6); }
+/* Clip lead-in: music first, then the anchor line (first lyric or chorus). */
+.lyrics-cue.leadin { color: var(--gold, #c9a227); }
+.lyrics-leadin .lyrics-now { opacity: 0.72; }
+.lyrics-leadin .leadin-who { color: var(--mute, #8a8278); font-size: 0.6em; letter-spacing: 0.04em; }
+.lyrics-leadin .leadin-who.you,
+.lyrics-leadin .leadin-who.together { color: var(--gold, #c9a227); }
 .lyrics-now.duet-you { color: var(--cream, #f4efe6); }
 .lyrics-now.duet-them { color: var(--mute, #8a8278); }
 .lyrics-now.duet-together { color: var(--gold, #c9a227); }

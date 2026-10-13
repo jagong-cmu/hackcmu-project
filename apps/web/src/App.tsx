@@ -20,6 +20,7 @@ import { DeviceCheckGate } from "./onboarding/DeviceCheckGate.tsx";
 import { VoiceCheck } from "./onboarding/VoiceCheck.tsx";
 import { AuthProvider, RequireAuth } from "./auth/AuthProvider.tsx";
 import { SignIn } from "./auth/SignIn.tsx";
+import { PrivacyPolicy, TermsOfService } from "./legal/LegalPage.tsx";
 
 export default function App() {
   return (
@@ -30,10 +31,12 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="/play" element={<RequireAuth><ModeSelect /></RequireAuth>} />
           <Route path="/play/:mode" element={<RequireAuth><DeviceCheckGate><Play /></DeviceCheckGate></RequireAuth>} />
-          <Route path="/check" element={<DeviceCheck />} />
-          <Route path="/check/voice" element={<VoiceCheck />} />
+          <Route path="/check" element={<RequireAuth><DeviceCheck /></RequireAuth>} />
+          <Route path="/check/voice" element={<RequireAuth><VoiceCheck /></RequireAuth>} />
           <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
           {import.meta.env.DEV ? (
             <Route path="/results-preview" element={<ResultsPreview />} />

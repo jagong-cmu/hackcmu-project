@@ -13,6 +13,7 @@ import {
   publicChaosIndex,
   RankedCap,
   StartingElo,
+  type ClipAnchor,
   type Mode,
   type PlayerPublic,
   type RematchLapse,
@@ -50,6 +51,10 @@ export type Room = {
   /** Clip window currently scheduled, for late-join playhead math. */
   clipStartSec: number;
   clipDurationSec: number;
+  /** Instrumental lead-in at the top of the clip (anchor − clipStartSec). */
+  clipLeadInSec: number;
+  /** Which anchor this match's clip starts from. Null in Chaos / before a match. */
+  clipAnchor: ClipAnchor | null;
 
   /** Wall clock of the last clock:play, for chaos late-join seeking. */
   songStartedAtMs: number | null;
@@ -92,6 +97,8 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     persistent,
     clipStartSec: 0,
     clipDurationSec: 0,
+    clipLeadInSec: 0,
+    clipAnchor: null,
     songStartedAtMs: null,
     matchStartedAtMs: null,
     scores: new Map(),
@@ -254,6 +261,9 @@ export function resetToLobby(room: Room): void {
   room.playAtUnixMs = null;
   room.songStartedAtMs = null;
   room.matchStartedAtMs = null;
+  // The next match flips its own anchor.
+  room.clipAnchor = null;
+  room.clipLeadInSec = 0;
   room.scores.clear();
   room.lastEloDelta = 0;
   room.lastWinnerId = null;
@@ -290,6 +300,10 @@ export function toPublic(room: Room): RoomState {
     activeSingerId: room.activeSingerId,
     playAtUnixMs: room.playAtUnixMs,
     playheadSec: playheadSec(room),
+    clipAnchor: room.clipAnchor,
+    clipStartSec: room.clipStartSec,
+    clipDurationSec: room.clipDurationSec,
+    clipLeadInSec: room.clipLeadInSec,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
   };

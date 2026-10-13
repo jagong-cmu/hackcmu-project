@@ -15,8 +15,14 @@ import {
   livePlayers,
   resetToLobby,
 } from "./rooms.ts";
-import { SONGS } from "@karaoke/shared";
-import { formatCountdown } from "../../apps/web/src/stage/formatCountdown.ts";
+import { MatchCountdownMs, SONGS } from "@karaoke/shared";
+import {
+  countdownVeilOpacity,
+  formatCountdown,
+  OverlayHideMs,
+  OverlaySpanMs,
+  showCountdownOverlay,
+} from "../../apps/web/src/stage/formatCountdown.ts";
 import { advanceDue, maybeArmMatch } from "./clock.ts";
 import { eloDelta } from "./elo.ts";
 
@@ -61,7 +67,7 @@ test("dropDeadPlayers still kicks a seat that has gone idle", () => {
   clearTimers(room);
 });
 
-test("two seated players arm a 10s countdown without ready taps", () => {
+test("two seated players arm the shared MatchCountdownMs (5s) countdown without ready taps", () => {
   const room = createRoom("ranked", "3333");
   try {
     seat(room, "a", "sock-a");
@@ -70,11 +76,18 @@ test("two seated players arm a 10s countdown without ready taps", () => {
     assert.equal(room.status, "countdown");
     const song = SONGS.find((s) => s.id === room.songId);
     assert.ok(song, "ranked picks a catalog song");
-    assert.equal(room.clipStartSec, song.clipStartSec);
-    assert.equal(room.clipDurationSec, Math.min(20, song.clipDurationSec));
+    // Clip opens ClipLeadInMs before the server-picked anchor (see clipAnchor.test.ts).
+    const anchorSec = room.clipAnchor === "chorus" ? song.chorusSec! : song.firstLyricSec!;
+    assert.ok(Math.abs(room.clipStartSec - Math.max(0, anchorSec - 5)) < 1e-6);
+    assert.ok(
+      Math.abs(room.clipDurationSec - (room.clipLeadInSec + Math.min(20, song.clipDurationSec))) < 1e-6,
+    );
     assert.ok(room.playAtUnixMs);
     const wait = room.playAtUnixMs! - Date.now();
-    assert.ok(wait > 8_000 && wait <= 10_500, `expected ~10s, got ${wait}`);
+    assert.ok(
+      wait > MatchCountdownMs - 2_000 && wait <= MatchCountdownMs,
+      `expected ~${MatchCountdownMs}ms, got ${wait}`,
+    );
   } finally {
     clearTimers(room);
   }
@@ -102,7 +115,37 @@ test("rematch skips the song that just played", () => {
   }
 });
 
+test("pre-match countdown is the shared 5s constant", () => {
+  assert.equal(MatchCountdownMs, 5_000);
+  const room = createRoom("duet", "5555");
+  try {
+    seat(room, "a", "sock-a");
+    seat(room, "b", "sock-b");
+    const before = Date.now();
+    maybeArmMatch(fakeIo() as never, room);
+    const after = Date.now();
+    assert.equal(room.status, "countdown");
+    assert.ok(room.playAtUnixMs! >= before + MatchCountdownMs);
+    assert.ok(room.playAtUnixMs! <= after + MatchCountdownMs);
+  } finally {
+    clearTimers(room);
+  }
+});
+
+test("countdown veil covers the countdown, then lifts for the last beat", () => {
+  assert.equal(OverlayHideMs + OverlaySpanMs, MatchCountdownMs);
+  assert.ok(OverlayHideMs > 0 && OverlayHideMs < MatchCountdownMs);
+  assert.equal(showCountdownOverlay(MatchCountdownMs), true);
+  assert.equal(showCountdownOverlay(OverlayHideMs + 1), true);
+  assert.equal(showCountdownOverlay(OverlayHideMs), false);
+  assert.equal(showCountdownOverlay(0), false);
+  // Darkest at arm time, clearer as it nears the lift.
+  assert.ok(countdownVeilOpacity(MatchCountdownMs) > countdownVeilOpacity(OverlayHideMs + 100));
+  assert.ok(Math.abs(countdownVeilOpacity(MatchCountdownMs) - 0.7) < 1e-9);
+});
+
 test("countdown text is always one decimal", () => {
+  assert.equal(formatCountdown(MatchCountdownMs), "5.0");
   assert.equal(formatCountdown(10_000), "10.0");
   assert.equal(formatCountdown(9_040), "9.0");
   assert.equal(formatCountdown(50), "0.1");

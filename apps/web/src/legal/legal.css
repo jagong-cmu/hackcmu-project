@@ -1,0 +1,119 @@
+/* /privacy and /terms: long-form text on the dark theme. Also styles the static
+ * copies in dist/ (same class names), so keep this imported from the app entry
+ * graph, not lazily. */
+
+.legal-page .shell-inner {
+  margin-top: 130px;
+  align-items: stretch;
+  text-align: left;
+}
+
+.legal-doc {
+  position: relative;
+  z-index: 1;
+  width: min(44rem, 100%);
+  margin: 0 auto;
+  padding: 28px 32px 32px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 18px;
+  background: rgba(7, 11, 20, 0.82);
+  backdrop-filter: blur(6px);
+  color: rgba(232, 240, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.68;
+  text-align: left;
+}
+
+.legal-doc h2 {
+  margin: 34px 0 10px;
+  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+  scroll-margin-top: 24px;
+}
+.legal-doc section { scroll-margin-top: 24px; }
+
+.legal-doc p,
+.legal-doc ul,
+.legal-doc ol { margin: 0 0 14px; }
+.legal-doc ul,
+.legal-doc ol { padding-left: 1.3em; }
+.legal-doc li { margin: 0 0 6px; }
+.legal-doc li::marker { color: var(--blue-300); }
+.legal-doc strong { color: var(--fg); font-weight: 600; }
+
+.legal-doc a {
+  color: var(--blue-200);
+  text-decoration: underline;
+  text-decoration-color: rgba(168, 208, 255, 0.4);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.legal-doc a:hover { color: var(--fg); text-decoration-color: currentColor; }
+
+.legal-updated {
+  color: var(--fg-dim);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.legal-toc {
+  margin: 22px 0 6px;
+  padding: 14px 18px 8px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 12px;
+  background: rgba(12, 19, 32, 0.6);
+  font-size: 0.92rem;
+}
+.legal-toc ol { list-style: none; padding: 0; margin: 0; columns: 2 16rem; column-gap: 24px; }
+.legal-toc li { margin: 0 0 6px; break-inside: avoid; }
+.legal-toc a { text-decoration: none; color: var(--fg-dim); }
+.legal-toc a:hover { color: var(--fg); }
+
+.legal-foot {
+  margin: 30px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--edge-soft);
+  color: var(--fg-dim);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .legal-page.page { padding-left: 16px; padding-right: 16px; }
+  .legal-page .shell-inner { margin-top: 110px; }
+  .legal-doc { padding: 20px 18px 24px; font-size: 0.97rem; }
+}
+
+/* Small print links used on Home, /signin and Settings. */
+.legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.legal-links a {
+  color: var(--fg-faint);
+  text-decoration: none;
+}
+.legal-links a:hover,
+.legal-links a:focus-visible { color: var(--fg); }
+
+.auth-legal {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--fg-faint);
+  line-height: 1.5;
+}
+.auth-legal a { color: var(--fg-dim); text-underline-offset: 2px; }
+.auth-legal a:hover { color: var(--fg); }
+
+.home-legal {
+  position: relative;
+  z-index: 2;
+  margin-top: 18px;
+}
+.settings-legal { margin-top: 28px; }

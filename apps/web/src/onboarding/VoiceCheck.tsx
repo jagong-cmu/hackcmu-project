@@ -32,7 +32,8 @@ import {
   type VoiceProfile,
 } from "../scoring/voiceRange.ts";
 import { preferredMicId, safeNext } from "./deviceCheck.ts";
-import { loadVoiceProfile, saveVoiceProfile, skipVoiceCheck } from "./voiceProfile.ts";
+import { useAuth } from "../auth/AuthProvider.tsx";
+import { voiceSavedPatch, voiceSkippedPatch } from "./onboardingState.ts";
 import "./deviceCheck.css";
 
 const STEPS: Array<{ id: ProfileStep; title: string; prompt: string }> = [
@@ -73,7 +74,9 @@ export function VoiceCheck() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
-  const [saved] = useState(() => loadVoiceProfile());
+  const { onboarding, saveOnboarding } = useAuth();
+  // The account's range at mount (re-runs show it and can keep it).
+  const [saved] = useState(() => onboarding.voiceProfile);
 
   const [mic, setMic] = useState<MediaStreamTrack | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
@@ -246,9 +249,10 @@ export function VoiceCheck() {
   }, [results]);
 
   function leave(kind: "save" | "skip") {
-    if (kind === "save" && profile) saveVoiceProfile(profile);
+    // Saved to the account so the range follows it to every device.
+    if (kind === "save" && profile) saveOnboarding(voiceSavedPatch(profile));
     // Leaving a re-run keeps the saved profile; only a first-time skip is remembered.
-    if (kind === "skip" && !saved) skipVoiceCheck();
+    if (kind === "skip" && !saved) saveOnboarding(voiceSkippedPatch(onboarding));
     captureRef.current = null;
     stopMic();
     navigate(next);

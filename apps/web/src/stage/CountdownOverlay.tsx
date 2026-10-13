@@ -1,7 +1,8 @@
 /**
  * Full-viewport countdown veil. Dark enough to read, clear enough to see
- * cameras and lyrics. Opening match lifts at 5s remaining; ranked swap
- * stays up until GO so the handoff is as obvious as the start.
+ * cameras and lyrics. Opening match is up for the whole MatchCountdownMs
+ * (5.0 → 1.0) and lifts for the last second so the clear stage shows before
+ * GO; ranked swap stays up until GO so the handoff is as obvious as the start.
  */
 import { createPortal } from "react-dom";
 import {

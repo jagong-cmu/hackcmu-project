@@ -2,6 +2,7 @@ import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
 import { LyricSparks } from "./LyricSparks.tsx";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
 import { formatCountdown } from "../stage/formatCountdown.ts";
+import { anchorLine, inLeadIn } from "./leadIn.ts";
 
 export type DuetView = {
   seat: DuetSeat | null;
@@ -13,15 +14,54 @@ type Props = {
   lrc: string | LrcLine[];
   currentTime: number;
   duet?: DuetView | null;
+  /**
+   * The clip's anchor line (song seconds). Before it, the clip is in its
+   * lead-in: show "Get ready" and the line singing opens on, not whatever
+   * line the lead-in happens to overlap.
+   */
+  singFromSec?: number | null;
 };
 
 /** A line stays on screen for its own span, but never longer than this. */
 const MAX_LINE_SEC = 7;
 /** How early the count-in appears before the next line. */
 const COUNTDOWN_SEC = 4;
+function LeadIn({
+  line,
+  wait,
+  who,
+}: {
+  line: LrcLine | null;
+  wait: number;
+  who: { text: string; kind: string } | null;
+}) {
+  const beats = Math.max(1, Math.min(4, Math.ceil(wait)));
+  return (
+    <div className="lyrics lyrics-leadin">
+      <p className="lyrics-cue leadin" aria-live="polite">
+        Get ready · lyrics in {Math.max(1, Math.ceil(wait))}
+      </p>
+      <p className="lyrics-now lyrics-soon">
+        {who ? <span className={`leadin-who ${who.kind}`}>{who.text} · </span> : null}
+        {line?.text ?? "·"}
+      </p>
+      <p className="lyrics-count" aria-hidden="true">
+        {[4, 3, 2, 1].map((n) => (
+          <span key={n} className={n <= beats ? "dot" : "dot spent"} />
+        ))}
+        <span className="count-num">{formatCountdown(wait * 1000)}</span>
+      </p>
+    </div>
+  );
+}
 
-export function LyricsOverlay({ lrc, currentTime, duet }: Props) {
+export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
   const lines = typeof lrc === "string" ? parseLrc(lrc) : lrc;
+  if (singFromSec != null && inLeadIn(currentTime, singFromSec)) {
+    const line = anchorLine(lines, singFromSec);
+    const who = duet && line ? cueLabel(line.voice, duet.seat, duet.nameA, duet.nameB) : null;
+    return <LeadIn line={line} wait={(line?.timeSec ?? singFromSec) - currentTime} who={who} />;
+  }
   if (duet) {
     const cue = cueAt(lines, currentTime);
     const now = cueLabel(cue.voice, duet.seat, duet.nameA, duet.nameB);

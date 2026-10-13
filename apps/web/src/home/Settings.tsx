@@ -6,6 +6,8 @@ import { PageShell } from "../theme/PageShell.tsx";
 import { identifyPlayer } from "../analytics/posthog.ts";
 import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
 import { AccountSection } from "../auth/AccountSection.tsx";
+import { useAuth } from "../auth/AuthProvider.tsx";
+import { LegalLinks } from "../legal/LegalLinks.tsx";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -15,6 +17,13 @@ export function Settings() {
   const [name, setName] = useState(getDisplayName());
   const [mongo, setMongo] = useState<boolean | null>(null);
   const [msg, setMsg] = useState("");
+  const { mode, user } = useAuth();
+  // Names belong to accounts: nothing to edit until you are signed in.
+  const canName = mode === "dev-guest" || (mode === "accounts" && Boolean(user));
+
+  useEffect(() => {
+    if (user) setName(getDisplayName());
+  }, [user]);
 
   useEffect(() => {
     fetch("/api/health")
@@ -37,7 +46,7 @@ export function Settings() {
 
   return (
     <PageShell title="Settings" tag="This is how other singers will see you.">
-      <form className="settings-form" onSubmit={(e) => void save(e)}>
+      {canName ? <form className="settings-form" onSubmit={(e) => void save(e)}>
         <label>
           Display name
           <input
@@ -52,7 +61,7 @@ export function Settings() {
         <button type="submit" className="cta">
           Save name
         </button>
-      </form>
+      </form> : null}
       <AccountSection />
       <p className="dim">
         {mongo == null
@@ -62,6 +71,7 @@ export function Settings() {
             : "Can't reach the server right now."}
       </p>
       <DeviceCheckLink next="/settings" />
+      <LegalLinks className="settings-legal" />
     </PageShell>
   );
 }

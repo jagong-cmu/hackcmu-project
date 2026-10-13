@@ -180,6 +180,19 @@ for (const p of PACKS) {
   // default below is only a starting point for a brand-new song.
   const metaPath = path.join(dir, "meta.json");
   const prevMeta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, "utf8")) : null;
+  // Clip anchors (clipWindow.ts): matches start ClipLeadInMs before one of
+  // these. Both must sit exactly on a written lyric line (songAnchors.test.ts),
+  // so re-snap them to the retimed lines. firstLyricSec is always line one;
+  // chorusSec is hand-picked (falls back to the old hook start) and dropped
+  // if no line is near it — the clock then uses firstLyricSec alone.
+  const firstLyricSec = shifted[0].t;
+  const chorusHint = prevMeta?.chorusSec ?? prevMeta?.clipStartSec;
+  const chorusLine =
+    chorusHint == null
+      ? undefined
+      : shifted.reduce((best, l) => (Math.abs(l.t - chorusHint) < Math.abs(best.t - chorusHint) ? l : best));
+  const chorusSec =
+    chorusLine && Math.abs(chorusLine.t - chorusHint) <= 2 ? chorusLine.t : undefined;
   fs.writeFileSync(
     metaPath,
     JSON.stringify(
@@ -187,6 +200,8 @@ for (const p of PACKS) {
         id: p.id, title: p.title, artist: p.artist,
         clipStartSec: prevMeta?.clipStartSec ?? clipStartSec,
         clipDurationSec: prevMeta?.clipDurationSec ?? 15,
+        firstLyricSec,
+        chorusSec,
         duetClipStartSec: prevMeta?.duetClipStartSec ?? clipStartSec,
         duetClipDurationSec: prevMeta?.duetClipDurationSec ?? 45,
         chaosDurationSec: prevMeta?.chaosDurationSec ?? 60,

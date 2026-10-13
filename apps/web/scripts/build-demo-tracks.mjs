@@ -273,6 +273,9 @@ for (const t of tracks) {
         artist: t.artist,
         clipStartSec: 0,
         clipDurationSec: 15,
+        // Clip anchor (clipWindow.ts). Synth demos have no real chorus, so no
+        // chorusSec: the clock falls back to this one anchor.
+        firstLyricSec: t.lyrics[0]?.[0] ?? 0,
         duetClipStartSec: 0,
         duetClipDurationSec: 45,
         chaosDurationSec: 60,

@@ -128,12 +128,20 @@ export type SongMeta = {
   id: string;
   title: string;
   artist: string;
-  clipStartSec: number;
-  clipDurationSec: number;
+  clipStartSec: number; // legacy chorus fallback
+  clipDurationSec: number; // ranked hook sung after the lead-in (15–20s)
+  firstLyricSec?: number; // clip anchor: first lyrics.lrc line
+  chorusSec?: number; // clip anchor: chorus hook's first line
   duetClipStartSec: number;
   duetClipDurationSec: number;
   chaosDurationSec: number;
 };
+// Clip start (packages/shared/src/clipWindow.ts): the server flips firstLyric vs
+// chorus 50/50 per match and starts audio ClipLeadInMs (5s) before it, clamped
+// at 0. Ranked = lead-in + hook; Duet = lead-in → end of track; Training does
+// the same flip client-side; Chaos still loops whole tracks from 0:00. The
+// lead-in is never scored. room:state carries clipAnchor / clipStartSec /
+// clipDurationSec / clipLeadInSec; clock:play adds { leadInSec, anchor }.
 
 export type PlayerPublic = {
   id: string; // public id, never the clientId
@@ -161,7 +169,9 @@ Client → server: `player:hello { clientId, displayName }`, `queue:join { mode 
 
 Server → client: `player:ok { player }`, `room:state`, `match:found`, `clock:play { songId, startSec, durationSec, playAtUnixMs }`, `score:ready { playerId, score }`, `match:over { scores, winnerId, eloDelta, forfeit? }`, `error { code, message }`.
 
-**Identity:** the server resolves who a request is from (`server/src/auth.ts`): the Supabase user id from the bearer token / socket handshake when `AUTH_REQUIRED=1`, else the client's `clientId`. In guest mode the `clientId` is the credential, so it never leaves the server: `player:ok`, `room:state`, scores, and LiveKit identities use a public `id` (`server/src/publicId.ts`: the Supabase user id with auth on, else `p_` + HMAC of the `clientId` under `PLAYER_ID_SECRET`, falling back to a hash of other server secrets). Clients match "me" by the `id` from `player:ok`.
+**Identity:** playing always needs a Google (Supabase) account. The server resolves who a request is from (`server/src/auth.ts`): the Supabase user id from the bearer token / socket handshake. It fails closed: with no Supabase config it refuses every play path (socket `player:hello` and everything behind it, score posts, LiveKit tokens, room snapshots, training scores) instead of trusting the client. The only exception is a local-dev opt-out (`AUTH_REQUIRED=0` / `VITE_AUTH_REQUIRED=0`), ignored when `NODE_ENV=production` or on Vercel / Render, and on the web only under `vite dev`; there the client's `clientId` is the credential, so it never leaves the server: `player:ok`, `room:state`, scores, and LiveKit identities use a public `id` (`server/src/publicId.ts`: the Supabase user id with accounts, else `p_` + HMAC of the `clientId` under `PLAYER_ID_SECRET`, falling back to a hash of other server secrets). Clients match "me" by the `id` from `player:ok`.
+
+**Onboarding** (mic + camera check, then voice range) runs once per account: right after a new account signs in, `/signin` routes to `/check?next=…` → `/check/voice` → onward, and a route gate on match routes backs it up. The record is account `user_metadata` (`onboarded_at`, `onboarding_device`, `onboarding_voice`, `voice_profile`; see `apps/web/src/onboarding/onboardingState.ts`), mirrored per user id in localStorage with a retry queue for failed writes. Mic / camera device ids stay per machine in localStorage.
 
 **LiveKit token:** `POST /api/livekit/token` with `{ code, identity?, clientId }` plus the `Authorization` header when signed in. The token is minted only for a player seated in that room (`server/src/livekitAccess.ts`), with the seat's public id as LiveKit identity. Errors: `400 BAD_REQUEST`, `401 UNAUTHORIZED`, `403 NOT_SEATED`, `403 IDENTITY_MISMATCH`, `404 ROOM_NOT_FOUND`.
 
@@ -184,7 +194,7 @@ Lane A `<Stage>` provides context `{ audioRef, micStream, room }` and renders Vi
 - First joiner is Player A (`activeSingerId` on `turnA`).
 - FIFO queues for ranked and duet. Code `0000` always exists as Ranked.
 - Clock: `playAtUnixMs = Date.now() + 400`. Client plays when due, seek to startSec. Re-seek if drift >0.15s.
-- Ranked machine: both ready → random song → countdown 3s → turnA 15s → swap 2s → turnB 15s → wait for two POSTs → `match:over`. Disconnect → forfeit.
+- Ranked machine: both seated → random song → countdown 5s (`MatchCountdownMs`) → turnA 15s → swap 2s → turnB 15s → wait for two POSTs → `match:over`. Disconnect → forfeit.
 - Chaos: autoplay 60s from `chaosDurationSec`, join mid-song with `playheadSec`, empty room stops, next joiner starts in 3s.
 - Deploy: Render Free serving Vite dist + Node. If Render wants a card: `cloudflared tunnel --url http://localhost:8080`. HTTPS required for `getUserMedia` off localhost.
 - Render sleeps: wake the URL before judging; rooms are memory-only and die on sleep.
@@ -296,7 +306,7 @@ Build, in order:
 2. LiveKit Cloud: two Chrome tabs, cam+mic, names on tiles.
 3. Friend rooms + code 0000 (always-on Ranked). First joiner is Player A.
 4. clock:play so both clients start the same /songs mp3 at playAtUnixMs. Re-seek if drift >150ms. Never put the song on WebRTC.
-5. Ranked state machine: lobby → countdown 3s → turnA 15s → swap 2s → turnB 15s → wait for two POST /api/turns/:roomId/score (Lane B will implement the handler; mount an empty stub that accepts JSON) → match:over. Stub score:ready if B is not ready: {overall:80,pitch:82,tone:74,silence:false,verdict:"",source:"dsp"}.
+5. Ranked state machine: lobby → countdown 5s (`MatchCountdownMs`) → turnA 15s → swap 2s → turnB 15s → wait for two POST /api/turns/:roomId/score (Lane B will implement the handler; mount an empty stub that accepts JSON) → match:over. Stub score:ready if B is not ready: {overall:80,pitch:82,tone:74,silence:false,verdict:"",source:"dsp"}.
 6. Stage.tsx slots LyricsOverlay, PitchMeter, ResultsModal (B will fill them). Provide StageContext { audioRef, micStream, room }.
 7. Public HTTPS deploy (Render Free or cloudflared). getUserMedia needs HTTPS.
 8. If time: Chaos lounge (id chaos, cap 8, join/leave, 60s autoplay, playhead for late join).

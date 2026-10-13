@@ -72,7 +72,7 @@ import { decideLiveKitAccess } from "./livekitAccess.ts";
 import { publicPlayerId } from "./publicId.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
-import { attachSocketAuth, httpIdentity, socketIdentity } from "./auth.ts";
+import { attachSocketAuth, authMode, httpAccount, httpIdentity, refreshSocketAuth, socketIdentity } from "./auth.ts";
 import {
   posthogConfigured,
   trackChaosJoined,
@@ -165,7 +165,7 @@ app.post("/api/livekit/token", async (req, res) => {
 
   const who = await httpIdentity(req, req.body?.clientId);
   if (!who.ok) {
-    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
+    res.status(who.status).json({ code: who.code, message: who.message });
     return;
   }
   const rawCode: unknown = req.body?.code;
@@ -197,13 +197,6 @@ app.post("/api/livekit/token", async (req, res) => {
   });
 });
 
-/** Error code for a failed httpIdentity check. */
-function httpIdentityCode(status: number): string {
-  if (status === 401) return "UNAUTHORIZED";
-  if (status === 403) return "IDENTITY_MISMATCH";
-  return "BAD_REQUEST";
-}
-
 /**
  * Score upload. The client runs the DSP locally and posts numbers — never a
  * 15s audio blob (TECHNICAL_PRD §5.2).
@@ -215,6 +208,13 @@ function httpIdentityCode(status: number): string {
  * ──────────────────────────────────────────────────────────────────────────
  */
 app.get("/api/rooms/:code", async (req, res) => {
+  // Polling this advances the room clock and prunes dead seats, so it is a
+  // play path too: signed-in accounts only.
+  const who = await httpAccount(req);
+  if (!who.ok) {
+    res.status(who.status).json({ code: who.code, message: who.message });
+    return;
+  }
   const room = await ensureRoom(req.params.code);
   if (!room) {
     res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
@@ -244,6 +244,15 @@ app.get("/api/rooms/:code", async (req, res) => {
 });
 
 app.post("/api/turns/:roomId/score", async (req, res) => {
+  // Verified identity first: the token's user id (only the local dev opt-out
+  // trusts the secret clientId). A body naming someone else cannot post for them.
+  const who = await httpIdentity(req, req.body?.clientId);
+  if (!who.ok) {
+    res.status(who.status).json({ code: who.code, message: who.message });
+    return;
+  }
+  const clientId = who.clientId;
+
   const room = (await ensureRoom(req.params.roomId)) ?? getRoom(req.params.roomId);
   if (!room) {
     res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
@@ -255,15 +264,6 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
     res.status(400).json({ code: "BAD_REQUEST", message: "clientId and score required" });
     return;
   }
-  const who = await httpIdentity(req, req.body?.clientId);
-  if (!who.ok) {
-    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
-    return;
-  }
-  // Verified identity only: with auth on, the token's user id; in guest mode,
-  // the secret clientId, which other players never see. A body naming someone
-  // else's public id cannot post for them.
-  const clientId = who.clientId;
 
   const player = room.players.find((p) => p.clientId === clientId);
   if (!player) {
@@ -459,17 +459,17 @@ registerSafety(io, {
 
 io.on("connection", (socket) => {
   socket.on(ClientEvents.playerHello, async (payload: unknown) => {
-    const { clientId: claimedId, displayName } = (payload ?? {}) as Record<string, unknown>;
-    // With Supabase auth on, the verified user id wins over whatever was sent.
-    const clientId = socketIdentity(socket, claimedId);
-    if (!clientId) {
-      if (typeof claimedId === "string" && claimedId) {
-        fail(socket, "AUTH_REQUIRED", "Sign in to play.");
-      } else {
-        fail(socket, "BAD_HELLO", "clientId required");
-      }
-      return;
-    }
+    const { clientId: claimedId, displayName, accessToken } = (payload ?? {}) as Record<string, unknown>;
+    // Not verified at handshake (session restored late, or the token had
+    // expired): re-verify in place from the token sent with this hello. Only
+    // then do we await, so an already-verified hello still seats the session
+    // synchronously before a following room:create / room:ready.
+    if (!socket.data.authUserId) await refreshSocketAuth(socket, accessToken);
+    // The verified Supabase user id, never whatever was sent. Every other
+    // play event needs the session this creates, so this is the socket gate.
+    const who = socketIdentity(socket, claimedId);
+    if (!who.ok) return fail(socket, who.code, who.message);
+    const clientId = who.clientId;
     const name =
       typeof displayName === "string" && displayName.trim()
         ? displayName.trim().slice(0, 16)
@@ -816,6 +816,16 @@ setInterval(() => {
 }, 2000);
 
 function logBoot(): void {
+  const auth = authMode();
+  console.log(
+    `[lane-a] accounts: ${
+      auth === "verify"
+        ? "required (Supabase)"
+        : auth === "dev-guest"
+          ? "DEV OPT-OUT, guest play (AUTH_REQUIRED=0)"
+          : "NOT CONFIGURED, play refused (set SUPABASE_URL / SUPABASE_ANON_KEY)"
+    }`,
+  );
   const lk = readLiveKitConfig() ? "configured" : "MISSING (see .env)";
   console.log(`[lane-a] livekit: ${lk}`);
   console.log(`[lane-a] posthog: ${posthogConfigured() ? "configured" : "off"}`);

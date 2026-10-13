@@ -99,7 +99,23 @@ export const StartingElo = 1000;
 export const EloK = 32;
 export const ForfeitEloK = 16;
 export const ForfeitSkipMs = 5000;
-export const CountdownMs = 5000;
+/**
+ * Pre-match countdown: two seats filled (or a rematch accepted) → GO.
+ * Server arms the clip this far out; the stage veil and copy derive from it.
+ * Replaces the old unused-by-matches `CountdownMs` (only Training read it, ×2).
+ */
+export const MatchCountdownMs = 5000;
+/**
+ * Every Ranked / Duet / Training clip starts this long before its anchor line
+ * (first lyric or chorus, picked 50/50), so the music comes in before the
+ * words. Part of the clip, after GO; never scored. Clamped at 0:00 for songs
+ * that start singing sooner.
+ */
+export const ClipLeadInMs = 5000;
+/** Longest ranked hook that is actually sung, after the lead-in. */
+export const RankedHookMaxSec = 20;
+/** Hard cap on a whole ranked clip: lead-in + hook. */
+export const RankedClipMaxSec = RankedHookMaxSec + ClipLeadInMs / 1000;
 /** Click-track fallback only. Live ranked length is each song's 15–20s chorus hook. */
 export const RankedClipMs = 15000;
 export const SwapMs = 5000;

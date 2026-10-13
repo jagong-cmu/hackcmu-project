@@ -3,7 +3,14 @@
  * In-memory maps still run the clock on whichever isolate handled the event;
  * Mongo is how two laptops on two isolates find each other.
  */
-import type { Mode, RematchLapse, RematchOffer, RoomStatus, ScoreCard } from "@karaoke/shared";
+import type {
+  ClipAnchor,
+  Mode,
+  RematchLapse,
+  RematchOffer,
+  RoomStatus,
+  ScoreCard,
+} from "@karaoke/shared";
 import { getDb } from "./db.ts";
 import {
   addPlayer,
@@ -40,7 +47,7 @@ type PairDoc = {
   createdAt: Date;
 };
 
-type RoomSnap = {
+export type RoomSnap = {
   code: string;
   mode: Mode;
   players: Player[];
@@ -50,6 +57,9 @@ type RoomSnap = {
   playAtUnixMs: number | null;
   clipStartSec: number;
   clipDurationSec: number;
+  /** Older snaps lack these; read as no lead-in / no anchor. */
+  clipLeadInSec?: number;
+  clipAnchor?: ClipAnchor | null;
   songStartedAtMs: number | null;
   matchStartedAtMs: number | null;
   lastEloDelta: number;
@@ -197,37 +207,38 @@ export async function sharedPairOrWait(
   return { code, pair };
 }
 
+/** What saveRoomSnap writes. Exported for the snapshot round-trip test. */
+export function snapFromRoom(room: Room): RoomSnap {
+  const scores: Record<string, ScoreCard> = {};
+  for (const [id, card] of room.scores) scores[id] = card;
+  return {
+    code: room.code,
+    mode: room.mode,
+    players: room.players,
+    songId: room.songId,
+    status: room.status,
+    activeSingerId: room.activeSingerId,
+    playAtUnixMs: room.playAtUnixMs,
+    clipStartSec: room.clipStartSec,
+    clipDurationSec: room.clipDurationSec,
+    clipLeadInSec: room.clipLeadInSec,
+    clipAnchor: room.clipAnchor,
+    songStartedAtMs: room.songStartedAtMs,
+    matchStartedAtMs: room.matchStartedAtMs,
+    lastEloDelta: room.lastEloDelta,
+    lastWinnerId: room.lastWinnerId,
+    settled: room.settled,
+    rematch: room.rematch,
+    rematchLapse: room.rematchLapse,
+    scores,
+    updatedAt: new Date(),
+  };
+}
+
 export async function saveRoomSnap(room: Room): Promise<void> {
   const col = await snaps();
   if (!col) return;
-  const scores: Record<string, ScoreCard> = {};
-  for (const [id, card] of room.scores) scores[id] = card;
-  await col.updateOne(
-    { code: room.code },
-    {
-      $set: {
-        code: room.code,
-        mode: room.mode,
-        players: room.players,
-        songId: room.songId,
-        status: room.status,
-        activeSingerId: room.activeSingerId,
-        playAtUnixMs: room.playAtUnixMs,
-        clipStartSec: room.clipStartSec,
-        clipDurationSec: room.clipDurationSec,
-        songStartedAtMs: room.songStartedAtMs,
-        matchStartedAtMs: room.matchStartedAtMs,
-        lastEloDelta: room.lastEloDelta,
-        lastWinnerId: room.lastWinnerId,
-        settled: room.settled,
-        rematch: room.rematch,
-        rematchLapse: room.rematchLapse,
-        scores,
-        updatedAt: new Date(),
-      },
-    },
-    { upsert: true },
-  );
+  await col.updateOne({ code: room.code }, { $set: snapFromRoom(room) }, { upsert: true });
 }
 
 export async function ensureRoom(code: string): Promise<Room | undefined> {
@@ -245,7 +256,7 @@ export async function ensureRoom(code: string): Promise<Room | undefined> {
   return local;
 }
 
-function applySnap(room: Room, snap: RoomSnap): void {
+export function applySnap(room: Room, snap: RoomSnap): void {
   const order: RoomStatus[] = ["lobby", "countdown", "turnA", "swap", "turnB", "live", "results"];
   const snapAhead = order.indexOf(snap.status) > order.indexOf(room.status);
   // Another isolate accepted a rematch: its snap is back in lobby/countdown with
@@ -277,6 +288,8 @@ function applySnap(room: Room, snap: RoomSnap): void {
     room.playAtUnixMs = snap.playAtUnixMs;
     room.clipStartSec = snap.clipStartSec;
     room.clipDurationSec = snap.clipDurationSec;
+    room.clipLeadInSec = snap.clipLeadInSec ?? 0;
+    room.clipAnchor = snap.clipAnchor ?? null;
     room.songStartedAtMs = snap.songStartedAtMs;
     room.matchStartedAtMs = snap.matchStartedAtMs;
     room.lastEloDelta = snap.lastEloDelta;

@@ -51,3 +51,44 @@
   margin: 0;
   font-size: 0.82rem;
 }
+
+/* Google Identity Services button (preferred flow). Google draws it in an
+ * iframe; we only size the slot so the page doesn't jump while it loads. */
+.gis-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.gis-holder {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+}
+/* The page is color-scheme: dark; without this Chrome paints the light-scheme
+ * iframe an opaque white box around the pill. */
+.gis-holder iframe { color-scheme: light; }
+.gis-holder[hidden] { display: none; }
+.gis-pending {
+  align-items: center;
+  border: 1px solid var(--edge-soft);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+.gis-busy { margin: 10px 0; }
+.gis-alt {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: var(--fg-faint);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gis-alt:hover,
+.gis-alt:focus-visible { color: var(--fg); }
