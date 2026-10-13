@@ -40,13 +40,20 @@ app.use(jsonErrors);
 
 let base = "";
 let server: ReturnType<typeof app.listen>;
-const room = createRoom("ranked", "7301");
-addPlayer(room, {
-  id: publicPlayerId(ALICE),
-  clientId: ALICE,
-  displayName: "Alice",
-  socketId: "sock-alice",
-});
+let nextCode = 7301;
+const rooms: Array<ReturnType<typeof createRoom>> = [];
+/** A ranked room whose turns are sung, waiting for scores (the score window). */
+function scoringRoom() {
+  const r = createRoom("ranked", String(nextCode++));
+  addPlayer(r, { id: publicPlayerId(ALICE), clientId: ALICE, displayName: "Alice", socketId: "sock-alice" });
+  addPlayer(r, { id: "p_bob", clientId: "bob", displayName: "Bob", socketId: "sock-bob" });
+  r.status = "results";
+  r.matchId = Date.now() - 60_000;
+  r.clipDurationSec = 20;
+  rooms.push(r);
+  return r;
+}
+const room = scoringRoom();
 const rejections: unknown[] = [];
 const onRejection = (r: unknown) => rejections.push(r);
 
@@ -59,7 +66,7 @@ before(async () => {
 
 after(async () => {
   process.off("unhandledRejection", onRejection);
-  clearTimers(room);
+  for (const r of rooms) clearTimers(r);
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
@@ -92,7 +99,8 @@ test("clampCard ignores client verdict/source and never coerces objects", () => 
   const hostile = clampCard({ overall: HOSTILE, pitch: "99", tone: 1e9, words: HOSTILE, silence: "yes" });
   assert.deepEqual(
     { overall: hostile.overall, pitch: hostile.pitch, tone: hostile.tone, words: hostile.words, silence: hostile.silence },
-    { overall: 0, pitch: 0, tone: 100, words: 0, silence: false },
+    // overall is recomputed from pitch/tone (0.7*0 + 0.3*100), never read from the body.
+    { overall: 30, pitch: 0, tone: 100, words: 0, silence: false },
   );
   assert.equal(clampCard({ silence: true }).verdict, "We couldn't hear you.");
   assert.equal(clampCard(null).overall, 0);
@@ -159,14 +167,15 @@ test("turn score: malformed bodies get 4xx, never a crash", async () => {
 });
 
 test("turn score: objects where strings are expected are ignored, numbers clamped", async () => {
-  const { status, json } = await post(`/api/turns/${room.code}/score`, {
+  const fresh = scoringRoom();
+  const { status, json } = await post(`/api/turns/${fresh.code}/score`, {
     clientId: ALICE,
     displayName: HOSTILE,
     lyrics: HOSTILE,
     score: { overall: HOSTILE, pitch: { $gt: 1 }, tone: 1e300, verdict: HOSTILE, source: HOSTILE },
   });
   assert.equal(status, 200);
-  assert.equal(json.score.overall, 0);
+  assert.equal(json.score.overall, 30);
   assert.equal(json.score.pitch, 0);
   assert.equal(json.score.tone, 100);
   assert.equal(json.score.verdict, "");
@@ -203,7 +212,8 @@ test("training score: object displayName/lyrics/songId are tolerated; verdict is
   assert.equal(json.ok, true);
   assert.equal(json.score.verdict, "");
   assert.equal(json.score.source, "dsp");
-  assert.equal(json.score.overall, 70);
+  // Recomputed: round(0.7*72 + 0.3*68) = 71, not the posted 70.
+  assert.equal(json.score.overall, 71);
 });
 
 test("player hello: names are sanitized, objects fall back to Singer", async () => {

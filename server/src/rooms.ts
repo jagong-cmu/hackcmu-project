@@ -63,6 +63,13 @@ export type Room = {
   /** Set when the countdown fires, for the <5s forfeit rule. */
   matchStartedAtMs: number | null;
 
+  /**
+   * Identifies one Ranked/Duet match across isolates: the scheduled start of
+   * the first clip (the countdown's playAt), fixed by startMatch and never
+   * re-armed by the swap. Scores and the settlement claim are keyed on it.
+   */
+  matchId: number | null;
+
   scores: Map<string, ScoreCard>;
   timers: Set<NodeJS.Timeout>;
 
@@ -102,6 +109,7 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     clipAnchor: null,
     songStartedAtMs: null,
     matchStartedAtMs: null,
+    matchId: null,
     scores: new Map(),
     timers: new Set(),
     lastEloDelta: 0,
@@ -267,6 +275,7 @@ export function resetToLobby(room: Room): void {
   room.playAtUnixMs = null;
   room.songStartedAtMs = null;
   room.matchStartedAtMs = null;
+  room.matchId = null;
   // The next match flips its own anchor.
   room.clipAnchor = null;
   room.clipLeadInSec = 0;
@@ -310,6 +319,7 @@ export function toPublic(room: Room): RoomState {
     clipStartSec: room.clipStartSec,
     clipDurationSec: room.clipDurationSec,
     clipLeadInSec: room.clipLeadInSec,
+    matchId: room.matchId,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
   };

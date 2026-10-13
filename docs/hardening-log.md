@@ -52,10 +52,26 @@ Audit findings #4 (high), #8, #16 and #17. New module `server/src/abuseLimits.ts
 - **Per instance.** Every limit here is per server instance. On Vercel the effective limit is the limit times the number of live instances (open item).
 - Verified: typecheck, build, 242/242 tests (20 new), and the peer e2e socket suite (24/24). `abuseLimits.test.ts` starts real servers, in the dev opt-out and in verify mode against a stub Supabase that counts calls.
 
+### 5. Server: score integrity and single ELO settlement (`harden/score-integrity`)
+Audit findings: client-trusted scores (critical) and double ELO settlement across instances (high).
+- **Scores.** `overall` is recomputed on the server from pitch and tone with the shared `overallFrom` (`packages/shared/src/scoring.ts`); a silent take stays 0. `POST /api/turns/:roomId/score` takes one card per seat per match (`Room.matchId`), and only after that seat's clip is over. That means ranked seat A from swap on, or at turnA's clip end minus 1.5s; seat B in results, or at turnB's clip end minus 1.5s. Duet takes it in results, or at the live clip end minus 1.5s. Refusals return 409 with one of these codes:
+  - `MATCH_NOT_STARTED`
+  - `TURN_NOT_ENDED`
+  - `STALE_MATCH`
+  - `MATCH_SETTLED`
+  - `SCORE_ALREADY_RECORDED`
+  - `NOT_A_SINGER`
+  - `NOT_A_SCORED_MATCH`
+- **Across isolates.** Each card is claimed with a conditional write into `liveRooms.matchScores`, keyed by matchId. Whole-snapshot saves no longer write scores, so a stale isolate cannot erase or replace a card.
+- **Settlement.** `finishMatch` atomically claims `settledMatchId` on the `liveRooms` doc before it persists anything. Only the winning instance rates the match. The others take the result it publishes and emit the same `match:over`. On top of that, `matches` has a unique partial index on `{roomId, matchId}`, and the doc is inserted *before* ELO moves. A second settlement therefore hits E11000 and applies nothing. Without Mongo, behaviour is unchanged: there is a single instance.
+- **Client.** It echoes `matchId` and treats 409s as final, except `TURN_NOT_ENDED`, which retries after a pause. A room update can no longer restart a take whose score is in flight.
+- Verified: typecheck, build, and 240/240 tests (18 new, including a two-isolate settlement race on an in-memory Mongo). Also the peer e2e suite, and a two-socket ranked match. In that match, early, duplicate and post-settlement posts were refused, and it settled once at +16/−16.
+
 ## Open items (need a decision or larger change)
 - Rate limits are per instance (room joins, hello verification, reports, blocks, votes). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.
 - A fresh handshake per connection can still cost one Supabase call per unique, well-formed but forged JWT. A per-IP connection limit (e.g. Vercel WAF rate limit on `/socket.io`) would cap it.
+- Private ranked rooms (room codes) are still rated. Whether friends' rooms should move ELO is a product call; unchanged.
 - Full Content-Security-Policy: draft in docs/csp-draft.md. Ship as Report-Only first.
 - Song lyrics may not be bundled with the Vercel API function, so Gemini falls back to cleaned client lyrics. Add `includeFiles` for `apps/web/public/songs/*/lyrics.lrc` to the api service.
 - react-router v6 → v7 upgrade to clear the remaining advisories. Our own `next=` handling goes through `safeNext`; check whether any `<Link>`/`navigate` takes user input.

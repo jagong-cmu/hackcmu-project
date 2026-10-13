@@ -15,9 +15,10 @@ import express, { type Express, type Request, type Response } from "express";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { songById, type Mode, type ScoreCard } from "../../packages/shared/src/index.ts";
+import { overallFrom, songById, type Mode, type ScoreCard } from "../../packages/shared/src/index.ts";
 import {
   applyEloAndBump,
+  isDuplicateKey,
   getDb,
   matches,
   mongoConfigured,
@@ -52,6 +53,8 @@ type PendingTurn = {
   startedAt: number;
   forfeit?: boolean;
   outcome?: 0 | 0.5 | 1;
+  /** Room.matchId: the {roomId, matchId} idempotency key on the matches doc. */
+  matchId?: number | null;
   entries: Array<{
     clientId: string;
     displayName: string;
@@ -70,6 +73,8 @@ export function isScoreBody(raw: unknown): raw is Record<string, unknown> {
 /**
  * The client's DSP numbers, clamped. Verdict and source are never taken from
  * the client: the server writes the verdict (Gemini or nothing) and the label.
+ * `overall` is never taken from the client either: it is recomputed from the
+ * clamped pitch and tone with the shared formula (a silent take stays 0).
  */
 export function clampCard(raw: unknown): ScoreCard {
   const card = (isScoreBody(raw) ? raw : {}) as Record<string, unknown>;
@@ -78,7 +83,7 @@ export function clampCard(raw: unknown): ScoreCard {
   const silence = card.silence === true;
   const pitch = silence ? 0 : n(card.pitch);
   const tone = silence ? 0 : n(card.tone);
-  const overall = silence ? 0 : n(card.overall);
+  const overall = silence ? 0 : overallFrom(pitch, tone);
   return {
     overall,
     pitch,
@@ -210,22 +215,31 @@ async function attachVerdict(score: ScoreCard, lyrics?: string): Promise<ScoreCa
 async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unknown>> {
   const [a, b] = turn.entries;
   const db = await getDb();
+  const matchKey = turn.matchId != null ? { matchId: turn.matchId } : {};
   if (turn.mode === "duet") {
     const shared = Math.round((a.score.overall + b.score.overall) / 2);
     if (db) {
       await upsertPlayer(db, a.clientId, a.displayName);
       await upsertPlayer(db, b.clientId, b.displayName);
+      // The matches doc is the idempotency key: insert it first, and only the
+      // insert that wins moves the leaderboard.
+      try {
+        await matches(db).insertOne({
+          roomId: turn.roomId,
+          mode: "duet",
+          songId: turn.songId,
+          a: { clientId: a.clientId, displayName: a.displayName, score: a.score },
+          b: { clientId: b.clientId, displayName: b.displayName, score: b.score },
+          winnerId: null,
+          eloDelta: null,
+          ...matchKey,
+          createdAt: new Date(),
+        });
+      } catch (err) {
+        if (!isDuplicateKey(err)) throw err;
+        return { complete: true, duplicate: true, mode: "duet", shared, winnerId: null, eloDelta: null };
+      }
       await upsertDuetBest(db, turn.songId, a.displayName, b.displayName, shared);
-      await matches(db).insertOne({
-        roomId: turn.roomId,
-        mode: "duet",
-        songId: turn.songId,
-        a: { clientId: a.clientId, displayName: a.displayName, score: a.score },
-        b: { clientId: b.clientId, displayName: b.displayName, score: b.score },
-        winnerId: null,
-        eloDelta: null,
-        createdAt: new Date(),
-      });
     }
     void trackMatchCompleted({
       mode: "duet",
@@ -252,17 +266,37 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
     const pb = await upsertPlayer(db, b.clientId, b.displayName);
     const k = kForMatch({ forfeit: Boolean(turn.forfeit) });
     delta = eloDelta(pa.elo, pb.elo, outcome, k);
+    // Insert the matches doc BEFORE touching ELO. The {roomId, matchId} unique
+    // index makes a second settlement of the same live match fail here, so
+    // ELO can only ever move once per match even if the liveRooms claim regresses.
+    try {
+      await matches(db).insertOne({
+        roomId: turn.roomId,
+        mode: "ranked",
+        songId: turn.songId,
+        a: { clientId: a.clientId, displayName: a.displayName, score: a.score, elo: pa.elo },
+        b: { clientId: b.clientId, displayName: b.displayName, score: b.score, elo: pb.elo },
+        winnerId,
+        eloDelta: delta,
+        ...matchKey,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      if (!isDuplicateKey(err)) throw err;
+      // Already settled elsewhere: report that settlement's numbers, apply nothing.
+      const prior =
+        turn.matchId != null
+          ? await matches(db).findOne({ roomId: turn.roomId, matchId: turn.matchId })
+          : null;
+      return {
+        complete: true,
+        duplicate: true,
+        mode: "ranked",
+        winnerId: prior?.winnerId ?? winnerId,
+        eloDelta: prior?.eloDelta ?? { a: 0, b: 0 },
+      };
+    }
     await applyEloAndBump(db, a.clientId, b.clientId, delta.a, delta.b);
-    await matches(db).insertOne({
-      roomId: turn.roomId,
-      mode: "ranked",
-      songId: turn.songId,
-      a: { clientId: a.clientId, displayName: a.displayName, score: a.score, elo: pa.elo },
-      b: { clientId: b.clientId, displayName: b.displayName, score: b.score, elo: pb.elo },
-      winnerId,
-      eloDelta: delta,
-      createdAt: new Date(),
-    });
   } else {
     delta = eloDelta(1000, 1000, outcome, kForMatch({ forfeit: Boolean(turn.forfeit) }));
   }
@@ -297,6 +331,7 @@ export async function persistSeatedMatch(input: {
   scores: Map<string, ScoreCard>;
   forfeit?: boolean;
   outcome?: 0 | 0.5 | 1;
+  matchId?: number | null;
 }): Promise<number> {
   if (input.mode === "chaos" || input.players.length < 2) return 0;
   const [a, b] = input.players;
@@ -310,6 +345,7 @@ export async function persistSeatedMatch(input: {
     startedAt: Date.now(),
     forfeit: input.forfeit,
     outcome: input.outcome,
+    matchId: input.matchId,
     entries: [
       { clientId: a.clientId, displayName: a.displayName, score: sa },
       { clientId: b.clientId, displayName: b.displayName, score: sb },

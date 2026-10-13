@@ -1,4 +1,4 @@
-import type { MelodyFile, ScoreCard } from "@karaoke/shared";
+import { overallFrom, type MelodyFile, type ScoreCard } from "@karaoke/shared";
 import { centsError, centsToPitch, jitterToStability, midiFromHz } from "./cents.ts";
 
 export type PitchFrame = {
@@ -102,7 +102,7 @@ export function scoreContour(
     (clarities.reduce((a, b) => a + b, 0) / clarities.length) * 100,
   );
   const tone = Math.round(Math.max(0, Math.min(100, 0.5 * clarityScore + 0.5 * stability)));
-  const overall = Math.round(0.7 * pitch + 0.3 * tone);
+  const overall = overallFrom(pitch, tone);
 
   return {
     overall,

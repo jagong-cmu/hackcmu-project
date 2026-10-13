@@ -37,7 +37,17 @@ import {
   type Player,
   type Room,
 } from "./rooms.ts";
-import { ensureRoom, saveRoomSnap } from "./liveState.ts";
+import {
+  applySnap,
+  awaitSettlement,
+  claimScore,
+  claimSettlement,
+  loadSnap,
+  publishSettlement,
+  saveRoomSnap,
+  type MatchOverPayload,
+  type SettleClaim,
+} from "./liveState.ts";
 import { persistSeatedMatch } from "./judge.ts";
 import { eloDelta, outcomeFromScores } from "./elo.ts";
 import {
@@ -291,6 +301,8 @@ export function startMatch(io: Server, room: Room): void {
   room.matchStartedAtMs = null;
 
   const goAt = Date.now() + MatchCountdownMs;
+  // Fixed for the whole match (the swap re-arms playAt, not this).
+  room.matchId = goAt;
   scheduleClip(io, room, goAt);
   broadcastState(io, room);
   trackMatchStarted({
@@ -445,25 +457,169 @@ function awaitScores(io: Server, room: Room): void {
   later(room, SCORE_WAIT_MS, () => void finishMatch(io, room).catch(logOnce("finishMatch")));
 }
 
-/** Called by the score route. Returns true once the match has been settled. */
-export function recordScore(
+// ---------------------------------------------------------------------------
+// Score acceptance. The client posts its DSP numbers once its clip is over
+// (stage/LaneBSlots.tsx flushScore). The server only takes a card from a seat
+// that has finished singing in the CURRENT match, once, before settlement.
+// ---------------------------------------------------------------------------
+
+/**
+ * How early (server clock) a post may arrive before the seat's clip ends. The
+ * client flushes ~50ms before the clip end on its own synced clock; this only
+ * absorbs clock skew and the isolate's sweep lag, it is not a DSP check.
+ */
+export const ScoreEarlyGraceMs = 1500;
+
+export type ScoreRejectCode =
+  | "NOT_A_SCORED_MATCH"
+  | "MATCH_NOT_STARTED"
+  | "STALE_MATCH"
+  | "MATCH_SETTLED"
+  | "SCORE_ALREADY_RECORDED"
+  | "NOT_A_SINGER"
+  | "TURN_NOT_ENDED";
+
+export type ScoreRejection = { status: 409; code: ScoreRejectCode; message: string };
+
+const reject = (code: ScoreRejectCode, message: string): ScoreRejection => ({
+  status: 409,
+  code,
+  message,
+});
+
+/**
+ * Null when `playerId` may post its score now, else why not.
+ *
+ * Ranked: seat 0 (turnA) once its clip is over — status swap/turnB/results, or
+ *   still turnA within ScoreEarlyGraceMs of playAt + clip. Seat 1 (turnB) only
+ *   in results, or turnB within the grace of its clip end.
+ * Duet: in results (the score wait), or live within the grace of the clip end.
+ * Never in lobby/countdown, never for an older match (`postedMatchId`), never
+ * after settlement, never twice for one seat in one match.
+ */
+export function scoreRejection(
+  room: Room,
+  playerId: string,
+  now: number = Date.now(),
+  postedMatchId?: unknown,
+): ScoreRejection | null {
+  if (room.mode !== "ranked" && room.mode !== "duet") {
+    return reject("NOT_A_SCORED_MATCH", "this room does not score turns");
+  }
+  if (typeof postedMatchId === "number" && postedMatchId !== room.matchId) {
+    return reject("STALE_MATCH", "that score is for an earlier match");
+  }
+  if (room.matchId == null || room.status === "lobby" || room.status === "countdown") {
+    return reject("MATCH_NOT_STARTED", "no match is being sung");
+  }
+  if (room.settled) return reject("MATCH_SETTLED", "this match is already settled");
+  if (room.scores.has(playerId)) {
+    return reject("SCORE_ALREADY_RECORDED", "a score for this match is already recorded");
+  }
+  const seat = room.players.findIndex((p) => p.id === playerId);
+  if (seat !== 0 && seat !== 1) return reject("NOT_A_SINGER", "not a singer in this match");
+
+  const clipEnd =
+    room.playAtUnixMs == null ? null : room.playAtUnixMs + Math.round(room.clipDurationSec * 1000);
+  const clipOver = clipEnd != null && now >= clipEnd - ScoreEarlyGraceMs;
+  const notYet = reject("TURN_NOT_ENDED", "your turn has not been sung yet");
+
+  if (room.status === "results") return null;
+  if (room.mode === "duet") {
+    return room.status === "live" && clipOver ? null : notYet;
+  }
+  if (seat === 0) {
+    if (room.status === "swap" || room.status === "turnB") return null;
+    return room.status === "turnA" && clipOver ? null : notYet;
+  }
+  return room.status === "turnB" && clipOver ? null : notYet;
+}
+
+export type ScoreOutcome =
+  | { ok: true; settled: boolean }
+  | { ok: false; status: number; code: string; message: string };
+
+/**
+ * Called by the score route with an already-clamped card. Applies the
+ * acceptance rules, then claims the seat's one score for this match across
+ * isolates (Mongo), then settles if both cards are in.
+ */
+export async function recordScore(
   io: Server,
   room: Room,
   playerId: string,
   score: ScoreCard,
-): boolean {
+  postedMatchId?: unknown,
+): Promise<ScoreOutcome> {
+  const refused = scoreRejection(room, playerId, Date.now(), postedMatchId);
+  if (refused) return { ok: false, ...refused };
+
+  // Reserve the seat on this isolate before awaiting, so a concurrent second
+  // post here sees SCORE_ALREADY_RECORDED.
   room.scores.set(playerId, score);
+  const release = () => {
+    if (room.scores.get(playerId) === score) room.scores.delete(playerId);
+  };
+  let claim;
+  try {
+    claim = await claimScore(room, playerId, score);
+  } catch (err) {
+    release();
+    logOnce("claimScore")(err);
+    return {
+      ok: false,
+      status: 503,
+      code: "SCORE_STORE_UNAVAILABLE",
+      message: "could not record the score, try again",
+    };
+  }
+  if (claim === "duplicate" || claim === "settled" || claim === "stale") {
+    release();
+    const code: ScoreRejectCode =
+      claim === "duplicate"
+        ? "SCORE_ALREADY_RECORDED"
+        : claim === "settled"
+          ? "MATCH_SETTLED"
+          : "STALE_MATCH";
+    return { ok: false, status: 409, code, message: "score not recorded" };
+  }
+
   emitScoreReady(io, room, playerId, score);
   void saveRoomSnap(room).catch(logOnce("saveRoomSnap"));
 
   if (scoresAreIn(room) && (room.status === "results" || room.status === "live")) {
     void finishMatch(io, room).catch(logOnce("finishMatch"));
-    return true;
+    return { ok: true, settled: true };
   }
-  return false;
+  return { ok: true, settled: false };
 }
 
 type ForfeitInfo = { winnerId: string | null; underMinimum: boolean };
+
+/** How long an isolate that lost the settlement claim waits for the winner's result. */
+const SETTLE_CONVERGE_MS = 8000;
+
+/**
+ * Another isolate settled this match: take its result (scores, winner, ELO)
+ * instead of computing and persisting our own, and show it to our sockets.
+ */
+async function convergeSettlement(io: Server, room: Room, matchId: number | null): Promise<void> {
+  if (matchId == null) return;
+  clearTimers(room);
+  const got = await awaitSettlement(room.code, matchId, SETTLE_CONVERGE_MS);
+  if (room.matchId !== matchId) return; // a rematch began meanwhile
+  if (got) applySnap(room, got.snap);
+  room.settled = true;
+  room.status = "results";
+  room.playAtUnixMs = null;
+  if (got) {
+    const { matchId: _settled, ...payload } = got.result;
+    room.lastWinnerId = payload.winnerId;
+    room.lastEloDelta = payload.eloDelta;
+    io.to(room.code).emit(ServerEvents.matchOver, payload);
+  }
+  broadcastState(io, room);
+}
 
 export async function finishMatch(
   io: Server,
@@ -471,19 +627,36 @@ export async function finishMatch(
   forfeit?: ForfeitInfo,
   seated: Player[] = room.players.slice(),
 ): Promise<void> {
-  const hydrated = forfeit ? undefined : await ensureRoom(room.code);
-  if (hydrated) {
-    for (const [id, card] of hydrated.scores) {
-      if (!room.scores.has(id)) room.scores.set(id, card);
-    }
-    if (hydrated.settled) {
-      room.settled = true;
+  const wasSettled = room.settled;
+  // Pull the other isolate's claimed scores (and settlement) into this room.
+  const snap = forfeit ? null : await loadSnap(room.code);
+  if (snap) {
+    applySnap(room, snap);
+    if (room.settled) {
+      if (!wasSettled) await convergeSettlement(io, room, room.matchId);
       return;
     }
   }
   if (room.settled) return;
+  // Set before any await so a second local call (timer + last POST) bows out.
   room.settled = true;
   clearTimers(room);
+
+  // Exactly one isolate persists ELO / the matches doc for this match.
+  const matchId = room.matchId;
+  let claim: SettleClaim;
+  try {
+    claim = await claimSettlement(room);
+  } catch (err) {
+    // The matches {roomId, matchId} unique index still stops a double write.
+    logOnce("claimSettlement")(err);
+    claim = "local";
+  }
+  if (claim === "lost") {
+    await convergeSettlement(io, room, matchId);
+    return;
+  }
+  if (claim === "stale") return;
 
   const scores: Record<string, ScoreCard> = {};
   for (const player of seated) {
@@ -540,6 +713,7 @@ export async function finishMatch(
           scores: filled,
           forfeit: Boolean(forfeit),
           outcome,
+          matchId,
         });
       } catch {
         room.lastEloDelta = local.a;
@@ -555,6 +729,7 @@ export async function finishMatch(
       songId: room.songId,
       players: room.players,
       scores: room.scores,
+      matchId,
     }).catch(logOnce("persistSeatedMatch"));
   }
 
@@ -562,7 +737,7 @@ export async function finishMatch(
   room.playAtUnixMs = null;
   room.lastWinnerId = winnerId;
 
-  io.to(room.code).emit(ServerEvents.matchOver, {
+  const payload: MatchOverPayload = {
     scores,
     winnerId,
     eloDelta: room.lastEloDelta ?? 0,
@@ -575,7 +750,14 @@ export async function finishMatch(
           rated: !forfeit.underMinimum,
         }
       : {}),
-  });
+  };
+  // Isolates that lost the claim show this exact result (convergeSettlement).
+  if (claim === "won" && matchId != null) {
+    // Snap first so the losers also pick up the new ELO on the seats.
+    await saveRoomSnap(room).catch(logOnce("saveRoomSnap"));
+    await publishSettlement(room, matchId, payload).catch(logOnce("publishSettlement"));
+  }
+  io.to(room.code).emit(ServerEvents.matchOver, payload);
   broadcastState(io, room);
 }
 
