@@ -23,7 +23,6 @@ import {
   ServerEvents,
   StartingElo,
   type Mode,
-  type ScoreCard,
 } from "@karaoke/shared";
 
 import {
@@ -70,15 +69,26 @@ import {
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { decideLiveKitAccess } from "./livekitAccess.ts";
 import { publicPlayerId } from "./publicId.ts";
-import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
-import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
+import { getDb, upsertPlayer } from "./db.ts";
+import { registerLaneBRoutes } from "./judge.ts";
+import { registerScoreRoute } from "./scoreRoute.ts";
+import {
+  asyncRoute,
+  createRateGate,
+  installProcessGuards,
+  jsonErrors,
+  logOnce,
+  roomCodeOf,
+  safeHandler,
+  sanitizeDisplayName,
+  sanitizePitchSample,
+} from "./hardening.ts";
 import { attachSocketAuth, authMode, httpAccount, httpIdentity, refreshSocketAuth, socketIdentity } from "./auth.ts";
 import {
   posthogConfigured,
   trackChaosJoined,
   trackQueueJoined,
   trackRoomCreated,
-  trackScoreSubmitted,
 } from "./analytics.ts";
 import {
   isBannedFromRoom,
@@ -87,6 +97,9 @@ import {
   openLoungeFor,
   registerSafety,
 } from "./moderation.ts";
+
+// Last resort: a stray rejection or throw is logged, never fatal to the instance.
+installProcessGuards();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -132,19 +145,19 @@ function roomOfSession(session: Session | undefined): Room | undefined {
 // REST
 // ---------------------------------------------------------------------------
 
-/** Ping this ~2 minutes before a demo to wake a sleeping Render Free dyno. */
-app.get("/api/health", async (_req, res) => {
-  const db = await getDb();
+/**
+ * Ping this ~2 minutes before a demo to wake a sleeping Render Free dyno.
+ * Public, so it says only what the client reads: the clock (timeSync.ts) and
+ * whether scores persist (Settings.tsx). Which keys are configured stays private.
+ */
+app.get("/api/health", asyncRoute(async (_req, res) => {
+  const db = await getDb().catch(() => null);
   res.json({
     ok: true,
     serverTimeMs: Date.now(),
-    uptimeSec: Math.round(process.uptime()),
     mongo: Boolean(db),
-    mongoConfigured: mongoConfigured(),
-    gemini: Boolean(process.env.GEMINI_API_KEY?.trim()),
-    posthog: posthogConfigured(),
   });
-});
+}));
 
 /**
  * LiveKit join token. The API secret stays server-side; the client only ever
@@ -153,7 +166,7 @@ app.get("/api/health", async (_req, res) => {
  * Room codes are guessable, so a token is only minted for a player already
  * seated in that room, as their public player id (see livekitAccess.ts).
  */
-app.post("/api/livekit/token", async (req, res) => {
+app.post("/api/livekit/token", asyncRoute(async (req, res) => {
   const config = readLiveKitConfig();
   if (!config) {
     res.status(503).json({
@@ -195,19 +208,9 @@ app.post("/api/livekit/token", async (req, res) => {
     room: liveKitRoomName(access.roomCode),
     identity: access.identity,
   });
-});
+}));
 
-/**
- * Score upload. The client runs the DSP locally and posts numbers — never a
- * 15s audio blob (TECHNICAL_PRD §5.2).
- *
- * ── LANE B ────────────────────────────────────────────────────────────────
- * This is the stub. Replace the marked block with your handler: merge the
- * Gemini verdict from judge.ts, persist via db.ts, apply elo.ts. Keep the
- * `recordScore(...)` call — it is what advances Lane A's turn machine.
- * ──────────────────────────────────────────────────────────────────────────
- */
-app.get("/api/rooms/:code", async (req, res) => {
+app.get("/api/rooms/:code", asyncRoute(async (req, res) => {
   // Polling this advances the room clock and prunes dead seats, so it is a
   // play path too: signed-in accounts only.
   const who = await httpAccount(req);
@@ -215,7 +218,8 @@ app.get("/api/rooms/:code", async (req, res) => {
     res.status(who.status).json({ code: who.code, message: who.message });
     return;
   }
-  const room = await ensureRoom(req.params.code);
+  const code = roomCodeOf(req.params.code);
+  const room = code ? await ensureRoom(code) : undefined;
   if (!room) {
     res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
     return;
@@ -241,53 +245,10 @@ app.get("/api/rooms/:code", async (req, res) => {
         ? { scores, winnerId, eloDelta: room.lastEloDelta ?? 0 }
         : null,
   });
-});
+}));
 
-app.post("/api/turns/:roomId/score", async (req, res) => {
-  // Verified identity first: the token's user id (only the local dev opt-out
-  // trusts the secret clientId). A body naming someone else cannot post for them.
-  const who = await httpIdentity(req, req.body?.clientId);
-  if (!who.ok) {
-    res.status(who.status).json({ code: who.code, message: who.message });
-    return;
-  }
-  const clientId = who.clientId;
-
-  const room = (await ensureRoom(req.params.roomId)) ?? getRoom(req.params.roomId);
-  if (!room) {
-    res.status(404).json({ code: "ROOM_NOT_FOUND", message: "no such room" });
-    return;
-  }
-
-  const { score, lyrics } = req.body ?? {};
-  if (!score || typeof score !== "object") {
-    res.status(400).json({ code: "BAD_REQUEST", message: "clientId and score required" });
-    return;
-  }
-
-  const player = room.players.find((p) => p.clientId === clientId);
-  if (!player) {
-    res.status(404).json({ code: "PLAYER_NOT_IN_ROOM", message: "not seated here" });
-    return;
-  }
-
-  const card = clampCard(score as ScoreCard);
-  const settled = recordScore(io, room, player.id, card);
-  void trackScoreSubmitted({ distinctId: clientId, roomCode: room.code }).catch(() => undefined);
-  res.json({ ok: true, settled, score: card });
-  void enrichScore(
-    score as ScoreCard,
-    typeof lyrics === "string" ? lyrics : undefined,
-  )
-    .then((enriched) => {
-      if (enriched.verdict === card.verdict && enriched.source === card.source) return;
-      room.scores.set(player.id, enriched);
-      emitScoreReady(io, room, player.id, enriched);
-    })
-    .catch(() => {
-      /* DSP scores already shown */
-    });
-});
+// Score upload (scoreRoute.ts): DSP numbers only; the verdict is the server's.
+registerScoreRoute(app, io);
 
 // Serve the built client from the same origin in production so there is one
 // HTTPS URL for getUserMedia. In dev, Vite proxies to us instead.
@@ -297,10 +258,24 @@ if (existsSync(WEB_DIST)) {
     res.sendFile(path.join(WEB_DIST, "index.html"));
   });
 }
+// Bad JSON / oversize bodies keep their 4xx; anything else is a bare 500. Always JSON.
+app.use(jsonErrors);
 
 // ---------------------------------------------------------------------------
 // Socket.IO
 // ---------------------------------------------------------------------------
+
+/** One field of a socket payload, without trusting its shape. */
+function fieldOf(payload: unknown, key: string): unknown {
+  return payload && typeof payload === "object" ? (payload as Record<string, unknown>)[key] : undefined;
+}
+
+/** A requested mode: one of the known strings, defaulting to ranked when absent. */
+function modeOf(payload: unknown): Mode | null {
+  const raw = fieldOf(payload, "mode");
+  if (raw === undefined || raw === null) return "ranked";
+  return raw === "ranked" || raw === "duet" || raw === "chaos" ? raw : null;
+}
 
 function fail(socket: { emit: (e: string, p: unknown) => void }, code: string, message: string) {
   socket.emit(ServerEvents.error, { code, message });
@@ -458,7 +433,7 @@ registerSafety(io, {
 });
 
 io.on("connection", (socket) => {
-  socket.on(ClientEvents.playerHello, async (payload: unknown) => {
+  socket.on(ClientEvents.playerHello, safeHandler(socket, ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId: claimedId, displayName, accessToken } = (payload ?? {}) as Record<string, unknown>;
     // Not verified at handshake (session restored late, or the token had
     // expired): re-verify in place from the token sent with this hello. Only
@@ -470,10 +445,7 @@ io.on("connection", (socket) => {
     const who = socketIdentity(socket, claimedId);
     if (!who.ok) return fail(socket, who.code, who.message);
     const clientId = who.clientId;
-    const name =
-      typeof displayName === "string" && displayName.trim()
-        ? displayName.trim().slice(0, 16)
-        : "Singer";
+    const name = sanitizeDisplayName(displayName);
 
     // Seat the session synchronously. Awaiting Atlas first let a following
     // room:create / room:ready run against a wiped session (NOT_IN_ROOM).
@@ -528,16 +500,16 @@ io.on("connection", (socket) => {
         broadcastState(io, room);
       }
     }
-  });
+  }));
 
-  socket.on(ClientEvents.queueJoin, async (payload: unknown) => {
+  socket.on(ClientEvents.queueJoin, safeHandler(socket, ClientEvents.queueJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
-    const mode = ((payload ?? {}) as { mode?: Mode }).mode ?? "ranked";
-    if (!isQueueMode(mode)) return fail(socket, "BAD_MODE", "ranked or duet only");
+    const mode = modeOf(payload);
+    if (!mode || !isQueueMode(mode)) return fail(socket, "BAD_MODE", "ranked or duet only");
 
-    void trackQueueJoined({ mode, distinctId: session.clientId });
+    void trackQueueJoined({ mode, distinctId: session.clientId }).catch(logOnce("trackQueueJoined"));
 
     const waiting: Waiting = {
       socketId: socket.id,
@@ -604,13 +576,13 @@ io.on("connection", (socket) => {
         });
       }
     }
-  });
+  }));
 
-  socket.on(ClientEvents.roomCreate, (payload: unknown) => {
+  socket.on(ClientEvents.roomCreate, safeHandler(socket, ClientEvents.roomCreate, (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
-    const mode = ((payload ?? {}) as { mode?: Mode }).mode ?? "ranked";
+    const mode = modeOf(payload);
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
@@ -621,16 +593,18 @@ io.on("connection", (socket) => {
     const room = createRoom(mode);
     markPrivateRoom(room, session.playerId);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
-    void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId });
+    void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId }).catch(
+      logOnce("trackRoomCreated"),
+    );
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
-  });
+  }));
 
-  socket.on(ClientEvents.roomJoin, async (payload: unknown) => {
+  socket.on(ClientEvents.roomJoin, safeHandler(socket, ClientEvents.roomJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
-    const code = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
-    const room = (await ensureRoom(code)) ?? getRoom(code);
+    const code = roomCodeOf(fieldOf(payload, "code"));
+    const room = code ? ((await ensureRoom(code)) ?? getRoom(code)) : undefined;
     if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
     if (await isBannedFromRoom(room.code, session.playerId)) {
       return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
@@ -646,13 +620,13 @@ io.on("connection", (socket) => {
 
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
-  });
+  }));
 
-  socket.on(ClientEvents.chaosJoin, async (payload: unknown) => {
+  socket.on(ClientEvents.chaosJoin, safeHandler(socket, ClientEvents.chaosJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
-    const raw = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
+    const raw = roomCodeOf(fieldOf(payload, "code"));
     if (raw && !isPublicChaosCode(raw) && !/^\d{4}$/.test(raw)) {
       return fail(socket, "BAD_CODE", "enter a 4-digit code");
     }
@@ -686,28 +660,28 @@ io.on("connection", (socket) => {
       if (!raw) {
         room = openLoungeFor(session.playerId);
         if (seat(socket.id, room)) {
-          trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
+          trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(logOnce("trackChaosJoined"));
           socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
           return;
         }
       }
       return fail(socket, "ROOM_FULL", "lounge is full");
     }
-    trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
+    trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(logOnce("trackChaosJoined"));
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
-  });
+  }));
 
-  socket.on(ClientEvents.queueLeave, () => {
+  socket.on(ClientEvents.queueLeave, safeHandler(socket, ClientEvents.queueLeave, () => {
     const session = sessionOf(socket.id);
     dequeue(socket.id);
-    void forgetWaiter({ socketId: socket.id });
-    if (session) void forgetWaiter({ clientId: session.clientId });
-  });
+    void forgetWaiter({ socketId: socket.id }).catch(logOnce("forgetWaiter"));
+    if (session) void forgetWaiter({ clientId: session.clientId }).catch(logOnce("forgetWaiter"));
+  }));
 
-  socket.on(ClientEvents.roomLeave, () => {
+  socket.on(ClientEvents.roomLeave, safeHandler(socket, ClientEvents.roomLeave, () => {
     dequeue(socket.id);
     leaveCurrentRoom(socket.id);
-  });
+  }));
 
   /** Resolve (and Mongo-hydrate) the 2-seat room this socket sits in. */
   async function seatedRoom(): Promise<{ room: Room; player: Room["players"][number] | undefined } | null> {
@@ -728,7 +702,7 @@ io.on("connection", (socket) => {
     return { room, player };
   }
 
-  socket.on(ClientEvents.roomReady, async () => {
+  socket.on(ClientEvents.roomReady, safeHandler(socket, ClientEvents.roomReady, async () => {
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos") return;
     const { room, player } = seated;
@@ -742,21 +716,25 @@ io.on("connection", (socket) => {
     if (room.status === "lobby") maybeArmMatch(io, room);
     else catchUpClock(io, room, socket.id);
     broadcastState(io, room);
-  });
+  }));
 
-  socket.on(ClientEvents.rematchRequest, async () => {
+  socket.on(ClientEvents.rematchRequest, safeHandler(socket, ClientEvents.rematchRequest, async () => {
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos" || !seated.player) return;
     handleRematchRequest(io, seated.room, seated.player.id);
-  });
+  }));
 
-  socket.on(ClientEvents.rematchCancel, async () => {
+  socket.on(ClientEvents.rematchCancel, safeHandler(socket, ClientEvents.rematchCancel, async () => {
     const seated = await seatedRoom();
     if (!seated || seated.room.mode === "chaos" || !seated.player) return;
     handleRematchCancel(io, seated.room, seated.player.id);
-  });
+  }));
 
-  socket.on(ClientEvents.pitchLive, (payload: unknown) => {
+  // pitch:live is relayed to the room ~10x/s. Extras past 20/s are dropped
+  // silently, and every number is clamped before anyone else sees it.
+  const pitchGate = createRateGate();
+  socket.on(ClientEvents.pitchLive, safeHandler(socket, ClientEvents.pitchLive, (payload: unknown) => {
+    if (!pitchGate()) return;
     const session = sessionOf(socket.id);
     const room = roomOfSession(session);
     if (!session || !room) return;
@@ -769,36 +747,18 @@ io.on("connection", (socket) => {
         : (room.status === "turnA" || room.status === "turnB") &&
           room.activeSingerId === player.id;
     if (!singing) return;
-    const body = (payload ?? {}) as {
-      hz?: unknown;
-      clarity?: unknown;
-      rms?: unknown;
-      pitch?: unknown;
-      tone?: unknown;
-      overall?: unknown;
-    };
-    const hz = typeof body.hz === "number" && Number.isFinite(body.hz) ? body.hz : null;
-    const clarity = typeof body.clarity === "number" ? body.clarity : 0;
-    const rms = typeof body.rms === "number" ? body.rms : 0;
-    const scoreNum = (v: unknown) =>
-      typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : undefined;
     socket.to(room.code).emit(ServerEvents.pitchLive, {
       playerId: player.id,
-      hz,
-      clarity,
-      rms,
-      pitch: scoreNum(body.pitch),
-      tone: scoreNum(body.tone),
-      overall: scoreNum(body.overall),
+      ...sanitizePitchSample(payload),
     });
-  });
+  }));
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", safeHandler(socket, "disconnect", () => {
     dequeue(socket.id);
-    void forgetWaiter({ socketId: socket.id });
+    void forgetWaiter({ socketId: socket.id }).catch(logOnce("forgetWaiter"));
     leaveCurrentRoom(socket.id);
     sessions.delete(socket.id);
-  });
+  }));
 });
 
 ensurePermanentRooms();
@@ -806,13 +766,18 @@ ensurePermanentRooms();
 setInterval(() => {
   void (async () => {
     for (const room of allRooms()) {
-      await ensureRoom(room.code);
-      pruneRoom(room);
-      advanceDue(io, room);
-      if (room.players.length === 0 && room.persistent) continue;
-      if (room.players.length === 0) disposeIfEmpty(room);
+      // One bad room must not stop the sweep for the rest.
+      try {
+        await ensureRoom(room.code);
+        pruneRoom(room);
+        advanceDue(io, room);
+        if (room.players.length === 0 && room.persistent) continue;
+        if (room.players.length === 0) disposeIfEmpty(room);
+      } catch (err) {
+        logOnce("room sweep")(err);
+      }
     }
-  })();
+  })().catch(logOnce("room sweep"));
 }, 2000);
 
 function logBoot(): void {

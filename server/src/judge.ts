@@ -12,9 +12,10 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Express, type Request, type Response } from "express";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Mode, ScoreCard } from "../../packages/shared/src/index.ts";
+import { songById, type Mode, type ScoreCard } from "../../packages/shared/src/index.ts";
 import {
   applyEloAndBump,
   getDb,
@@ -28,6 +29,14 @@ import {
 import { eloDelta, kForMatch, outcomeFromScores } from "./elo.ts";
 import { getArenaStats, trackMatchCompleted, trackTrainingCompleted } from "./analytics.ts";
 import { httpIdentity } from "./auth.ts";
+import {
+  asyncRoute,
+  cleanText,
+  jsonErrors,
+  logOnce,
+  memoizeFor,
+  sanitizeDisplayName,
+} from "./hardening.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -35,19 +44,6 @@ dotenv.config({ path: path.resolve(here, "../../.env") });
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash-lite";
 const GEMINI_TIMEOUT_MS = 2500;
-
-type PostedScore = {
-  clientId: string;
-  displayName?: string;
-  score: ScoreCard;
-  mode?: Mode;
-  songId?: string;
-  opponentClientId?: string;
-  opponentName?: string;
-  lyrics?: string;
-  forfeit?: boolean;
-  elapsedMs?: number;
-};
 
 type PendingTurn = {
   roomId: string;
@@ -63,21 +59,84 @@ type PendingTurn = {
   }>;
 };
 
-export function clampCard(raw: ScoreCard): ScoreCard {
-  const n = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-  const silence = Boolean(raw.silence);
-  const pitch = silence ? 0 : n(raw.pitch);
-  const tone = silence ? 0 : n(raw.tone);
-  const overall = silence ? 0 : n(raw.overall);
+export const SilenceVerdict = "We couldn't hear you.";
+export const LyricsPromptMax = 600;
+
+/** A posted score is a plain object (not an array, string, or null). */
+export function isScoreBody(raw: unknown): raw is Record<string, unknown> {
+  return Boolean(raw) && typeof raw === "object" && !Array.isArray(raw);
+}
+
+/**
+ * The client's DSP numbers, clamped. Verdict and source are never taken from
+ * the client: the server writes the verdict (Gemini or nothing) and the label.
+ */
+export function clampCard(raw: unknown): ScoreCard {
+  const card = (isScoreBody(raw) ? raw : {}) as Record<string, unknown>;
+  const n = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0;
+  const silence = card.silence === true;
+  const pitch = silence ? 0 : n(card.pitch);
+  const tone = silence ? 0 : n(card.tone);
+  const overall = silence ? 0 : n(card.overall);
   return {
     overall,
     pitch,
     tone,
-    words: raw.words == null ? undefined : n(raw.words),
+    words: card.words == null ? undefined : n(card.words),
     silence,
-    verdict: typeof raw.verdict === "string" ? raw.verdict.slice(0, 140) : "",
-    source: raw.source === "dsp+gemini" ? "dsp+gemini" : "dsp",
+    verdict: silence ? SilenceVerdict : "",
+    source: "dsp",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Lyrics for the verdict prompt: the server's own song pack, never the client's.
+// ---------------------------------------------------------------------------
+
+const SONG_DIRS = [
+  path.resolve(process.cwd(), "apps/web/public/songs"),
+  path.resolve(here, "../../apps/web/public/songs"),
+  path.resolve(process.cwd(), "apps/web/dist/songs"),
+  path.resolve(here, "../../apps/web/dist/songs"),
+  path.resolve(process.cwd(), "../apps/web/public/songs"),
+];
+const lyricsCache = new Map<string, string | null>();
+
+/** First lines of a song's LRC from disk, timestamps and part tags removed. */
+export function serverLyrics(songId: unknown): string | null {
+  if (typeof songId !== "string" || !/^[a-z0-9-]{1,64}$/.test(songId) || !songById(songId)) {
+    return null;
+  }
+  if (lyricsCache.has(songId)) return lyricsCache.get(songId) ?? null;
+  let text: string | null = null;
+  for (const dir of SONG_DIRS) {
+    const file = path.join(dir, songId, "lyrics.lrc");
+    try {
+      if (!existsSync(file)) continue;
+      const lines = readFileSync(file, "utf8")
+        .split("\n")
+        .map((l) => l.replace(/\[[^\]]*\]/g, "").replace(/^\s*(A|B|AB):\s*/, "").trim())
+        .filter(Boolean)
+        .slice(0, 12);
+      text = cleanText(lines.join("\n"), LyricsPromptMax, { multiline: true }) || null;
+      break;
+    } catch {
+      /* try the next location */
+    }
+  }
+  lyricsCache.set(songId, text);
+  return text;
+}
+
+/**
+ * Lyrics for Gemini: the server's copy of the song when it can load one,
+ * else the posted text as a capped, control-free string.
+ */
+export function verdictLyrics(songId: unknown, posted: unknown): string | undefined {
+  return (
+    serverLyrics(songId) ?? (cleanText(posted, LyricsPromptMax, { multiline: true }) || undefined)
+  );
 }
 
 export async function geminiVerdict(input: {
@@ -87,7 +146,7 @@ export async function geminiVerdict(input: {
   silence: boolean;
   lyrics?: string;
 }): Promise<string> {
-  if (input.silence) return "We couldn't hear you.";
+  if (input.silence) return SilenceVerdict;
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return "";
 
@@ -99,7 +158,7 @@ Be specific to these scores and the lyric snippet.
 
 overall=${input.overall} pitch=${input.pitch} tone=${input.tone}
 lyrics:
-${(input.lyrics || "").slice(0, 600)}
+${cleanText(input.lyrics, LyricsPromptMax, { multiline: true })}
 
 Return JSON only: {"verdict":"..."}`;
 
@@ -125,9 +184,8 @@ Return JSON only: {"verdict":"..."}`;
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = body.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    const parsed = JSON.parse(text) as { verdict?: string };
-    const verdict = (parsed.verdict || "").trim().slice(0, 140);
-    return verdict;
+    const parsed = JSON.parse(text) as { verdict?: unknown };
+    return cleanText(parsed?.verdict, 140);
   } catch {
     return "";
   } finally {
@@ -136,7 +194,7 @@ Return JSON only: {"verdict":"..."}`;
 }
 
 async function attachVerdict(score: ScoreCard, lyrics?: string): Promise<ScoreCard> {
-  const numbers: ScoreCard = { ...score, verdict: score.silence ? "We couldn't hear you." : "", source: "dsp" };
+  const numbers: ScoreCard = { ...score, verdict: score.silence ? SilenceVerdict : "", source: "dsp" };
   if (numbers.silence) return numbers;
   const verdict = await geminiVerdict({
     pitch: numbers.pitch,
@@ -175,7 +233,7 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
       roomCode: turn.roomId,
       forfeit: Boolean(turn.forfeit),
       distinctId: a.clientId,
-    }).catch(() => undefined);
+    }).catch(logOnce("trackMatchCompleted"));
     return {
       complete: true,
       mode: "duet",
@@ -215,7 +273,7 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
     roomCode: turn.roomId,
     forfeit: Boolean(turn.forfeit),
     distinctId: a.clientId,
-  }).catch(() => undefined);
+  }).catch(logOnce("trackMatchCompleted"));
 
   return {
     complete: true,
@@ -226,7 +284,7 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
   };
 }
 
-export async function enrichScore(raw: ScoreCard, lyrics?: string): Promise<ScoreCard> {
+export async function enrichScore(raw: unknown, lyrics?: string): Promise<ScoreCard> {
   return attachVerdict(clampCard(raw), lyrics);
 }
 
@@ -261,15 +319,18 @@ export async function persistSeatedMatch(input: {
   return delta?.a ?? 0;
 }
 
+/** /api/stats runs several Mongo counts: computed at most once a minute. */
+const cachedArenaStats = memoizeFor(60_000, getArenaStats);
+
 export function registerLaneBRoutes(app: Express): void {
-  app.post("/api/player/hello", async (req: Request, res: Response) => {
+  app.post("/api/player/hello", asyncRoute(async (req: Request, res: Response) => {
     const who = await httpIdentity(req, req.body?.clientId);
     if (!who.ok) {
       res.status(who.status).json({ ok: false, error: who.message });
       return;
     }
     const clientId = who.clientId;
-    const displayName = String(req.body?.displayName || "Singer").slice(0, 16);
+    const displayName = sanitizeDisplayName(req.body?.displayName);
     const db = await getDb();
     if (!db) {
       res.json({
@@ -281,11 +342,11 @@ export function registerLaneBRoutes(app: Express): void {
     }
     const player = await upsertPlayer(db, clientId, displayName);
     res.json({ ok: true, mongo: true, player });
-  });
+  }));
 
-  app.post("/api/training/score", async (req: Request, res: Response) => {
-    const body = req.body as PostedScore;
-    if (!body?.clientId || !body?.score) {
+  app.post("/api/training/score", asyncRoute(async (req: Request, res: Response) => {
+    const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+    if (typeof body.clientId !== "string" || !body.clientId || !isScoreBody(body.score)) {
       res.status(400).json({ ok: false, error: "clientId and score required" });
       return;
     }
@@ -294,24 +355,25 @@ export function registerLaneBRoutes(app: Express): void {
       res.status(who.status).json({ ok: false, error: who.message });
       return;
     }
+    const songId = typeof body.songId === "string" && songById(body.songId) ? body.songId : undefined;
     let score = clampCard(body.score);
-    score = await attachVerdict(score, body.lyrics);
+    score = await attachVerdict(score, verdictLyrics(songId, body.lyrics));
     const db = await getDb();
     let player = null;
-    if (db) player = await upsertPlayer(db, who.clientId, body.displayName || "Singer");
+    if (db) player = await upsertPlayer(db, who.clientId, sanitizeDisplayName(body.displayName));
     void trackTrainingCompleted({
-      songId: typeof body.songId === "string" ? body.songId : undefined,
+      songId,
       distinctId: who.clientId,
       overall: score.overall,
-    }).catch(() => undefined);
+    }).catch(logOnce("trackTrainingCompleted"));
     res.json({ ok: true, score, mongo: Boolean(db), player });
-  });
+  }));
 
-  app.get("/api/stats", async (_req: Request, res: Response) => {
-    res.json(await getArenaStats());
-  });
+  app.get("/api/stats", asyncRoute(async (_req: Request, res: Response) => {
+    res.json(await cachedArenaStats());
+  }));
 
-  app.get("/api/leaderboard/ranked", async (_req: Request, res: Response) => {
+  app.get("/api/leaderboard/ranked", asyncRoute(async (_req: Request, res: Response) => {
     const db = await getDb();
     if (!db) {
       res.json({ ok: true, mongo: false, rows: [] });
@@ -332,9 +394,9 @@ export function registerLaneBRoutes(app: Express): void {
         matchesPlayed: p.matchesPlayed,
       })),
     });
-  });
+  }));
 
-  app.get("/api/leaderboard/duet", async (_req: Request, res: Response) => {
+  app.get("/api/leaderboard/duet", asyncRoute(async (_req: Request, res: Response) => {
     const db = await getDb();
     if (!db) {
       res.json({ ok: true, mongo: false, rows: [] });
@@ -351,7 +413,7 @@ export function registerLaneBRoutes(app: Express): void {
         score: d.score,
       })),
     });
-  });
+  }));
 }
 
 function isExecutedDirectly(): boolean {
@@ -365,6 +427,7 @@ if (isExecutedDirectly()) {
   app.use(cors());
   app.use(express.json({ limit: "256kb" }));
   registerLaneBRoutes(app);
+  app.use(jsonErrors);
   const port = Number(process.env.PORT || 8080);
   app.listen(port, () => {
     console.log(`[lane-b] judge listening on :${port} mongo=${mongoConfigured()}`);

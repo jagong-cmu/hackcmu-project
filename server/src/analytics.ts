@@ -8,6 +8,7 @@
 import { PostHog } from "posthog-node";
 import { songById } from "@karaoke/shared";
 import { getDb, matches, players } from "./db.ts";
+import { logOnce } from "./hardening.ts";
 
 const TOTALS_ID = "totals" as const;
 
@@ -88,7 +89,7 @@ function posthogClient(): PostHog | null {
 }
 
 function flushSoon(client: PostHog): void {
-  if (process.env.VERCEL) void client.flush();
+  if (process.env.VERCEL) void client.flush().catch(logOnce("posthog flush"));
 }
 
 export function captureEvent(
