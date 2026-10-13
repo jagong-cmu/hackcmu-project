@@ -25,6 +25,7 @@ import { PageShell } from "../theme/PageShell.tsx";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
 import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
 import { capture } from "../analytics/posthog.ts";
+import { loadVoiceProfile } from "../onboarding/voiceProfile.ts";
 
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
@@ -39,6 +40,8 @@ export function Training() {
   const [liveHz, setLiveHz] = useState<number | null>(null);
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
+  // Display-only: seeds the pitch line's octave for your voice. Not scoring.
+  const [voiceProfile] = useState(loadVoiceProfile);
   const [card, setCard] = useState<ScoreCard | null>(null);
   const [liveCard, setLiveCard] = useState<ScoreBits | null>(null);
   const [scoring, setScoring] = useState(false);
@@ -450,6 +453,7 @@ export function Training() {
           liveHz={liveHz}
           liveClarity={liveClarity}
           liveRms={liveRms}
+          voiceProfile={voiceProfile}
         />
         {running ? <HitCallout grade={gradeLive(melody, playhead, liveHz)} /> : null}
         {running ? (
