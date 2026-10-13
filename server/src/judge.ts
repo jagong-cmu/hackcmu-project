@@ -27,6 +27,7 @@ import {
 } from "./db.ts";
 import { eloDelta, kForMatch, outcomeFromScores } from "./elo.ts";
 import { getArenaStats, trackMatchCompleted, trackTrainingCompleted } from "./analytics.ts";
+import { httpIdentity } from "./auth.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -262,12 +263,13 @@ export async function persistSeatedMatch(input: {
 
 export function registerLaneBRoutes(app: Express): void {
   app.post("/api/player/hello", async (req: Request, res: Response) => {
-    const clientId = String(req.body?.clientId || "");
-    const displayName = String(req.body?.displayName || "Singer").slice(0, 16);
-    if (!clientId) {
-      res.status(400).json({ ok: false, error: "clientId required" });
+    const who = await httpIdentity(req, req.body?.clientId);
+    if (!who.ok) {
+      res.status(who.status).json({ ok: false, error: who.message });
       return;
     }
+    const clientId = who.clientId;
+    const displayName = String(req.body?.displayName || "Singer").slice(0, 16);
     const db = await getDb();
     if (!db) {
       res.json({
@@ -287,14 +289,19 @@ export function registerLaneBRoutes(app: Express): void {
       res.status(400).json({ ok: false, error: "clientId and score required" });
       return;
     }
+    const who = await httpIdentity(req, body.clientId);
+    if (!who.ok) {
+      res.status(who.status).json({ ok: false, error: who.message });
+      return;
+    }
     let score = clampCard(body.score);
     score = await attachVerdict(score, body.lyrics);
     const db = await getDb();
     let player = null;
-    if (db) player = await upsertPlayer(db, body.clientId, body.displayName || "Singer");
+    if (db) player = await upsertPlayer(db, who.clientId, body.displayName || "Singer");
     void trackTrainingCompleted({
       songId: typeof body.songId === "string" ? body.songId : undefined,
-      distinctId: body.clientId,
+      distinctId: who.clientId,
       overall: score.overall,
     }).catch(() => undefined);
     res.json({ ok: true, score, mongo: Boolean(db), player });
@@ -311,7 +318,7 @@ export function registerLaneBRoutes(app: Express): void {
       return;
     }
     const rows = await players(db)
-      .find({})
+      .find({ linkedTo: { $exists: false } })
       .sort({ elo: -1, matchesPlayed: -1 })
       .limit(50)
       .toArray();

@@ -138,10 +138,16 @@ test("settled results do not auto-start a new match", () => {
     room.status = "results";
     room.settled = true;
     room.songId = "from-the-start";
-    room.rematchAtMs = Date.now() - 10_000;
+    // A one-sided rematch offer must not restart the match either.
+    room.rematch = {
+      requestedBy: ["a"],
+      openedAtUnixMs: Date.now() - 1_000,
+      deadlineUnixMs: Date.now() + 7_000,
+    };
     advanceDue(fakeIo() as never, room);
     assert.equal(room.status, "results");
     assert.equal(room.songId, "from-the-start");
+    assert.ok(room.rematch, "offer still open, waiting on b");
   } finally {
     clearTimers(room);
   }

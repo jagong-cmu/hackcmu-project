@@ -17,6 +17,10 @@ export type PlayerDoc = {
   elo: number;
   matchesPlayed: number;
   updatedAt: Date;
+  /** Set when this pre-account rating was carried into a Supabase account. */
+  linkedTo?: string;
+  /** On an account doc: the legacy clientId its rating came from. */
+  linkedFrom?: string;
 };
 
 export type MatchDoc = {

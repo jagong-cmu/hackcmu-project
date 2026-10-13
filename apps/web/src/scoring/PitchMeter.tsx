@@ -11,6 +11,7 @@ import {
   windowedMelodyRange,
   type NoteRun,
 } from "./pitchGuide.ts";
+import { melodyCenterMidi, type VoiceProfile } from "./voiceRange.ts";
 
 type Props = {
   melody: MelodyFile | null;
@@ -18,7 +19,18 @@ type Props = {
   liveHz: number | null;
   liveClarity: number;
   liveRms?: number;
+  /**
+   * The singer's voice range, only when the live pitch shown is theirs. Seeds
+   * the octave fold and guards against detector octave errors. Display only;
+   * omitted / null → exactly the old behaviour.
+   */
+  voiceProfile?: VoiceProfile | null;
 };
+
+function smoothStateFor(runs: NoteRun[], profile: VoiceProfile | null | undefined) {
+  if (!profile) return createPitchSmoothState();
+  return createPitchSmoothState({ profile, melodyCenterMidi: melodyCenterMidi(runs) });
+}
 
 const LOOKAHEAD_SEC = 2.0;
 const LOOKBEHIND_SEC = TRAIL_SEC;
@@ -27,21 +39,32 @@ const VIEW_BEHIND_SEC = 0.45;
 const VIEW_AHEAD_SEC = 0.85;
 const RAIL = 78;
 
-export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0 }: Props) {
+export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0, voiceProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef({ melody, playheadSec, liveHz, liveClarity, liveRms });
   const runsRef = useRef<NoteRun[]>([]);
   const smoothRef = useRef(createPitchSmoothState());
   const viewRef = useRef({ min: 52, max: 62 });
+  const profileRef = useRef(voiceProfile);
   propsRef.current = { melody, playheadSec, liveHz, liveClarity, liveRms };
+  profileRef.current = voiceProfile;
 
   useEffect(() => {
     runsRef.current = melody ? segmentMelody(melody) : [];
-    smoothRef.current = createPitchSmoothState();
+    smoothRef.current = smoothStateFor(runsRef.current, profileRef.current);
     const r = windowedMelodyRange(runsRef.current, 0, VIEW_BEHIND_SEC, VIEW_AHEAD_SEC);
     viewRef.current = { min: r.min, max: r.max };
   }, [melody]);
+
+  // A different voice on the line (e.g. your turn starts after watching
+  // theirs): fresh smoother seeded for it. Never fires without a profile.
+  const seededFor = useRef(voiceProfile);
+  useEffect(() => {
+    if (seededFor.current === voiceProfile) return;
+    seededFor.current = voiceProfile;
+    smoothRef.current = smoothStateFor(runsRef.current, voiceProfile);
+  }, [voiceProfile]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

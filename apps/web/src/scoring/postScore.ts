@@ -1,4 +1,5 @@
 import { ScorePostPath, type ScoreCard } from "@karaoke/shared";
+import { authHeaders } from "../auth/supabase.ts";
 
 const ATTEMPTS = 3;
 
@@ -23,7 +24,7 @@ export async function postTurnScore(
     try {
       const res = await fetch(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`score post ${res.status}`);

@@ -47,7 +47,10 @@ import {
   catchUpClock,
   ensureChaosPlaying,
   forfeitFor,
+  handleRematchCancel,
+  handleRematchRequest,
   maybeArmMatch,
+  rematchSeatLeft,
   advanceDue,
   publicClock,
   revealedScores,
@@ -67,6 +70,7 @@ import {
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
+import { attachSocketAuth, httpIdentity, registerAuthRoutes, socketIdentity } from "./auth.ts";
 import {
   posthogConfigured,
   trackChaosJoined,
@@ -94,6 +98,8 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json({ limit: "256kb" }));
 registerLaneBRoutes(app);
+registerAuthRoutes(app);
+attachSocketAuth(io);
 
 /** Per-socket identity. Rooms hold the authoritative player record. */
 type Session = {
@@ -207,11 +213,17 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
     return;
   }
 
-  const { clientId, score, lyrics } = req.body ?? {};
-  if (typeof clientId !== "string" || !score || typeof score !== "object") {
+  const { score, lyrics } = req.body ?? {};
+  if (!score || typeof score !== "object") {
     res.status(400).json({ code: "BAD_REQUEST", message: "clientId and score required" });
     return;
   }
+  const who = await httpIdentity(req, req.body?.clientId);
+  if (!who.ok) {
+    res.status(who.status).json({ code: "UNAUTHORIZED", message: who.message });
+    return;
+  }
+  const clientId = who.clientId;
 
   const player = room.players.find((p) => p.clientId === clientId);
   if (!player) {
@@ -303,6 +315,8 @@ function leaveCurrentRoom(socketId: string): void {
     player.connected = false;
     forfeitFor(io, room, player);
     removePlayer(room, player.id);
+    // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
+    rematchSeatLeft(room, player.id);
   }
 
   io.sockets.sockets.get(socketId)?.leave(room.code);
@@ -326,7 +340,10 @@ function pruneRoom(room: Room): void {
     const session = sessions.get(player.socketId);
     if (session?.roomCode === room.code) session.roomCode = null;
     io.sockets.sockets.get(player.socketId)?.leave(room.code);
-    if (room.mode !== "chaos") forfeitFor(io, room, player);
+    if (room.mode !== "chaos") {
+      forfeitFor(io, room, player);
+      rematchSeatLeft(room, player.id);
+    }
   }
   if (removed.length === 0) return;
   if (room.mode === "chaos") {
@@ -390,9 +407,15 @@ function announceQueueMatch(
 
 io.on("connection", (socket) => {
   socket.on(ClientEvents.playerHello, async (payload: unknown) => {
-    const { clientId, displayName } = (payload ?? {}) as Record<string, unknown>;
-    if (typeof clientId !== "string" || !clientId) {
-      fail(socket, "BAD_HELLO", "clientId required");
+    const { clientId: claimedId, displayName } = (payload ?? {}) as Record<string, unknown>;
+    // With Supabase auth on, the verified user id wins over whatever was sent.
+    const clientId = socketIdentity(socket, claimedId);
+    if (!clientId) {
+      if (typeof claimedId === "string" && claimedId) {
+        fail(socket, "AUTH_REQUIRED", "Sign in to play.");
+      } else {
+        fail(socket, "BAD_HELLO", "clientId required");
+      }
       return;
     }
     const name =
@@ -622,29 +645,51 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
   });
 
-  socket.on(ClientEvents.roomReady, async () => {
+  /** Resolve (and Mongo-hydrate) the 2-seat room this socket sits in. */
+  async function seatedRoom(): Promise<{ room: Room; player: Room["players"][number] | undefined } | null> {
     const session = sessionOf(socket.id);
-    if (!session) return fail(socket, "NOT_IN_ROOM", "join a room first");
+    if (!session) {
+      fail(socket, "NOT_IN_ROOM", "join a room first");
+      return null;
+    }
     const room = session.roomCode
       ? ((await ensureRoom(session.roomCode)) ?? roomOfSession(session))
       : roomOfSession(session);
-    if (!room) return fail(socket, "NOT_IN_ROOM", "join a room first");
-    if (room.mode === "chaos") return;
-
+    if (!room) {
+      fail(socket, "NOT_IN_ROOM", "join a room first");
+      return null;
+    }
     const player = room.players.find((p) => p.clientId === session.clientId);
     if (player) touchPlayer(player);
+    return { room, player };
+  }
 
-    // Rematch: one tap starts the next 10s countdown for both.
+  socket.on(ClientEvents.roomReady, async () => {
+    const seated = await seatedRoom();
+    if (!seated || seated.room.mode === "chaos") return;
+    const { room, player } = seated;
+
+    // Results: a ready tap is a rematch request, never a one-sided restart.
     if (room.status === "results") {
-      resetToLobby(room);
-      maybeArmMatch(io, room);
-      broadcastState(io, room);
+      if (player) handleRematchRequest(io, room, player.id);
       return;
     }
 
     if (room.status === "lobby") maybeArmMatch(io, room);
     else catchUpClock(io, room, socket.id);
     broadcastState(io, room);
+  });
+
+  socket.on(ClientEvents.rematchRequest, async () => {
+    const seated = await seatedRoom();
+    if (!seated || seated.room.mode === "chaos" || !seated.player) return;
+    handleRematchRequest(io, seated.room, seated.player.id);
+  });
+
+  socket.on(ClientEvents.rematchCancel, async () => {
+    const seated = await seatedRoom();
+    if (!seated || seated.room.mode === "chaos" || !seated.player) return;
+    handleRematchCancel(io, seated.room, seated.player.id);
   });
 
   socket.on(ClientEvents.pitchLive, (payload: unknown) => {

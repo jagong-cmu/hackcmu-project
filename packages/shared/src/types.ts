@@ -54,4 +54,29 @@ export type RoomState = {
   activeSingerId: string | null;
   playAtUnixMs: number | null;
   playheadSec: number;
+  /** Ranked/Duet results only: an open rematch offer both seats must confirm. */
+  rematch?: RematchOffer | null;
+  /** Why the last rematch offer closed without starting a match. Cleared by a new offer. */
+  rematchLapse?: RematchLapse | null;
+};
+
+/**
+ * Server-authoritative rematch window. Opens when the first player taps
+ * Rematch; a match only starts once every seated player is in `requestedBy`.
+ * Clients render the countdown from `deadlineUnixMs` via the synced clock.
+ */
+export type RematchOffer = {
+  /** Player ids that have tapped Rematch, in tap order. `[0]` proposed it. */
+  requestedBy: string[];
+  openedAtUnixMs: number;
+  deadlineUnixMs: number;
+};
+
+export type RematchLapseReason = "expired" | "declined" | "cancelled" | "left";
+
+export type RematchLapse = {
+  reason: RematchLapseReason;
+  /** Who declined / cancelled / left. Null for a plain expiry. */
+  byPlayerId: string | null;
+  atUnixMs: number;
 };

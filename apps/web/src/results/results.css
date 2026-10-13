@@ -366,6 +366,23 @@
   background: color-mix(in srgb, var(--blue-800) 35%, transparent);
 }
 
+/* ---- rematch handshake ---------------------------------------------- */
+.results .rematch-status {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.results .rematch-status.rematch-invited {
+  color: var(--fg);
+  font-weight: 600;
+}
+.results .rematch-status.rematch-lapsed,
+.results .rematch-status.rematch-unavailable {
+  color: var(--warning);
+}
+
 .results-show .result-actions { opacity: 0; }
 .results-show .results-moment { opacity: 0; }
 .results-show.is-landed .result-actions,

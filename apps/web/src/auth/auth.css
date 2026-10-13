@@ -1,0 +1,53 @@
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(22rem, 100%);
+  margin: 36px auto;
+  text-align: center;
+}
+.auth-card .cta { max-width: none; }
+.auth-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.auth-wait {
+  margin: 30vh auto 0;
+  text-align: center;
+}
+
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.google-btn svg {
+  flex: none;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px;
+  box-sizing: content-box;
+}
+
+.settings-account {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(22rem, 100%);
+  margin: 0 auto 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--edge-soft);
+  text-align: left;
+}
+.settings-account .dim {
+  margin: 0;
+  word-break: break-all;
+}
+.settings-account .cta { max-width: none; }
+
+.home-account {
+  margin: 0;
+  font-size: 0.82rem;
+}

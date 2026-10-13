@@ -26,6 +26,7 @@ import {
   clearTimers,
   later,
   livePlayers,
+  resetToLobby,
   toPublic,
   type Player,
   type Room,
@@ -33,6 +34,13 @@ import {
 import { ensureRoom, saveRoomSnap } from "./liveState.ts";
 import { persistSeatedMatch } from "./judge.ts";
 import { eloDelta, outcomeFromScores } from "./elo.ts";
+import {
+  cancelRematch,
+  expireRematch,
+  lapseRematchOnLeave,
+  rematchIsMutual,
+  requestRematch,
+} from "./rematch.ts";
 import { trackMatchStarted, trackSongPlayed } from "./analytics.ts";
 
 const songDirs = [
@@ -239,7 +247,8 @@ export function startMatch(io: Server, room: Room): void {
   room.scores.clear();
   room.lastEloDelta = 0;
   room.settled = false;
-  room.rematchAtMs = null;
+  room.rematch = null;
+  room.rematchLapse = null;
 
   const isDuet = room.mode === "duet";
   const song = pickSong(room.songId);
@@ -297,6 +306,14 @@ export function advanceDue(io: Server, room: Room): void {
     return;
   }
 
+  if (room.status === "results") {
+    // Wall-clock backstop for the rematch window (timers die on Vercel freezes),
+    // and the resolution point when two isolates each recorded one tap.
+    if (rematchIsMutual(room)) startRematch(io, room);
+    else if (expireRematch(room)) broadcastState(io, room);
+    return;
+  }
+
   const now = Date.now();
   const playAt = room.playAtUnixMs;
   const clipMs = Math.round(room.clipDurationSec * 1000);
@@ -325,6 +342,46 @@ export function advanceDue(io: Server, room: Room): void {
     awaitScores(io, room);
     return;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Rematch (results screen, 2 seats). Both players must confirm inside
+// RematchWindowMs; see rematch.ts for the state rules.
+// ---------------------------------------------------------------------------
+
+/** Both seats agreed: back to lobby and arm the normal pre-match countdown. */
+function startRematch(io: Server, room: Room): void {
+  resetToLobby(room);
+  maybeArmMatch(io, room);
+  broadcastState(io, room);
+}
+
+/** A player tapped Rematch (propose, or accept the open offer). */
+export function handleRematchRequest(io: Server, room: Room, playerId: string): void {
+  const outcome = requestRematch(room, playerId);
+  if (outcome === "ignored") return;
+  if (outcome === "mutual") {
+    startRematch(io, room);
+    return;
+  }
+  if (outcome === "opened" && room.rematch) {
+    const deadline = room.rematch.deadlineUnixMs;
+    later(room, Math.max(0, deadline - Date.now()) + 25, () => {
+      if (room.rematch?.deadlineUnixMs !== deadline) return;
+      if (expireRematch(room)) broadcastState(io, room);
+    });
+  }
+  broadcastState(io, room);
+}
+
+/** Proposer cancels, or the opponent declines. */
+export function handleRematchCancel(io: Server, room: Room, playerId: string): void {
+  if (cancelRematch(room, playerId)) broadcastState(io, room);
+}
+
+/** A seat left mid-offer. Caller broadcasts. */
+export function rematchSeatLeft(room: Room, playerId: string): boolean {
+  return lapseRematchOnLeave(room, playerId);
 }
 
 function swapToTurnB(io: Server, room: Room): void {

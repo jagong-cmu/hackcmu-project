@@ -8,6 +8,10 @@ export const ClientEvents = {
   roomJoin: "room:join",
   roomLeave: "room:leave",
   roomReady: "room:ready",
+  /** Results screen: propose a rematch, or accept the opponent's open offer. */
+  rematchRequest: "rematch:request",
+  /** Results screen: withdraw your own offer, or decline the opponent's. */
+  rematchCancel: "rematch:cancel",
   chaosJoin: "chaos:join",
   pitchLive: "pitch:live",
 } as const;
@@ -52,6 +56,8 @@ export const CountdownMs = 5000;
 /** Click-track fallback only. Live ranked length is each song's 15–20s chorus hook. */
 export const RankedClipMs = 15000;
 export const SwapMs = 5000;
+/** How long a rematch offer stays open for the opponent to accept. */
+export const RematchWindowMs = 8000;
 export const ClockLeadMs = 400;
 export const MaxDriftSec = 0.15;
 export const ChaosCap = 100;

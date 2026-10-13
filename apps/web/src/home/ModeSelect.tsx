@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getDisplayName, validName } from "./identity.ts";
 import { PageShell } from "../theme/PageShell.tsx";
 import { capture } from "../analytics/posthog.ts";
+import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
 
 /** Each card drops you straight into that mode's own queue (or solo Training). */
 const MODES = [
@@ -57,6 +58,7 @@ export function ModeSelect() {
           Make a private room
         </Link>
       </p>
+      <DeviceCheckLink next="/play" />
     </PageShell>
   );
 }

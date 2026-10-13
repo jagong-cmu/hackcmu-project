@@ -22,6 +22,8 @@ import { InstrumentalVolume } from "../media/levels.ts";
 import { useStage } from "./StageContext.tsx";
 import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
 import { playheadFromClock } from "./useSharedClock.ts";
+import { useRematchView } from "./useRematchView.ts";
+import { loadVoiceProfile } from "../onboarding/voiceProfile.ts";
 
 /** Same song-time on both laptops. Never follow a local <audio> that hasn't sought yet. */
 function displayPlayhead(
@@ -183,6 +185,8 @@ export function StagePitch() {
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
   const [mineLive, setMineLive] = useState<ScoreBits | null>(null);
+  // Display-only: seeds the pitch line's octave for *your* voice. Not scoring.
+  const [voiceProfile] = useState(loadVoiceProfile);
   const lrcRef = useRef("");
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
@@ -473,6 +477,7 @@ export function StagePitch() {
         liveHz={shownHz}
         liveClarity={shownClarity}
         liveRms={shownRms}
+        voiceProfile={mine ? voiceProfile : null}
       />
       {showHud ? <HitCallout grade={calloutGrade} /> : null}
       {showHud ? (
@@ -488,7 +493,8 @@ export function StagePitch() {
 export function StageResults() {
   const navigate = useNavigate();
   const { room, myPlayerId } = useStage();
-  const { matchOver, scores, ready, roomLeave } = useRoom();
+  const { matchOver, scores, roomLeave, rematchRequest, rematchCancel } = useRoom();
+  const rematch = useRematchView(room, myPlayerId);
   if (!room || !myPlayerId) return null;
   if (room.status === "results" && !matchOver) return <ScoringWait />;
   if (!matchOver) return null;
@@ -532,7 +538,9 @@ export function StageResults() {
         roomLeave();
         navigate("/");
       }}
-      onRematch={() => ready()}
+      rematch={rematch}
+      onRematch={rematch?.kind === "unavailable" ? undefined : rematchRequest}
+      onRematchCancel={rematchCancel}
     />
   );
 }

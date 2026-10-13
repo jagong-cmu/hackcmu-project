@@ -3,10 +3,11 @@
  * In-memory maps still run the clock on whichever isolate handled the event;
  * Mongo is how two laptops on two isolates find each other.
  */
-import type { Mode, RoomStatus, ScoreCard } from "@karaoke/shared";
+import type { Mode, RematchLapse, RematchOffer, RoomStatus, ScoreCard } from "@karaoke/shared";
 import { getDb } from "./db.ts";
 import {
   addPlayer,
+  clearTimers,
   createRoom,
   generateCode,
   getRoom,
@@ -14,6 +15,7 @@ import {
   type Room,
 } from "./rooms.ts";
 import type { Waiting } from "./matchmaking.ts";
+import { mergeRematchSnap } from "./rematch.ts";
 
 const WAITER_TTL_MS = 12_000;
 const PAIR_TTL_MS = 120_000;
@@ -49,7 +51,9 @@ type RoomSnap = {
   lastEloDelta: number;
   lastWinnerId?: string | null;
   settled: boolean;
-  rematchAtMs: number | null;
+  /** Open rematch offer while in results. Older snaps carried `rematchAtMs` instead; ignored. */
+  rematch?: RematchOffer | null;
+  rematchLapse?: RematchLapse | null;
   scores: Record<string, ScoreCard>;
   updatedAt: Date;
 };
@@ -208,7 +212,8 @@ export async function saveRoomSnap(room: Room): Promise<void> {
         lastEloDelta: room.lastEloDelta,
         lastWinnerId: room.lastWinnerId,
         settled: room.settled,
-        rematchAtMs: room.rematchAtMs,
+        rematch: room.rematch,
+        rematchLapse: room.rematchLapse,
         scores,
         updatedAt: new Date(),
       },
@@ -235,7 +240,28 @@ export async function ensureRoom(code: string): Promise<Room | undefined> {
 function applySnap(room: Room, snap: RoomSnap): void {
   const order: RoomStatus[] = ["lobby", "countdown", "turnA", "swap", "turnB", "live", "results"];
   const snapAhead = order.indexOf(snap.status) > order.indexOf(room.status);
-  const rematch = room.status === "results" && snap.status === "lobby";
+  // Another isolate accepted a rematch: its snap is back in lobby/countdown with
+  // a clip scheduled after anything this (results) room ever played. A stale
+  // mid-match snap never has a newer songStartedAtMs, so it cannot rewind us.
+  const rematch =
+    room.status === "results" &&
+    snap.status !== "results" &&
+    (snap.status === "lobby" || (snap.songStartedAtMs ?? 0) > (room.songStartedAtMs ?? 0));
+  if (rematch) {
+    clearTimers(room);
+    room.scores.clear();
+    room.settled = false;
+    room.rematch = null;
+    room.rematchLapse = null;
+  }
+  // The mirror case: this isolate already restarted (countdown+) and the snap
+  // is still the previous match's results. Do not let it rewind or re-settle us.
+  const staleResults =
+    snap.status === "results" &&
+    room.status !== "results" &&
+    room.status !== "lobby" &&
+    (room.songStartedAtMs ?? 0) > (snap.songStartedAtMs ?? 0);
+  if (staleResults) return;
   if (snapAhead || rematch || room.status === "lobby" || snap.status === room.status) {
     room.status = snap.status;
     room.songId = snap.songId;
@@ -247,8 +273,8 @@ function applySnap(room: Room, snap: RoomSnap): void {
     room.matchStartedAtMs = snap.matchStartedAtMs;
     room.lastEloDelta = snap.lastEloDelta;
     if (snap.lastWinnerId !== undefined) room.lastWinnerId = snap.lastWinnerId;
-    if (snap.rematchAtMs != null) room.rematchAtMs = snap.rematchAtMs;
   }
+  mergeRematchSnap(room, snap.rematch, snap.rematchLapse);
   if (snap.settled) room.settled = true;
   const snapIds = new Set(snap.players.map((p) => p.clientId));
   for (const p of snap.players) {

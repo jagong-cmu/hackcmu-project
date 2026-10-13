@@ -1,5 +1,6 @@
 import type { MelodyFile } from "@karaoke/shared";
 import { midiFromHz } from "./cents.ts";
+import { fixOctaveByRange, seedOctaveShift, type VoiceProfile } from "./voiceRange.ts";
 
 export type NoteRun = {
   startSec: number;
@@ -62,18 +63,33 @@ export type PitchSmoothState = {
   lastTs: number;
   buf: number[];
   trail: Array<{ t: number; midi: number; inTune: boolean }>;
+  /** Singer's measured range, when a voice profile was supplied. Display only. */
+  voiceRange: { lowMidi: number; highMidi: number } | null;
 };
 
-export function createPitchSmoothState(): PitchSmoothState {
+/**
+ * Optional seed for a new clip / turn. With no profile (or no melody centre)
+ * the state is exactly what it always was: no fold, no range guard.
+ */
+export type PitchSmoothSeed = {
+  profile?: VoiceProfile | null;
+  melodyCenterMidi?: number | null;
+};
+
+export function createPitchSmoothState(seed?: PitchSmoothSeed): PitchSmoothState {
+  const profile = seed?.profile ?? null;
+  const center = seed?.melodyCenterMidi;
+  const shift = profile && center != null && Number.isFinite(center) ? seedOctaveShift(center, profile) : 0;
   return {
     midi: null,
     rawMidi: null,
-    octaveShift: 0,
-    pendingShift: 0,
+    octaveShift: shift,
+    pendingShift: shift,
     pendingCount: 0,
     lastTs: 0,
     buf: [],
     trail: [],
+    voiceRange: profile ? { lowMidi: profile.lowMidi, highMidi: profile.highMidi } : null,
   };
 }
 
@@ -182,6 +198,9 @@ export function smoothLivePitch(
   if (pitched && input.hz != null) {
     let raw = midiFromHz(input.hz);
     raw = fixOctave(raw, state.midi);
+    // With a voice profile, a reading an octave outside the singer's measured
+    // range is pulled back in (see fixOctaveByRange). No profile → skipped.
+    if (state.voiceRange) raw = fixOctaveByRange(raw, state.voiceRange);
 
     const looksLikeBleed =
       input.rms < BLEED_RMS &&

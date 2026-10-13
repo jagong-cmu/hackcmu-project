@@ -8,6 +8,7 @@
 import { Room, RoomEvent, Track } from "livekit-client";
 import { sharedAudioContext } from "./audioContext.ts";
 import { boostRemoteAudioTrack } from "./levels.ts";
+import { preferredCameraId, preferredMicId } from "../onboarding/deviceCheck.ts";
 
 export type StageConnection = {
   room: Room;
@@ -120,6 +121,10 @@ export async function connectToStage(
   displayName: string,
 ): Promise<StageConnection> {
   const { token, wsUrl } = await fetchToken(code, identity, displayName);
+  // Devices picked in the mic check. A bare string is an "ideal" constraint,
+  // so an unplugged one falls back to the default instead of failing.
+  const micId = preferredMicId();
+  const cameraId = preferredCameraId();
 
   const room = new Room({
     // This capture is what the DSP pitch-tracks (StageContext.micStream), not
@@ -135,11 +140,15 @@ export async function connectToStage(
       noiseSuppression: false,
       autoGainControl: false,
       voiceIsolation: false,
+      ...(micId ? { deviceId: micId } : {}),
     },
     publishDefaults: {
       dtx: false,
     },
-    videoCaptureDefaults: { resolution: { width: 640, height: 480 } },
+    videoCaptureDefaults: {
+      resolution: { width: 640, height: 480 },
+      ...(cameraId ? { deviceId: cameraId } : {}),
+    },
     adaptiveStream: false,
     dynacast: false,
     // Mix remote mics in Web Audio so Chrome autoplay does not pin them to a
