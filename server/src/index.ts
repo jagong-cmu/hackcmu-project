@@ -70,6 +70,7 @@ import {
   reserveExactCode,
   seatPairOnThisIsolate,
   sharedPairOrWait,
+  watchReservation,
 } from "./liveState.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
 import { decideLiveKitAccess } from "./livekitAccess.ts";
@@ -91,16 +92,20 @@ import {
 import {
   attachSocketAuth,
   authMode,
-  clearSocketAuth,
+  helloAuth,
   httpAccount,
   httpIdentity,
-  refreshSocketAuth,
   socketAuthExpired,
   socketIdentity,
 } from "./auth.ts";
 import {
   canReadRoom,
+  CreateRateLimitedCode,
+  createRateLimitedMessage,
   createWindowGate,
+  RoomCreateLimit,
+  RoomCreateWindowMs,
+  WindowLimiter,
   HelloVerifyLimit,
   HelloVerifyWindowMs,
   isGuardedRoomCode,
@@ -163,6 +168,8 @@ const sessions = new Map<string, Session>();
 
 /** Failed private-code joins, per verified account (abuseLimits.ts). Per instance. */
 const sharedJoinLimiter = new JoinAttemptLimiter();
+/** room:create calls, per verified account (abuseLimits.ts). Per instance. */
+const roomCreateLimiter = new WindowLimiter(RoomCreateLimit, RoomCreateWindowMs);
 
 function sessionOf(socketId: string): Session | undefined {
   return sessions.get(socketId);
@@ -527,24 +534,41 @@ io.on("connection", (socket) => {
     return true;
   };
 
+  /** Refresh this socket's existing seat (lastSeenMs) without touching its identity. */
+  const keepSeatAlive = (): void => {
+    const session = sessionOf(socket.id);
+    const room = roomOfSession(session);
+    const seated = room?.players.find((p) => p.id === session?.playerId && p.socketId === socket.id);
+    if (!room || !seated) return;
+    touchPlayer(seated);
+    broadcastState(io, room);
+  };
+
   socket.on(ClientEvents.playerHello, safeHandler(socket, ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId: claimedId, displayName, accessToken } = (payload ?? {}) as Record<string, unknown>;
-    // Not verified at handshake (session restored late), or the verified
-    // token has since expired: re-verify in place from the token sent with
-    // this hello. Only then do we await, so an already-verified hello still
-    // seats the session synchronously before a following room:create /
-    // room:ready. Re-verification is rate limited per socket; hellos from an
-    // already-verified socket do not count.
-    const needsVerify = !socket.data.authUserId || socketAuthExpired(socket);
-    if (needsVerify && typeof accessToken === "string" && accessToken && authMode() === "verify") {
-      if (helloVerifyGate()) await refreshSocketAuth(socket, accessToken);
-    }
-    // Still expired: this socket is signed out until a fresh token arrives.
-    if (socketAuthExpired(socket)) clearSocketAuth(socket);
+    // Not verified at handshake (session restored late), the verified token
+    // has since expired, or it is about to and this hello carries its
+    // successor: check the token sent with this hello (auth.ts helloAuth).
+    // Only then do we await (helloAuth answers synchronously otherwise), so
+    // an already-verified hello still seats the session synchronously before
+    // a following room:create / room:ready. Checks are rate limited per
+    // socket. Supabase being down or rate limiting us keeps the previous
+    // sign-in for a bounded grace; only a definitively bad token signs the
+    // socket out.
+    const pending = helloAuth(socket, accessToken, helloVerifyGate);
+    const auth = typeof pending === "string" ? pending : await pending;
     // The verified Supabase user id, never whatever was sent. Every other
     // play event needs the session this creates, so this is the socket gate.
     const who = socketIdentity(socket, claimedId);
-    if (!who.ok) return fail(socket, who.code, who.message);
+    if (!who.ok) {
+      // Presence is not authorisation: a seated socket whose sign-in lapsed
+      // (or could not be re-checked) still heartbeats, so the opponent's
+      // instance does not prune the seat and forfeit it. Play events keep
+      // answering AUTH_REQUIRED until a token verifies. A definitively bad
+      // token gets no such pass.
+      if (auth !== "rejected") keepSeatAlive();
+      return fail(socket, who.code, who.message);
+    }
     const clientId = who.clientId;
     const name = sanitizeDisplayName(displayName);
 
@@ -686,17 +710,24 @@ io.on("connection", (socket) => {
     if (authLapsed()) return;
 
     const mode = modeOf(payload);
+    if (mode !== "ranked" && mode !== "duet" && mode !== "chaos") {
+      leaveCurrentRoom(socket.id);
+      dequeue(socket.id);
+      return fail(socket, "BAD_MODE", "ranked, duet, or chaos");
+    }
+    // Every create reserves a code for up to 2h, so creates are limited per
+    // account. Refused before leaving, so the caller keeps their current room.
+    const wait = roomCreateLimiter.take(joinLimitKey(socket.data.authUserId, socket.id));
+    if (wait > 0) return fail(socket, CreateRateLimitedCode, createRateLimitedMessage(wait));
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
-    if (mode !== "ranked" && mode !== "duet" && mode !== "chaos") {
-      return fail(socket, "BAD_MODE", "ranked, duet, or chaos");
-    }
-
     // The code is reserved in liveRooms first (with Mongo), so no other
     // instance can hold it. Host + private + unrated (friendly) are set on
-    // the draft, so they are in the very first snapshot.
+    // the draft, so they are in the very first snapshot. Once the room is
+    // abandoned (empty lobby, gone from here), its reservation is released.
     const room = await createSharedRoom(mode, (draft) => markPrivateRoom(draft, session.playerId));
+    watchReservation(room);
     if (!sessionOf(socket.id)) {
       disposeIfEmpty(room);
       return;

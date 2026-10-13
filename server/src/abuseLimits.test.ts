@@ -19,7 +19,12 @@ import { fileURLToPath } from "node:url";
 import { after, before, describe, test } from "node:test";
 import {
   canReadRoom,
+  CreateRateLimitedCode,
+  createRateLimitedMessage,
   createWindowGate,
+  RoomCreateLimit,
+  RoomCreateWindowMs,
+  WindowLimiter,
   isGuardedRoomCode,
   JoinAttemptLimiter,
   JoinFailLimit,
@@ -103,6 +108,27 @@ test("window gate: at most N per window", () => {
   assert.equal(gate(10), false);
   assert.equal(gate(29_999), false);
   assert.equal(gate(30_000), true, "first hit aged out");
+});
+
+test("room:create limiter: a burst of N is fine, N+1 waits for the oldest to age out", () => {
+  const lim = new WindowLimiter(RoomCreateLimit, RoomCreateWindowMs);
+  for (let i = 0; i < RoomCreateLimit; i++) assert.equal(lim.take("u:alice", 1000 + i), 0, `create ${i + 1}`);
+  const wait = lim.take("u:alice", 2000);
+  assert.ok(wait > 0 && wait <= RoomCreateWindowMs, `wait ${wait}`);
+  assert.equal(wait, 1000 + RoomCreateWindowMs - 2000);
+  // Refusals spend nothing; the window slides.
+  assert.equal(lim.take("u:alice", 1000 + RoomCreateWindowMs), 0);
+  assert.ok(lim.take("u:alice", 1000 + RoomCreateWindowMs) > 0);
+  // Other callers are unaffected.
+  assert.equal(lim.take("u:bob", 2000), 0);
+  assert.match(createRateLimitedMessage(wait), /Wait 5 minutes/);
+  assert.match(createRateLimitedMessage(30_000), /Wait 1 minute and/);
+});
+
+test("room:create limiter memory is bounded", () => {
+  const lim = new WindowLimiter(6, 60_000, 100);
+  for (let i = 0; i < 1000; i++) lim.take(`s:${i}`, i);
+  assert.ok(lim.size <= 100, `size ${lim.size}`);
 });
 
 test("room snapshots: seated callers only", () => {
@@ -318,6 +344,34 @@ describe("live server (dev opt-out)", () => {
     }
   });
 
+  test("room:create: create, leave, create again is fine; a create loop is cut off", async () => {
+    const host = mk();
+    await host.hello();
+    const codes: string[] = [];
+    for (let i = 0; i < RoomCreateLimit; i++) {
+      const e = await host.emitAndWait("room:create", { mode: i % 2 ? "duet" : "ranked" });
+      assert.equal(e?.event, "match:found", `create ${i + 1}`);
+      codes.push(e!.payload.code);
+      if (i % 2 && i < RoomCreateLimit - 1) host.s.emit("room:leave");
+    }
+    assert.equal(new Set(codes).size, RoomCreateLimit);
+    const last = codes[codes.length - 1]!;
+    const refused = await host.emitAndWait("room:create", { mode: "ranked" });
+    assert.equal(refused?.event, "error");
+    assert.equal(refused?.payload.code, CreateRateLimitedCode);
+    assert.match(refused?.payload.message, /Wait \d+ minutes? and try again/);
+    // A refused create does not pull the caller out of the room they are in.
+    const res = await fetch(`${base}/api/rooms/${last}`, { headers: { "x-client-id": host.clientId } });
+    assert.equal(res.status, 200, "still seated in the last room");
+    // Joining a friend's code still works, and other callers can create.
+    const other = mk();
+    await other.hello();
+    const theirs = await other.emitAndWait("room:create", { mode: "duet" });
+    assert.equal(theirs?.event, "match:found");
+    const joined = await host.emitAndWait("room:join", { code: theirs!.payload.code });
+    assert.equal(joined?.event, "match:found");
+  });
+
   test("GET /api/rooms/:code: seated players only, one 404 for everyone else", async () => {
     const { host, code } = await hostRoom("duet");
     const taken = new Set([code]);
@@ -417,5 +471,167 @@ describe("live server (accounts on, stub Supabase)", () => {
       assert.equal(res.status, 401);
     }
     assert.equal(supabaseCalls, 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Verify-mode server against a flaky Supabase (second-pass #6 and #7):
+// rate limits are not rejections, and a lapsed sign-in never costs the seat
+// ---------------------------------------------------------------------------
+
+describe("live server (accounts on, flaky Supabase)", () => {
+  let base = "";
+  let child: ChildProcess | null = null;
+  let stub: HttpServer | null = null;
+  /** What the stub answers next: a status for every call, or 200 with the user. */
+  let answer: number = 200;
+  let calls = 0;
+  const seenSubs: string[] = [];
+  const clients: Client[] = [];
+
+  /** sub "user:n": the user id is the part before the colon. */
+  const jwt = (sub: string, expInSec = 3600) => {
+    const enc = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    return `${enc({ alg: "HS256" })}.${enc({ sub, exp: Math.floor(Date.now() / 1000) + expInSec })}.c2ln`;
+  };
+  const userIdOf = (sub: string) => `00000000-0000-4000-8000-${sub.split(":")[0]!.padStart(12, "0").slice(-12)}`;
+
+  before(async () => {
+    stub = createServer((req, res) => {
+      calls += 1;
+      const token = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+      let sub = "";
+      try {
+        sub = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")).sub ?? "";
+      } catch {
+        /* not ours */
+      }
+      seenSubs.push(sub);
+      if (answer !== 200) {
+        res.writeHead(answer, { "content-type": "application/json" });
+        res.end('{"msg":"rate limited"}');
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ id: userIdOf(sub) }));
+    });
+    await new Promise<void>((r) => stub!.listen(0, "127.0.0.1", () => r()));
+    const port = (stub.address() as AddressInfo).port;
+    ({ base, child } = await startServer({
+      AUTH_REQUIRED: "1",
+      VITE_AUTH_REQUIRED: "1",
+      SUPABASE_URL: `http://127.0.0.1:${port}`,
+      SUPABASE_ANON_KEY: "anon",
+    }));
+  });
+  after(() => {
+    for (const c of clients) c.s.close();
+    child?.kill();
+    stub?.close();
+  });
+
+  const connect = async (token: string) => {
+    const c = client(base, { auth: { token } });
+    clients.push(c);
+    await new Promise((r) => c.s.once("connect", () => r(undefined)));
+    return c;
+  };
+  /** Say hello with `token`; resolves with player:ok or the error that came back. */
+  const hello = async (c: Client, token: string | undefined) => {
+    const from = c.events.length;
+    c.s.emit("player:hello", { clientId: c.clientId, displayName: "T", accessToken: token });
+    const end = Date.now() + 5000;
+    while (Date.now() < end) {
+      const hit = c.events.slice(from).find((e) => e.event === "player:ok" || e.event === "error");
+      if (hit) {
+        await new Promise((r) => setTimeout(r, 150));
+        return { hit, after: c.events.slice(from) };
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    throw new Error("no answer to hello");
+  };
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  test("a 429 burst at Supabase does not lock a valid token out", async () => {
+    answer = 429;
+    const token = jwt("101:burst");
+    const c = await connect(token);
+    const refused = await hello(c, token);
+    assert.equal(refused.hit.event, "error");
+    assert.equal(refused.hit.payload.code, "AUTH_REQUIRED");
+    const http = await fetch(`${base}/api/rooms/1234`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(http.status, 401);
+    // The burst ends: the very same token works at once (no 60s negative cache).
+    answer = 200;
+    const ok = await hello(c, token);
+    assert.equal(ok.hit.event, "player:ok");
+    const after = await fetch(`${base}/api/rooms/1234`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(after.status, 404, "signed in: just not seated there");
+  });
+
+  test("a new token is taken over before the held one expires", async () => {
+    answer = 200;
+    const held = jwt("102:a", 90); // inside the 2-minute window
+    const c = await connect(held);
+    assert.equal((await hello(c, held)).hit.event, "player:ok");
+    calls = 0;
+    seenSubs.length = 0;
+    assert.equal((await hello(c, held)).hit.event, "player:ok");
+    assert.equal(calls, 0, "the held token is never re-checked");
+    assert.equal((await hello(c, jwt("102:b"))).hit.event, "player:ok");
+    assert.deepEqual(seenSubs, ["102:b"], "the successor was verified ahead of expiry");
+    // Supabase now down: the held token is still good, so play goes on.
+    answer = 503;
+    assert.equal((await hello(c, jwt("102:c"))).hit.event, "player:ok");
+    const created = await c.emitAndWait("room:create", { mode: "duet" });
+    assert.equal(created?.event, "match:found");
+    answer = 200;
+  });
+
+  /** Seated in a fresh duet room with a token whose exp + 30s grace ran out just now. */
+  const seatedThenLapsed = async (user: string) => {
+    answer = 200;
+    const held = jwt(`${user}:held`, -27); // exp + 30s grace ends ~3s from now
+    const c = await connect(held);
+    assert.equal((await hello(c, held)).hit.event, "player:ok");
+    const created = await c.emitAndWait("room:create", { mode: "duet" });
+    assert.equal(created?.event, "match:found");
+    await sleep(3500);
+    return { c, held, code: created!.payload.code as string };
+  };
+
+  test("a lapsed sign-in keeps the seat alive; play events wait for a fresh token", async () => {
+    const { c, held, code } = await seatedThenLapsed("103");
+    // The client could not refresh and sends its expired token (heartbeat).
+    const lapsed = await hello(c, held);
+    assert.equal(lapsed.hit.event, "error");
+    assert.equal(lapsed.hit.payload.code, "AUTH_REQUIRED");
+    assert.ok(
+      lapsed.after.some((e) => e.event === "room:state" && e.payload?.code === code),
+      "the seat was refreshed (lastSeenMs) and broadcast anyway",
+    );
+    const ready = await c.emitAndWait("room:ready", {}, 1000);
+    assert.equal(ready?.payload?.code, "AUTH_REQUIRED", "no play rights without a sign-in");
+    const fresh = jwt("103:fresh");
+    const seated = await fetch(`${base}/api/rooms/${code}`, { headers: { authorization: `Bearer ${fresh}` } });
+    assert.equal(seated.status, 200, "still seated");
+    // A fresh token heals it.
+    assert.equal((await hello(c, fresh)).hit.event, "player:ok");
+    const again = await c.emitAndWait("room:ready", {}, 800);
+    assert.notEqual(again?.payload?.code, "AUTH_REQUIRED");
+  });
+
+  test("Supabase down while lapsed: the sign-in is kept (bounded) instead of dropped", async () => {
+    const { c } = await seatedThenLapsed("104");
+    answer = 503;
+    try {
+      const kept = await hello(c, jwt("104:fresh"));
+      assert.equal(kept.hit.event, "player:ok", "an outage does not sign the socket out");
+      const ready = await c.emitAndWait("room:ready", {}, 800);
+      assert.notEqual(ready?.payload?.code, "AUTH_REQUIRED");
+    } finally {
+      answer = 200;
+    }
   });
 });

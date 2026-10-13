@@ -165,10 +165,45 @@ Second-pass review findings #10, #13, #14, #15 and the pitch:live gate. Web clie
 - **LiveKit rejoin (#15).** A failed token fetch during a rejoin (403 `NOT_SEATED` before the Stage re-seats, a network blip) left media dead for the mount, since no further Disconnected event fires. The connect failure now schedules the next attempt on the same backoff budget (`retryFailedConnectMs`, `media/rejoin.ts`). On a bfcache restore (`pageshow` with `persisted`), RoomProvider drops the stale room so the Stage's join retry re-seats us, and `useLiveKit` reconnects with a fresh budget. No rejoin after a duplicate-identity kick, and unmount removes the listeners.
 - **pitch:live rate.** The send gate was 40ms, about 24/s on 120/144Hz displays, over the server's 20/s cap. It is now 50ms (time-based).
 - Verified: typecheck, build, 322/322 tests (17 new: `takeKey`, `leaveEffect`, `matchOverMerge`, rejoin policy), and `/`, `/signin`, `/play` render in headless Chromium with no app console errors (only the API proxy failing without a server, and Google sign-in having no account).
+### 10. Room-create limit, reservation release, and sign-in lapses that cost seats (`fix/auth-lapse-create-limit`)
+Second-pass review items 5, 6 and 7.
+- **`room:create` limit (5).** Each create reserves its 4-digit code in `liveRooms` until the 2h TTL, and `disposeIfEmpty` never deleted it. One socket looping `room:create` could fill the code space. Then every create would cost 40 Mongo upserts and fall back to the local code, which brings back the cross-instance overwrite from entry 8.
+  - Creates are now limited per verified account (per socket in the dev opt-out): 6 per sliding 5 minutes, all at once if you like (`WindowLimiter`, `server/src/abuseLimits.ts`).
+  - Over the limit: `CREATE_RATE_LIMITED`, "You've made a lot of rooms. Wait N minutes and try again, or join a friend's code." Play.tsx already shows the server's message.
+  - The refusal comes before leaving, so the caller keeps the room they are in. Joins are not affected. "Create, leave, create again" stays well under the limit.
+- **Releasing reservations (5).** `room:create` now watches the private room it made (`watchReservation`, `liveState.ts`, additive). Every 30s, for each watched room this instance no longer holds, it runs one conditional `deleteOne` on its doc. The doc is deleted only if all of these hold:
+  - it is still private, by the same host
+  - `status: "lobby"`, `players: []`
+  - no `settledMatchId` and no `matchScores` (it never played a match)
+  - nobody has saved it for 2 minutes (`updatedAt`)
+  - So a room another instance seated someone in, or saved recently, is never deleted. The host can still reload and rejoin for 2 minutes. If the room is in use elsewhere it stays watched; a room that played a match is left to the TTL.
+  - Best effort. An instance that stops (Vercel) leaves the doc to the 2h TTL as before. Queue rooms and typed Chaos codes are not watched.
+- **Supabase 429/408 (6).** Before, any 4xx was negatively cached for 60s, including 429. GoTrue rate limits per IP, and Vercel egress is shared, so one burst locked valid tokens out for a minute: sockets got `AUTH_REQUIRED` and score posts 401.
+  - Now only 400/401/403 are cached. 408 and 429 are treated like 5xx: not cached, retried once after 250–350ms.
+  - Other 4xx (e.g. 404 for a deleted user) are refused, not cached. A 200 without a user id counts as "could not check".
+- **Sign-in lapses (7).** The hello path is now `helloAuth` (`server/src/auth.ts`). It tells "Supabase refused this token" apart from "token unusable locally" and "could not check".
+  - (a) **Presence is not authorisation.** A hello from a socket with a session, whose sign-in lapsed or could not be re-checked, still refreshes its seat (`lastSeenMs`) and broadcasts, then answers `AUTH_REQUIRED`. The opponent's instance no longer prunes the seat after 45s and forfeits it. Play events (`room:ready`, rematch, create, join, queue) still refuse until a token verifies. Only a token Supabase refused gets no heartbeat.
+  - (b) **Only a definite rejection signs a socket out.** That means a 4xx from Supabase (400/401/403 cached) for the held token, or for any token once the held one is past `exp` + 30s. A network error, timeout, 5xx, 408, 429, or a spent per-socket verify budget is "could not check". If the client sends a fresh-looking token we can't verify, the previous sign-in stays valid. Each failed check extends that by at most 60s, and never past `exp` + 10 min. The expired token itself, sent again, renews nothing.
+  - (c) **Switch before expiry.** When a hello carries a different token and the held one expires within 2 minutes (or already has), the new token is verified then. So `room:ready` and rematch no longer hit `AUTH_REQUIRED` in the 0–12s before the next heartbeat. The held token is never re-checked early, so a steady heartbeat costs no Supabase calls.
+  - Unchanged: a different token Supabase refuses while the held one is still valid changes nothing. The held one runs out on its own `exp`, as before.
+- Verified:
+  - typecheck and build
+  - 331/331 tests (26 new):
+    - `auth.test.ts`: 429/408 retried and never cached, 429-then-200 in one call, only 400/401/403 cached, outage grace kept and bounded, budget refusal is not a rejection, definite rejection signs out, the expired held token lapses with no call, a junk or expired token is "lapsed" not "rejected", a refusal ends the outage grace, a different bad token changes nothing, proactive switch only inside 2 min, and the hello answers synchronously unless Supabase is asked (so the heartbeat still seats its session before a following event)
+    - `roomCodes.test.ts` on FakeDb: release after the grace and the code reusable, never while held here, not when seated or saved elsewhere, not after a match, mid-match or for another host, no-ops without Mongo, public rooms not watched
+    - `abuseLimits.test.ts`:
+      - limiter units
+      - live dev server: 6 creates with leaves in between pass, the 7th is refused, the caller stays seated, and others can still create and join
+      - live verify server with a flaky stub Supabase: a 429 burst then 200 lets the same token play at once; the successor token is verified ahead of expiry with no re-check of the held one; a lapsed seated socket gets `AUTH_REQUIRED` plus a seat-refresh `room:state` and `room:ready` is refused until a fresh token heals it; Supabase 503 while lapsed keeps the sign-in
+  - the peer e2e suite: 23/24, the one failure being the known entry-6 403
+  - `fullmatch.mjs` and `fullmatch-variants.mjs`: all passed
+  - a standalone verify-mode probe: a stub Supabase answers 429 six times then 200, and the same token signs the socket in about 0.6s after the burst, authenticates over HTTP, and creates a room
 
 ## Open items (need a decision or larger change)
 
-- Rate limits are per instance (room joins, hello verification, reports, blocks, votes, Gemini verdicts, training analytics). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
+- Rate limits are per instance (room joins, room creates, hello verification, reports, blocks, votes, Gemini verdicts, training analytics). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
+- Releasing abandoned `room:create` reservations (entry 9) runs on a 30s timer of the instance that made the room. On Vercel, an instance that stops first leaves the doc to the 2h TTL. A sturdier option is a second TTL index on an `expireAt` field: set it about 10 minutes out while a private lobby is empty, and clear it when someone sits down. That needs a `db.ts` index and a write in the seat/leave path.
+- The outage grace (entry 9) lets a socket whose token can't be checked keep play rights for up to 10 minutes past `exp`, as long as it keeps sending fresh-looking tokens. A forged token only extends this while Supabase is actually unreachable or rate limiting us. Shorten `SocketAuthOutageGraceMs` if that is too generous.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.
 - A fresh handshake per connection can still cost one Supabase call per unique, well-formed but forged JWT. A per-IP connection limit (e.g. Vercel WAF rate limit on `/socket.io`) would cap it.
 - The `0000` demo room is still rated, and anyone who knows the code can join it. Consider making it friendly too.

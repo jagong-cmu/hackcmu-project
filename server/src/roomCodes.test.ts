@@ -20,9 +20,19 @@ const { setDbForTests } = await import("./db.ts");
 const { FakeDb } = await import("./fakeMongo.testkit.ts");
 const { draftRoom, getRoom, disposeIfEmpty } = await import("./rooms.ts");
 const { markPrivateRoom } = await import("./moderation.ts");
-const { createSharedRoom, ensureRoom, loadSnap, reserveExactCode, saveRoomSnap, snapFromRoom } = await import(
-  "./liveState.ts"
-);
+const {
+  createSharedRoom,
+  ensureRoom,
+  loadSnap,
+  releaseReservation,
+  ReservationReleaseGraceMs,
+  reserveExactCode,
+  saveRoomSnap,
+  snapFromRoom,
+  sweepReservations,
+  watchedReservations,
+  watchReservation,
+} = await import("./liveState.ts");
 
 type Room = ReturnType<typeof draftRoom>;
 
@@ -43,6 +53,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   Math.random = realRandom;
+  watchedReservations(true);
   for (const r of made.splice(0)) {
     r.players = [];
     r.persistent = false;
@@ -183,4 +194,90 @@ test("an unknown code still resolves to no room (join semantics unchanged)", asy
   forceCodes("9090");
   await create();
   assert.equal(await ensureRoom("9191"), undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Releasing abandoned reservations (second-pass #5)
+// ---------------------------------------------------------------------------
+
+const later = () => Date.now() + ReservationReleaseGraceMs + 1_000;
+
+/** Create a room, watch it, then have its host leave (disposed here). */
+async function abandoned(code: string, host = "p_host"): Promise<Room> {
+  forceCodes(code);
+  const room = await create(host);
+  assert.equal(room.code, code);
+  watchReservation(room);
+  disposeIfEmpty(room);
+  assert.equal(getRoom(code), undefined);
+  return room;
+}
+
+test("an abandoned empty private lobby releases its code after the grace", async () => {
+  await abandoned("1212");
+  assert.equal(await sweepReservations(), 0, "inside the grace the host may still reload and rejoin");
+  assert.ok(await loadSnap("1212"));
+  assert.equal(await sweepReservations(later()), 1);
+  assert.equal(await loadSnap("1212"), null);
+  assert.equal(watchedReservations(), 0);
+  // The code is free again.
+  forceCodes("1212");
+  assert.equal((await create("p_next")).code, "1212");
+});
+
+test("a room still held on this instance is never released", async () => {
+  forceCodes("1313");
+  const room = await create();
+  watchReservation(room);
+  assert.equal(await sweepReservations(later()), 0);
+  assert.ok(await loadSnap("1313"));
+  assert.equal(watchedReservations(), 1, "still watched");
+});
+
+test("a room another instance seated someone in is not released", async () => {
+  await abandoned("1414");
+  const doc = db.collection("liveRooms").docs.find((d) => d.code === "1414")!;
+  doc.players = [{ id: "p_guest", clientId: "cid-g", displayName: "G", socketId: "s-g", connected: true }];
+  assert.equal(await releaseReservation("1414", "p_host", later()), "busy");
+  assert.equal(await sweepReservations(later()), 0);
+  assert.equal((await loadSnap("1414"))?.players.length, 1);
+  assert.equal(watchedReservations(), 1, "watched until it empties or expires");
+});
+
+test("a recent save anywhere (someone using it) keeps the reservation", async () => {
+  await abandoned("1515");
+  const doc = db.collection("liveRooms").docs.find((d) => d.code === "1515")!;
+  doc.updatedAt = new Date(later());
+  assert.equal(await sweepReservations(later()), 0);
+  assert.ok(await loadSnap("1515"));
+});
+
+test("a room that played a match, is mid-match, or has another host is left to the TTL", async () => {
+  await abandoned("1616");
+  db.collection("liveRooms").docs.find((d) => d.code === "1616")!.settledMatchId = 1;
+  assert.equal(await releaseReservation("1616", "p_host", later()), "gone");
+  assert.ok(await loadSnap("1616"));
+
+  await abandoned("1717");
+  db.collection("liveRooms").docs.find((d) => d.code === "1717")!.status = "turnA";
+  assert.equal(await releaseReservation("1717", "p_host", later()), "busy");
+  assert.ok(await loadSnap("1717"));
+
+  await abandoned("1818");
+  assert.equal(await releaseReservation("1818", "p_someone_else", later()), "gone");
+  assert.ok(await loadSnap("1818"));
+});
+
+test("without Mongo, watching and sweeping are harmless no-ops", async () => {
+  await setDbForTests(null);
+  const room = await create();
+  watchReservation(room);
+  disposeIfEmpty(room);
+  assert.equal(await sweepReservations(later()), 0);
+  assert.equal(watchedReservations(), 0);
+});
+
+test("public rooms (queue, demo) are never watched", async () => {
+  watchReservation(draftRoom("ranked", "1919"));
+  assert.equal(watchedReservations(), 0);
 });

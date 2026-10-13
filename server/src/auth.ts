@@ -130,9 +130,12 @@ const CACHE_MS = 5 * 60_000;
 const VERIFIED_MAX = 5000;
 
 /**
- * Tokens Supabase rejected (4xx), keyed by a hash of the token, so a client
- * that keeps sending the same garbage costs one Supabase call a minute, not
- * two per attempt. Network errors and 5xx are never cached: those are retried.
+ * Tokens Supabase definitively rejected (400/401/403), keyed by a hash of the
+ * token, so a client that keeps sending the same garbage costs one Supabase
+ * call a minute, not two per attempt. Network errors, timeouts, 5xx, 408 and
+ * 429 are never cached: those say nothing about the token, and GoTrue rate
+ * limits per IP (Vercel egress is shared), so caching a 429 would lock valid
+ * tokens out for a minute.
  */
 const rejected = new Map<string, number>();
 export const RejectedTokenCacheMs = 60_000;
@@ -194,47 +197,86 @@ function plausibleToken(token: string, now: number): boolean {
 export type VerifiedToken = { userId: string; expMs: number };
 
 /**
- * Supabase user id and token expiry for a valid access token, else null.
- * Tokens Supabase rejected are remembered for a minute (see `rejected`).
+ * What one verification established:
+ * - "ok": Supabase vouched for the token.
+ * - "rejected": Supabase definitively refused it: a 4xx other than 408/429
+ *   (or a 400/401/403 remembered from the last minute).
+ * - "unusable": it failed the local screen (not a JWT, or already expired),
+ *   so Supabase was not asked. Proves nothing about the account.
+ * - "unavailable": we could not find out (network error, timeout, 5xx, 408,
+ *   429, even after one retry). Says nothing about the token.
  */
-export async function verifyAccessTokenDetailed(token: unknown): Promise<VerifiedToken | null> {
+export type VerifyOutcome =
+  | { kind: "ok"; userId: string; expMs: number }
+  | { kind: "rejected" }
+  | { kind: "unusable" }
+  | { kind: "unavailable" };
+
+/** Statuses that mean "this token is bad", remembered for a minute. */
+const CACHED_REJECTIONS = new Set([400, 401, 403]);
+
+/** Statuses that mean "ask again later", like a 5xx. */
+function transientStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
+/** Pause before the one retry of a transient failure (plus up to 100ms jitter). */
+export const VerifyRetryBackoffMs = 250;
+
+/**
+ * Verify an access token, and say why when it does not verify. Tokens
+ * Supabase rejected (400/401/403) are remembered for a minute (see `rejected`).
+ */
+export async function verifyAccessTokenOutcome(token: unknown): Promise<VerifyOutcome> {
   const cfg = config();
-  if (!cfg || typeof token !== "string" || !token || token.length > 8192) return null;
+  if (!cfg || typeof token !== "string" || !token || token.length > 8192) return { kind: "unusable" };
 
   const now = Date.now();
   const hit = verified.get(token);
-  if (hit && hit.expiresAtMs > now) return { userId: hit.userId, expMs: hit.tokenExpMs };
+  if (hit && hit.expiresAtMs > now) return { kind: "ok", userId: hit.userId, expMs: hit.tokenExpMs };
   if (hit) verified.delete(token);
 
-  if (!plausibleToken(token, now)) return null;
+  if (!plausibleToken(token, now)) return { kind: "unusable" };
   const key = tokenKey(token);
-  if (recentlyRejected(key, now)) return null;
+  if (recentlyRejected(key, now)) return { kind: "rejected" };
 
-  // One retry on a network error or a 5xx: a cold start or a blip at Supabase
-  // must not leave a signed-in player stuck on "Sign in to play". A 4xx means
-  // the token itself is bad, so that is final (and cached for a minute).
+  // One retry, after a short pause, on a network error, timeout, 5xx, 408 or
+  // 429: a cold start, a blip or a rate-limit burst at Supabase must not leave
+  // a signed-in player stuck on "Sign in to play". Any other 4xx means the
+  // token itself is bad, so that is final (400/401/403 cached for a minute).
   for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, VerifyRetryBackoffMs + Math.random() * 100));
+    }
     try {
       const res = await fetch(`${cfg.url}/auth/v1/user`, {
         headers: { apikey: cfg.key, Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(6000),
       });
-      if (res.status >= 500) continue;
-      if (!res.ok) {
-        if (res.status >= 400) rememberRejected(key, Date.now());
-        return null;
+      if (transientStatus(res.status)) continue;
+      if (res.status >= 400) {
+        if (CACHED_REJECTIONS.has(res.status)) rememberRejected(key, Date.now());
+        return { kind: "rejected" };
       }
+      if (!res.ok) continue;
       const user = (await res.json()) as { id?: unknown };
-      if (typeof user.id !== "string" || !user.id) return null;
+      // A 200 without a user is Supabase misbehaving, not a verdict on the token.
+      if (typeof user.id !== "string" || !user.id) continue;
       const exp = jwtExpMs(token);
       if (verified.size > VERIFIED_MAX) verified.clear();
       verified.set(token, { userId: user.id, expiresAtMs: Math.min(exp, now + CACHE_MS), tokenExpMs: exp });
-      return { userId: user.id, expMs: exp };
+      return { kind: "ok", userId: user.id, expMs: exp };
     } catch {
       // network error or timeout: retry once
     }
   }
-  return null;
+  return { kind: "unavailable" };
+}
+
+/** Supabase user id and token expiry for a valid access token, else null. */
+export async function verifyAccessTokenDetailed(token: unknown): Promise<VerifiedToken | null> {
+  const out = await verifyAccessTokenOutcome(token);
+  return out.kind === "ok" ? { userId: out.userId, expMs: out.expMs } : null;
 }
 
 /** Supabase user id for a valid access token, else null. */
@@ -246,19 +288,48 @@ export async function verifyAccessToken(token: unknown): Promise<string | null> 
 export const SocketAuthGraceMs = 30_000;
 
 /**
- * Has this socket's verified token run out (plus grace)? Sockets in the dev
- * opt-out, or never verified, carry no expiry and are never "expired".
+ * Supabase unreachable (or rate limiting us) while a socket re-verifies: its
+ * previous verification stays good for at most this long past its `exp`, and
+ * only while the client keeps sending a fresh-looking token we cannot check.
  */
-export function socketAuthExpired(socket: Pick<Socket, "data">, now = Date.now()): boolean {
+export const SocketAuthOutageGraceMs = 10 * 60_000;
+/** Each check that could not be made extends that grace by at most this much. */
+export const SocketAuthOutageStepMs = 60_000;
+
+/**
+ * Switch tokens before expiry: a hello carrying a different token from the
+ * verified one, within this long of the verified one's `exp`, is checked then.
+ */
+export const ProactiveReverifyMs = 2 * 60_000;
+
+type SocketData = Pick<Socket, "data">;
+
+/**
+ * Has this socket's verified token run out (plus grace, plus any outage
+ * grace)? Sockets in the dev opt-out, or never verified, carry no expiry and
+ * are never "expired".
+ */
+export function socketAuthExpired(socket: SocketData, now = Date.now()): boolean {
   const exp: unknown = socket.data?.authExpMs;
   if (!socket.data?.authUserId || typeof exp !== "number" || exp <= 0) return false;
-  return now > exp + SocketAuthGraceMs;
+  if (now <= exp + SocketAuthGraceMs) return false;
+  const outage: unknown = socket.data?.authOutageUntilMs;
+  return !(typeof outage === "number" && now <= outage);
 }
 
 /** Forget a socket's verified identity: it gets AUTH_REQUIRED until it re-verifies. */
-export function clearSocketAuth(socket: Pick<Socket, "data">): void {
+export function clearSocketAuth(socket: SocketData): void {
   socket.data.authUserId = null;
   socket.data.authExpMs = 0;
+  socket.data.authTokenKey = null;
+  socket.data.authOutageUntilMs = 0;
+}
+
+function setSocketAuth(socket: SocketData, token: string, ok: VerifiedToken): void {
+  socket.data.authUserId = ok.userId;
+  socket.data.authExpMs = ok.expMs;
+  socket.data.authTokenKey = tokenKey(token);
+  socket.data.authOutageUntilMs = 0;
 }
 
 /**
@@ -266,13 +337,103 @@ export function clearSocketAuth(socket: Pick<Socket, "data">): void {
  * can be missing (the page raced its session restore) or expired (a long-lived
  * tab); this lets the client heal the socket without reconnecting.
  */
-export async function refreshSocketAuth(socket: Pick<Socket, "data">, token: unknown): Promise<void> {
+export async function refreshSocketAuth(socket: SocketData, token: unknown): Promise<void> {
   if (authMode() !== "verify" || typeof token !== "string" || !token) return;
   const ok = await verifyAccessTokenDetailed(token);
-  if (ok) {
-    socket.data.authUserId = ok.userId;
-    socket.data.authExpMs = ok.expMs;
+  if (ok) setSocketAuth(socket, token, ok);
+}
+
+/**
+ * Should this hello's token be checked? When the socket is not verified, when
+ * its verification has run out, or (ahead of expiry) when the hello carries a
+ * different token and the verified one expires within ProactiveReverifyMs.
+ */
+export function helloNeedsVerify(socket: SocketData, token: unknown, now = Date.now()): boolean {
+  if (!socket.data?.authUserId) return true;
+  const exp: unknown = socket.data.authExpMs;
+  if (typeof exp !== "number" || exp <= 0) return false;
+  if (now > exp + SocketAuthGraceMs) return true;
+  if (typeof token !== "string" || !token || exp - now > ProactiveReverifyMs) return false;
+  return tokenKey(token) !== socket.data.authTokenKey;
+}
+
+/**
+ * What a hello did to the socket's sign-in:
+ * - "unchanged": nothing needed checking (already verified, dev opt-out, no
+ *   token), the token was unusable (malformed or already expired), or Supabase
+ *   refused a different token while the held one is still valid.
+ * - "verified": the hello's token verified; the socket now holds it.
+ * - "kept": the check could not be made (Supabase down, rate limiting us,
+ *   timed out, or this socket's verification budget is spent). The previous
+ *   verification stays good for a bounded outage grace.
+ * - "rejected": Supabase definitively refused the token (400/401/403/other
+ *   4xx) and the socket is signed out.
+ * - "lapsed": the socket's verification ran out and nothing renewed it.
+ */
+export type HelloAuth = "unchanged" | "verified" | "kept" | "rejected" | "lapsed";
+
+/**
+ * The player:hello sign-in step. `mayVerify` is the socket's budget of
+ * Supabase calls; a refusal counts as "could not check", never as a rejection.
+ *
+ * A token Supabase refuses never authorises. If it is the token this socket
+ * holds, or the held one is past `exp` (plus SocketAuthGraceMs), the socket
+ * is signed out at once, outage grace or not. A different refused token sent
+ * while the held one is still valid changes nothing: the held one runs out on
+ * its own `exp`, as it always did.
+ *
+ * Returns synchronously (a plain value, not a promise) whenever Supabase is
+ * not asked, so the usual heartbeat hello seats its session before any
+ * following event in the same packet runs. Only an actual check is awaited.
+ */
+export function helloAuth(
+  socket: SocketData,
+  token: unknown,
+  mayVerify: () => boolean,
+): HelloAuth | Promise<HelloAuth> {
+  if (authMode() !== "verify") return "unchanged";
+  if (typeof token !== "string" || !token || !helloNeedsVerify(socket, token)) {
+    return settleHello(socket, token, null);
   }
+  // The very token that ran out (the client could not refresh it): nothing
+  // to ask Supabase. It cannot renew anything.
+  const held = Boolean(socket.data.authUserId) && socket.data.authTokenKey === tokenKey(token);
+  if (held) return settleHello(socket, token, { kind: "unusable" });
+  if (!mayVerify()) return settleHello(socket, token, { kind: "unavailable" });
+  return verifyAccessTokenOutcome(token).then((out) => settleHello(socket, token, out));
+}
+
+/** Apply one verification outcome (null: none was needed) to the socket. */
+function settleHello(socket: SocketData, token: unknown, out: VerifyOutcome | null): HelloAuth {
+  const now = Date.now();
+  const exp = Number(socket.data.authExpMs) || 0;
+  let result: HelloAuth = "unchanged";
+  if (out?.kind === "ok" && typeof token === "string") {
+    setSocketAuth(socket, token, out);
+    return "verified";
+  }
+  if (out?.kind === "rejected") {
+    if (!socket.data.authUserId || now > exp + SocketAuthGraceMs) {
+      clearSocketAuth(socket);
+      return "rejected";
+    }
+    return "unchanged";
+  }
+  // Could not check. Keep the previous verification, for a bounded grace.
+  if (out?.kind === "unavailable" && socket.data.authUserId && exp > 0 && now <= exp + SocketAuthOutageGraceMs) {
+    if (now > exp + SocketAuthGraceMs) {
+      const prev = Number(socket.data.authOutageUntilMs) || 0;
+      const until = Math.min(exp + SocketAuthOutageGraceMs, now + SocketAuthOutageStepMs);
+      socket.data.authOutageUntilMs = Math.max(prev, until);
+    }
+    result = "kept";
+  }
+  // Still expired: this socket is signed out until a fresh token verifies.
+  if (socketAuthExpired(socket, now)) {
+    clearSocketAuth(socket);
+    return "lapsed";
+  }
+  return result;
 }
 
 function bearer(req: Request): string | null {
@@ -331,13 +492,10 @@ export function attachSocketAuth(io: Server): void {
     const token = (socket.handshake.auth as { token?: unknown } | undefined)?.token;
     void verifyAccessTokenDetailed(token)
       .then((ok) => {
-        socket.data.authUserId = ok?.userId ?? null;
-        socket.data.authExpMs = ok?.expMs ?? 0;
+        if (ok && typeof token === "string") setSocketAuth(socket, token, ok);
+        else clearSocketAuth(socket);
       })
-      .catch(() => {
-        socket.data.authUserId = null;
-        socket.data.authExpMs = 0;
-      })
+      .catch(() => clearSocketAuth(socket))
       .finally(() => next());
   });
 }

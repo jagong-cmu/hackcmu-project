@@ -50,6 +50,7 @@ function matches(doc: Doc, filter: Doc): boolean {
       if (op === "$nin" && (arg as unknown[]).some((x) => same(value, x))) return false;
       if (op === "$type" && arg === "number" && typeof value !== "number") return false;
       if (op === "$gt" && !((value as any) > (arg as any))) return false;
+      if (op === "$lt" && !((value as any) < (arg as any))) return false;
     }
   }
   return true;
