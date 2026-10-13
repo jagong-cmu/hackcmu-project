@@ -4,6 +4,8 @@ import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
 import { identifyPlayer } from "../analytics/posthog.ts";
+import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
+import { AccountSection } from "../auth/AccountSection.tsx";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export function Settings() {
           Save name
         </button>
       </form>
+      <AccountSection />
       <p className="dim">
         {mongo == null
           ? "Checking connection…"
@@ -58,6 +61,7 @@ export function Settings() {
             ? "Ready."
             : "Can't reach the server right now."}
       </p>
+      <DeviceCheckLink next="/settings" />
     </PageShell>
   );
 }

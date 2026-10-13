@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bloom } from "../theme/Bloom.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
@@ -6,6 +6,7 @@ import { ModeButton } from "./ModeButton.tsx";
 import { commitDisplayName, getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { capture, identifyPlayer } from "../analytics/posthog.ts";
+import { useAuth } from "../auth/AuthProvider.tsx";
 
 
 export function Home() {
@@ -14,6 +15,13 @@ export function Home() {
   const [name, setName] = useState(getDisplayName());
   const [msg, setMsg] = useState("");
   const named = validName(name);
+  const { configured, user } = useAuth();
+  // With accounts on, the name comes from Google once you sign in.
+  const signedOut = configured && !user;
+
+  useEffect(() => {
+    if (user) setName(getDisplayName());
+  }, [user]);
 
   async function saveName(): Promise<string | null> {
     if (!validName(name)) {
@@ -28,6 +36,11 @@ export function Home() {
 
   async function play(e?: FormEvent) {
     e?.preventDefault();
+    if (signedOut) {
+      capture("play pressed", { signedIn: false });
+      navigate("/signin?next=%2Fplay");
+      return;
+    }
     if (!(await saveName())) return;
     capture("play pressed", {});
     navigate("/play");
@@ -54,7 +67,7 @@ export function Home() {
         <p className="home-pitch">1v1 karaoke. Same chorus. They watch you.</p>
 
         <form className="home-go" onSubmit={(e) => void play(e)}>
-          <label className="home-name">
+          {signedOut ? null : <label className="home-name">
             <span>Your name</span>
             <input
               value={name}
@@ -68,11 +81,15 @@ export function Home() {
                 if (msg) setMsg("");
               }}
             />
-          </label>
+          </label>}
           {msg ? <p className="err home-name-err">{msg}</p> : null}
 
           <div className="modes home-play">
-            <ModeButton label="Play" hint="pick a mode" onSelect={() => void play()} />
+            <ModeButton
+              label="Play"
+              hint={signedOut ? "sign in with Google" : "pick a mode"}
+              onSelect={() => void play()}
+            />
           </div>
         </form>
 

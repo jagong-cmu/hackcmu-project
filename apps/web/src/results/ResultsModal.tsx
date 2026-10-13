@@ -11,6 +11,7 @@ import { ScoreBurst } from "./ScoreBurst.tsx";
 import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
 import { useMatchMoment, useMatchReel, useMatchReelPending } from "./useMatchMoment.ts";
+import type { RematchView } from "../stage/rematchView.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
 
@@ -90,7 +91,15 @@ type Props = {
   songTitle?: string;
   songArtist?: string;
   onHome?: () => void;
+  /** Propose a rematch, or accept the opponent's open offer. */
   onRematch?: () => void;
+  /**
+   * Server-driven rematch handshake. When set, the Rematch button follows it
+   * (propose → waiting/cancel, or accept/decline). Omit for a plain button.
+   */
+  rematch?: RematchView | null;
+  /** Withdraw my offer or decline theirs. */
+  onRematchCancel?: () => void;
   onAgain?: () => void;
 };
 
@@ -109,6 +118,8 @@ export function ResultsModal({
   songArtist,
   onHome,
   onRematch,
+  rematch,
+  onRematchCancel,
   onAgain,
 }: Props) {
   const moment = useMatchMoment();
@@ -264,6 +275,23 @@ export function ResultsModal({
             <span className="moment-label">{reel ? "Match video" : reelPending ? "Finishing video…" : "Share"}</span>
           </button>
         ) : null}
+        {rematch && rematch.kind !== "idle" ? (
+          <p
+            className={`rematch-status rematch-${rematch.kind}`}
+            role="status"
+            aria-live="polite"
+          >
+            {rematch.kind === "waiting"
+              ? `Waiting for ${rematch.opponentName}… ${rematch.secondsLeft}s`
+              : rematch.kind === "invited"
+                ? `${rematch.opponentName} wants a rematch`
+                : rematch.notice}
+          </p>
+        ) : rematch?.notice ? (
+          <p className="rematch-status rematch-lapsed" role="status" aria-live="polite">
+            {rematch.notice}
+          </p>
+        ) : null}
         <div className="result-actions">
           <button type="button" className="cta cta-ghost" disabled={sharing} onClick={() => void openShare()}>
             {sharing ? (reelPending ? "Finishing video…" : "Making the clip…") : "Share"}
@@ -273,7 +301,22 @@ export function ResultsModal({
               Sing again
             </button>
           ) : null}
-          {onRematch ? (
+          {onRematch && rematch?.kind === "invited" ? (
+            <button type="button" className="cta" onClick={onRematch}>
+              Accept ({rematch.secondsLeft}s)
+            </button>
+          ) : null}
+          {onRematchCancel && rematch?.kind === "invited" ? (
+            <button type="button" className="cta cta-ghost" onClick={onRematchCancel}>
+              Decline
+            </button>
+          ) : null}
+          {onRematchCancel && rematch?.kind === "waiting" ? (
+            <button type="button" className="cta cta-ghost" onClick={onRematchCancel}>
+              Cancel
+            </button>
+          ) : null}
+          {onRematch && (!rematch || rematch.kind === "idle") ? (
             <button type="button" className="cta" onClick={onRematch}>
               Rematch
             </button>

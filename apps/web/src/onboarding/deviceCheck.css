@@ -1,0 +1,153 @@
+/* Mic + camera check. Built from the same glass cards and blue ramp as theme.css. */
+
+.dc-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 20px;
+  width: 100%;
+  margin-top: 28px;
+  text-align: left;
+}
+
+.dc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 22px 20px;
+  min-width: 0;
+}
+.dc-panel h2 {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  margin: 0;
+}
+
+.dc-video {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(4, 6, 12, 0.7);
+  border: 1px solid var(--edge-soft);
+}
+.dc-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Mirror, like every video-call self view. */
+  transform: scaleX(-1);
+}
+.dc-video.is-off video { visibility: hidden; }
+.dc-video-off {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--fg-faint);
+  font-size: 0.95rem;
+}
+
+.dc-mic-state {
+  margin: 0;
+  color: var(--fg-dim);
+  min-height: 1.45em;
+}
+.dc-mic-state.is-good { color: var(--score-good); font-weight: 600; }
+.dc-mic-state.is-bad { color: var(--danger); }
+
+.dc-meter {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 4px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--meter-bg);
+  border: 1px solid var(--edge-soft);
+}
+.dc-meter span {
+  border-radius: 3px;
+  background: rgba(150, 190, 255, 0.1);
+  transition: background 60ms linear, box-shadow 60ms linear;
+}
+.dc-meter span.on {
+  background: var(--blue-300);
+  box-shadow: 0 0 10px rgba(121, 180, 255, 0.55);
+}
+.dc-meter span.on:nth-child(n + 17) { background: var(--blue-100); }
+.dc-meter span.on:nth-child(n + 22) { background: var(--blue-050); }
+
+.dc-notice {
+  border: 1px solid rgba(255, 138, 138, 0.35);
+  background: rgba(255, 138, 138, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+}
+.dc-notice.is-soft {
+  border-color: rgba(240, 198, 116, 0.35);
+  background: rgba(240, 198, 116, 0.06);
+}
+.dc-notice p { margin: 0; color: var(--fg-dim); }
+.dc-notice .dc-notice-head { color: var(--danger); font-weight: 600; margin-bottom: 4px; }
+.dc-notice.is-soft .dc-notice-head { color: var(--warning); }
+
+.dc-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--fg-dim);
+  font-size: 0.85rem;
+}
+.dc-pick select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: rgba(9, 14, 24, 0.7);
+  color: var(--fg);
+}
+
+.dc-tip {
+  margin-top: auto;
+  border-top: 1px solid var(--edge-soft);
+  padding-top: 14px;
+  font-size: 0.9rem;
+}
+.dc-tip p { margin: 0; color: var(--fg-dim); }
+.dc-tip .dc-tip-head { color: var(--blue-200); font-weight: 600; margin-bottom: 4px; }
+
+.dc-actions { flex-direction: row; }
+.dc-skip {
+  background: none;
+  border: 0;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 8px;
+}
+.dc-skip:hover,
+.dc-skip:focus-visible { color: var(--fg); outline: none; }
+
+.device-check-link {
+  margin: 14px auto 0;
+  color: var(--fg-dim);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .dc-grid { grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
+  .dc-panel { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-meter span { transition: none; }
+}

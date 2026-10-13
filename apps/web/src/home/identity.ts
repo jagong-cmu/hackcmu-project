@@ -1,3 +1,5 @@
+import { authHeaders, getSupabase } from "../auth/supabase.ts";
+
 const NAME = "karaoke.displayName";
 const ID = "karaoke.clientId";
 const COLOR = "karaoke.avatarColor";
@@ -39,10 +41,20 @@ export function validName(name: string): boolean {
 /** Persist the name locally and tell Atlas. Socket hello is the caller's job. */
 export async function commitDisplayName(name: string): Promise<string> {
   const saved = setDisplayName(name);
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      const { data } = await sb.auth.getSession();
+      // Keep the chosen name on the account so it follows you to other devices.
+      if (data.session) await sb.auth.updateUser({ data: { display_name: saved } });
+    } catch {
+      /* still continue */
+    }
+  }
   try {
     await fetch("/api/player/hello", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ clientId: getClientId(), displayName: saved }),
     });
   } catch {

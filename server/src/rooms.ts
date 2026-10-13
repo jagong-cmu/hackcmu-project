@@ -15,6 +15,8 @@ import {
   StartingElo,
   type Mode,
   type PlayerPublic,
+  type RematchLapse,
+  type RematchOffer,
   type RoomState,
   type RoomStatus,
   type ScoreCard,
@@ -60,8 +62,10 @@ export type Room = {
   /** True once match:over has been emitted, so late POSTs cannot double-settle. */
   settled: boolean;
 
-  /** Wall clock leftover from an older auto-rematch; results now stay until someone taps Rematch. */
-  rematchAtMs: number | null;
+  /** Open rematch offer on the results screen (see rematch.ts). Both seats must confirm. */
+  rematch: RematchOffer | null;
+  /** Why the last rematch offer closed without a match. Kept for client messaging. */
+  rematchLapse: RematchLapse | null;
 };
 
 const rooms = new Map<string, Room>();
@@ -89,7 +93,8 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     lastEloDelta: 0,
     lastWinnerId: null,
     settled: false,
-    rematchAtMs: null,
+    rematch: null,
+    rematchLapse: null,
   };
 }
 
@@ -247,7 +252,8 @@ export function resetToLobby(room: Room): void {
   room.lastEloDelta = 0;
   room.lastWinnerId = null;
   room.settled = false;
-  room.rematchAtMs = null;
+  room.rematch = null;
+  room.rematchLapse = null;
   for (const player of room.players) player.ready = false;
 }
 
@@ -278,5 +284,7 @@ export function toPublic(room: Room): RoomState {
     activeSingerId: room.activeSingerId,
     playAtUnixMs: room.playAtUnixMs,
     playheadSec: playheadSec(room),
+    rematch: room.rematch,
+    rematchLapse: room.rematchLapse,
   };
 }

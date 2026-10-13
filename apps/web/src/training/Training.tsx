@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { CountdownMs, type MelodyFile, type ScoreCard, type SongMeta } from "@karaoke/shared";
 import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
+import { authHeaders } from "../auth/supabase.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { HitCallout } from "../scoring/HitCallout.tsx";
@@ -385,7 +386,7 @@ export function Training() {
     try {
       const res = await fetch("/api/training/score", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
           clientId: getClientId(),
           displayName: getDisplayName() || "Singer",

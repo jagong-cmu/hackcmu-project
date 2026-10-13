@@ -81,6 +81,10 @@ type RoomContextValue = {
   roomLeave: () => void;
   chaosJoin: (code?: string) => void;
   ready: () => void;
+  /** Results: propose a rematch or accept the opponent's offer. Keeps results on screen. */
+  rematchRequest: () => void;
+  /** Results: withdraw your offer or decline theirs. */
+  rematchCancel: () => void;
   emitPitchLive: (sample: PitchLiveSample) => void;
 };
 
@@ -444,6 +448,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     socket.emit(ClientEvents.roomReady);
   }, []);
 
+  const rematchRequest = useCallback(() => {
+    socket.emit(ClientEvents.rematchRequest);
+  }, []);
+
+  const rematchCancel = useCallback(() => {
+    socket.emit(ClientEvents.rematchCancel);
+  }, []);
+
   const emitPitchLive = useCallback((sample: PitchLiveSample) => {
     socket.emit(ClientEvents.pitchLive, sample);
   }, []);
@@ -502,12 +514,14 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       roomLeave,
       chaosJoin,
       ready,
+      rematchRequest,
+      rematchCancel,
       emitPitchLive,
     }),
     [
       connected, me, room, clockPlay, livePitch, livePitches, scores, matchOver, error, queuedMode,
       hello, queueJoin, queueLeave, roomCreate, roomJoin, roomLeave, chaosJoin, ready,
-      emitPitchLive,
+      rematchRequest, rematchCancel, emitPitchLive,
     ],
   );
 
