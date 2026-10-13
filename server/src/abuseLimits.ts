@@ -164,3 +164,89 @@ export function canReadRoom(
 }
 
 export const RoomSnapshotNotFound = { code: "ROOM_NOT_FOUND", message: "no such room" } as const;
+
+// ---------------------------------------------------------------------------
+// Gemini verdicts and training analytics (audit #9).
+//
+// Every non-silent score could cost one Gemini call (the free AI Studio quota
+// is shared by everyone) and every training post one PostHog event. Turn
+// scores are already one per seat per match (scoreRoute.ts); training posts
+// had no limit at all. Over the limit the caller still gets its DSP score,
+// just with the no-Gemini verdict (empty; the client shows its coach line).
+// Per instance, like every limiter here.
+// ---------------------------------------------------------------------------
+
+/** At most one Gemini verdict per user per this many ms... */
+export const VerdictMinGapMs = 15_000;
+/** ...and this many per user per hour. */
+export const VerdictHourlyLimit = 30;
+/** Gemini calls in flight on one instance. Beyond this, the verdict is skipped. */
+export const VerdictMaxInFlight = 4;
+/** Training "completed" analytics (PostHog event + stats bump) per user per hour. */
+export const TrainingEventHourlyLimit = 30;
+export const TrainingEventMinGapMs = 15_000;
+
+const HourMs = 60 * 60_000;
+
+/**
+ * Per-key budget: at most `perHour` hits per rolling hour and at least
+ * `minGapMs` between hits. Bounded to `maxKeys` keys, least recently used
+ * dropped first.
+ */
+export class KeyedBudget {
+  private byKey = new Map<string, number[]>();
+
+  constructor(
+    readonly minGapMs: number,
+    readonly perHour: number,
+    readonly maxKeys = 10_000,
+  ) {}
+
+  /** Spend one hit for `key` if the budget allows it. */
+  take(key: string, now = Date.now()): boolean {
+    const hits = (this.byKey.get(key) ?? []).filter((t) => now - t < HourMs && t <= now);
+    const last = hits[hits.length - 1];
+    const ok = hits.length < this.perHour && (last === undefined || now - last >= this.minGapMs);
+    if (ok) hits.push(now);
+    this.byKey.delete(key);
+    if (hits.length) this.byKey.set(key, hits);
+    while (this.byKey.size > this.maxKeys) {
+      const oldest = this.byKey.keys().next().value;
+      if (oldest === undefined) break;
+      this.byKey.delete(oldest);
+    }
+    return ok;
+  }
+
+  get size(): number {
+    return this.byKey.size;
+  }
+
+  reset(): void {
+    this.byKey.clear();
+  }
+}
+
+/** Counts in-flight work; `tryEnter` refuses past `max` instead of queueing. */
+export class ConcurrencyCap {
+  private active = 0;
+  constructor(readonly max: number) {}
+
+  tryEnter(): boolean {
+    if (this.active >= this.max) return false;
+    this.active++;
+    return true;
+  }
+
+  leave(): void {
+    if (this.active > 0) this.active--;
+  }
+
+  get inFlight(): number {
+    return this.active;
+  }
+}
+
+export const verdictBudget = new KeyedBudget(VerdictMinGapMs, VerdictHourlyLimit);
+export const verdictConcurrency = new ConcurrencyCap(VerdictMaxInFlight);
+export const trainingEventBudget = new KeyedBudget(TrainingEventMinGapMs, TrainingEventHourlyLimit);

@@ -32,7 +32,9 @@ import {
   dropDeadPlayers,
   ensurePermanentRooms,
   createRoom,
+  draftRoom,
   getRoom,
+  registerRoom,
   isFull,
   livePlayers,
   removePlayer,
@@ -61,9 +63,11 @@ import {
 } from "./clock.ts";
 import { dequeue, enqueue, isQueueMode, park, queueLength, type Waiting } from "./matchmaking.ts";
 import {
+  createSharedRoom,
   ensureRoom,
   findOpenPair,
   forgetWaiter,
+  reserveExactCode,
   seatPairOnThisIsolate,
   sharedPairOrWait,
 } from "./liveState.ts";
@@ -676,7 +680,7 @@ io.on("connection", (socket) => {
     }
   }));
 
-  socket.on(ClientEvents.roomCreate, safeHandler(socket, ClientEvents.roomCreate, (payload: unknown) => {
+  socket.on(ClientEvents.roomCreate, safeHandler(socket, ClientEvents.roomCreate, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
     if (authLapsed()) return;
@@ -689,9 +693,17 @@ io.on("connection", (socket) => {
       return fail(socket, "BAD_MODE", "ranked, duet, or chaos");
     }
 
-    const room = createRoom(mode);
-    // Host + private + unrated (friendly), all in the room snapshot.
-    markPrivateRoom(room, session.playerId);
+    // The code is reserved in liveRooms first (with Mongo), so no other
+    // instance can hold it. Host + private + unrated (friendly) are set on
+    // the draft, so they are in the very first snapshot.
+    const room = await createSharedRoom(mode, (draft) => markPrivateRoom(draft, session.playerId));
+    if (!sessionOf(socket.id)) {
+      disposeIfEmpty(room);
+      return;
+    }
+    // Another event may have seated or queued this socket during the reservation.
+    leaveCurrentRoom(socket.id);
+    dequeue(socket.id);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId }).catch(
       logOnce("trackRoomCreated"),
@@ -775,8 +787,21 @@ io.on("connection", (socket) => {
         if (isGuardedRoomCode(raw) && session.roomCode !== raw) {
           sharedJoinLimiter.fail(joinKey(), raw);
         }
-        room = createRoom("chaos", raw, false);
-        if (!isPublicChaosCode(raw)) markPrivateRoom(room, session.playerId);
+        if (isPublicChaosCode(raw)) {
+          room = createRoom("chaos", raw, false);
+        } else {
+          // Claim the code in liveRooms first: if another instance opened it
+          // in the meantime, join that room instead of shadowing it.
+          const draft = draftRoom("chaos", raw);
+          markPrivateRoom(draft, session.playerId);
+          if (await reserveExactCode(draft)) {
+            room = getRoom(raw) ?? registerRoom(draft);
+          } else {
+            room = (await ensureRoom(raw)) ?? getRoom(raw);
+            if (!room) return missedCode(raw);
+            if (room.mode !== "chaos") return missedCode(raw);
+          }
+        }
       }
     }
 
