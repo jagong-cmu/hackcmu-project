@@ -85,3 +85,61 @@ export type RematchLapse = {
   byPlayerId: string | null;
   atUnixMs: number;
 };
+
+/** Keep in sync with ReportReasons in protocol.ts. */
+export type ReportReason =
+  | "harassment"
+  | "sexual"
+  | "hate"
+  | "violence"
+  | "underage"
+  | "spam"
+  | "other";
+
+export type SafetyReportRequest = {
+  targetId: string;
+  reason: ReportReason;
+  note?: string;
+  /** Also block them in the same tap. */
+  block?: boolean;
+};
+
+export type SafetyState = {
+  code: string;
+  /** Created with a code (room:create, or a 4-digit Chaos code). The host can kick. */
+  isPrivate: boolean;
+  hostId: string | null;
+  /** Open Chaos vote-kicks: target player id -> votes so far and votes needed. */
+  votes: Record<string, { count: number; needed: number }>;
+  /** Personal reply only: player ids the viewer has blocked. */
+  blocked?: string[];
+  /** Personal reply only: targets the viewer has already voted to remove. */
+  myVotes?: string[];
+};
+
+export type SafetyAction = "report" | "block" | "kick" | "leave" | "sync";
+
+export type SafetyAck = {
+  action: SafetyAction;
+  ok: boolean;
+  message: string;
+  targetId?: string;
+  /** Ranked/Duet: you may now leave with no rating change. */
+  canLeave?: boolean;
+  /** Kick: true once the target is actually out (host kick, or the vote passed). */
+  removed?: boolean;
+  /** Chaos vote-kick: the tally after your vote. */
+  votes?: { count: number; needed: number };
+};
+
+export type SafetyRemoved = {
+  code: string;
+  reason: "host" | "vote";
+  message: string;
+};
+
+export type SafetyNotice = {
+  code: string;
+  kind: "opponent-left" | "removed-someone";
+  message: string;
+};

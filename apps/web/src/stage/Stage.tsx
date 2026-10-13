@@ -4,10 +4,19 @@
  * One viewport: two large face cams on top, lyrics and pitch underneath.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { chaosLoungeName, DemoRoomCode, isPublicChaosCode, songById } from "@karaoke/shared";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  chaosLoungeName,
+  DemoRoomCode,
+  isPublicChaosCode,
+  songById,
+  votesToRemove,
+} from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
+import { useSafety } from "../rooms/useSafety.ts";
 import { useLiveKit } from "../media/useLiveKit.ts";
+import { useBlockedMedia } from "../media/useBlockedMedia.ts";
+import SafetyMenu, { SafetySheet, type RemoveRule } from "./SafetyMenu.tsx";
 import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
 import { StageContext, type DuetVoiceCue, type StageContextValue } from "./StageContext.tsx";
 import { Slot, useStageSlots } from "./slots.tsx";
@@ -29,6 +38,16 @@ export default function Stage() {
     setDuetVoice((prev) => (prev === voice ? prev : voice));
   }, []);
 
+  const navigate = useNavigate();
+  const safety = useSafety(room?.code === code ? code : null, code);
+  const removed = safety.removed;
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
   // LiveKit identity is our public player id, and the server only mints a
   // token once we hold a seat here. Latch it per room so a stray room:state
   // without our seat does not tear the call down.
@@ -41,10 +60,15 @@ export default function Stage() {
     setMediaSeat((prev) => (prev?.code === code && prev.id === me.id ? prev : { code, id: me.id }));
   }, [seatedHere, me?.id, code]);
   const identity = mediaSeat && mediaSeat.code === code && mediaSeat.id === me?.id ? mediaSeat.id : null;
-  const livekit = useLiveKit(code, identity, me?.displayName ?? "Singer");
+  // Removed: drop the camera connection and never ask for another token.
+  const livekit = useLiveKit(removed ? null : code, identity, me?.displayName ?? "Singer");
+
+  // Blocked people vanish and go silent here at once (server keeps the block).
+  // LiveKit identities are public player ids, so the blocked set maps directly.
+  useBlockedMedia(livekit.room, safety.blocked);
 
   useEffect(() => {
-    if (!connected || !me) return;
+    if (!connected || !me || removed) return;
     if (room?.code === code) return;
     const join = () => {
       if (isPublicChaosCode(code)) chaosJoin(code);
@@ -53,7 +77,7 @@ export default function Stage() {
     join();
     const id = window.setInterval(join, 800);
     return () => window.clearInterval(id);
-  }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin]);
+  }, [connected, me?.id, room?.code, code, roomJoin, chaosJoin, removed]);
 
   useEffect(() => {
     if (livekit.status !== "connected") return;
@@ -82,8 +106,48 @@ export default function Stage() {
   const song = room?.songId ? songById(room.songId) : undefined;
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
 
-  const them = livekit.participants.find((p) => p.identity !== identity);
+  const visible = livekit.participants.filter((p) => !blockedIdentities.has(p.identity));
+  const them = visible.find((p) => p.identity !== identity);
   const you = livekit.participants.find((p) => p.identity === identity);
+  const opponent = !isChaos ? room?.players.find((p) => p.id !== me?.id) : undefined;
+  const opponentBlocked = Boolean(opponent && safety.blocked.has(opponent.id));
+
+  const leaveSafely = useCallback(async () => {
+    const ack = await safety.leave();
+    if (ack.ok) navigate("/");
+    else setToast(ack.message);
+  }, [safety.leave, navigate]);
+
+  /** The "…" for one remote person, with what the server will let me do to them. */
+  const safetyMenuFor = (player: { id: string; displayName: string } | undefined) => {
+    if (!player || !me || player.id === me.id || !room) return null;
+    const amHost = Boolean(safety.state?.isPrivate && safety.state.hostId === me.id);
+    let rule: RemoveRule = { kind: "none" };
+    if (amHost) rule = { kind: "host" };
+    else if (isChaos) {
+      const others = Math.max(0, room.players.length - 1);
+      const tally = safety.state?.votes[player.id];
+      const needed = tally?.needed ?? votesToRemove(others);
+      rule = {
+        kind: "vote",
+        count: tally?.count ?? 0,
+        needed,
+        voted: safety.myVotes.has(player.id),
+        possible: needed <= others,
+      };
+    }
+    return (
+      <SafetyMenu
+        key={player.id}
+        target={{ id: player.id, name: player.displayName }}
+        rule={rule}
+        oneOnOne={!isChaos}
+        safety={safety}
+        onLeft={() => navigate("/")}
+        onToast={isChaos ? setToast : undefined}
+      />
+    );
+  };
 
   const stageValue = useMemo<StageContextValue>(
     () => ({
@@ -217,15 +281,41 @@ export default function Stage() {
               </button>
             </p>
           )}
+          {toast && <p className="warn safety-toast" role="status">{toast}</p>}
+          {safety.notice && (
+            <p className="warn" role="status">
+              {safety.notice.message}{" "}
+              {safety.notice.kind === "opponent-left" ? (
+                <Link className="link" to="/">
+                  back to home
+                </Link>
+              ) : (
+                <button type="button" className="link" onClick={safety.dismissNotice}>
+                  ok
+                </button>
+              )}
+            </p>
+          )}
+          {opponentBlocked && !showResults && (
+            <p className="warn">
+              You blocked {opponent?.displayName ?? "your opponent"}.{" "}
+              <button type="button" className="link" onClick={() => void leaveSafely()}>
+                leave the match · no rating change
+              </button>
+            </p>
+          )}
         </div>
 
         {isChaos ? (
           <div className="stage-chaos">
             <VideoGrid
-              participants={livekit.participants}
+              participants={visible}
               activeIdentity={activeIdentity}
               localIdentity={identity}
               compact
+              renderMenu={(p) =>
+                safetyMenuFor(room?.players.find((player) => player.id === p.identity))
+              }
             />
             <div className="stage-board">
               <ClipTimer
@@ -244,7 +334,8 @@ export default function Stage() {
               waiting={Boolean(duetActive && !themSinging)}
               cue={themCue}
               isLocal={false}
-              emptyLabel="waiting…"
+              emptyLabel={opponentBlocked ? "blocked" : "waiting…"}
+              menu={safetyMenuFor(opponent)}
             />
             <div className="stage-board">
               {singing || countingIn ? (
@@ -319,6 +410,19 @@ export default function Stage() {
 
         <TurnOverlay room={room} myPlayerId={me?.id ?? null} clockPlay={clockPlay} />
         <audio ref={audioRef} className="instrumental" preload="auto" loop={false} />
+
+        {removed ? (
+          <SafetySheet label="Removed from room">
+            <p className="safety-kicker">Removed</p>
+            <h2 className="safety-title">You're out of {loungeName ?? `room ${code}`}</h2>
+            <p className="safety-body">{removed.message} You can't rejoin this room.</p>
+            <div className="safety-foot">
+              <Link className="safety-primary" to="/">
+                Back to home
+              </Link>
+            </div>
+          </SafetySheet>
+        ) : null}
       </div>
     </StageContext.Provider>
   );

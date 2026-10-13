@@ -17,6 +17,7 @@ import {
 import type { Waiting } from "./matchmaking.ts";
 import { mergeRematchSnap } from "./rematch.ts";
 import { publicPlayerId } from "./publicId.ts";
+import { pairingAvoidList } from "./moderation.ts";
 
 const WAITER_TTL_MS = 12_000;
 const PAIR_TTL_MS = 120_000;
@@ -24,6 +25,8 @@ const PAIR_TTL_MS = 120_000;
 type QueueMode = Extract<Mode, "ranked" | "duet">;
 
 type WaiterDoc = Waiting & {
+  /** Public player id, so block lists (keyed by it) can filter the queue. */
+  playerId?: string;
   mode: QueueMode;
   updatedAt: Date;
 };
@@ -132,15 +135,19 @@ export async function sharedPairOrWait(
 
   await waiterCol.updateOne(
     { clientId: player.clientId },
-    { $set: { ...player, mode, updatedAt: new Date() } },
+    { $set: { ...player, playerId: publicPlayerId(player.clientId), mode, updatedAt: new Date() } },
     { upsert: true },
   );
 
   const stale = new Date(Date.now() - WAITER_TTL_MS);
+  // Never pair two players where either has blocked the other (moderation.ts).
+  // Blocks are keyed by public player id, never the secret clientId.
+  const avoid = await pairingAvoidList(publicPlayerId(player.clientId));
   const opp = await waiterCol.findOneAndDelete(
     {
       mode,
       clientId: { $ne: player.clientId },
+      playerId: { $nin: avoid },
       updatedAt: { $gt: stale },
     },
     { sort: { updatedAt: 1 } },
