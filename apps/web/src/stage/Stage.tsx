@@ -29,7 +29,18 @@ export default function Stage() {
     setDuetVoice((prev) => (prev === voice ? prev : voice));
   }, []);
 
-  const identity = me?.clientId ?? null;
+  // LiveKit identity is our public player id, and the server only mints a
+  // token once we hold a seat here. Latch it per room so a stray room:state
+  // without our seat does not tear the call down.
+  const seatedHere = Boolean(
+    me && room?.code === code && room.players.some((p) => p.id === me.id),
+  );
+  const [mediaSeat, setMediaSeat] = useState<{ code: string; id: string } | null>(null);
+  useEffect(() => {
+    if (!seatedHere || !me) return;
+    setMediaSeat((prev) => (prev?.code === code && prev.id === me.id ? prev : { code, id: me.id }));
+  }, [seatedHere, me?.id, code]);
+  const identity = mediaSeat && mediaSeat.code === code && mediaSeat.id === me?.id ? mediaSeat.id : null;
   const livekit = useLiveKit(code, identity, me?.displayName ?? "Singer");
 
   useEffect(() => {
@@ -88,7 +99,8 @@ export default function Stage() {
 
   const activeIdentity = useMemo(() => {
     if (!room?.activeSingerId) return null;
-    return room.players.find((p) => p.id === room.activeSingerId)?.clientId ?? null;
+    // LiveKit identities are public player ids, so the active singer's id is theirs.
+    return room.activeSingerId;
   }, [room]);
 
   const mySeat =

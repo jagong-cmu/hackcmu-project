@@ -27,9 +27,14 @@ export type MelodyFile = {
   hz: Array<number | null>;
 };
 
+/**
+ * What every player in a room may see about another. `id` is a PUBLIC id:
+ * the Supabase user id when accounts are on, otherwise a server-side hash of
+ * the browser's clientId. The clientId itself is a credential and is never
+ * broadcast. Each client learns its own `id` from the `player:ok` ack.
+ */
 export type PlayerPublic = {
   id: string;
-  clientId: string;
   displayName: string;
   elo: number;
   /** Lobby only. Omitted on player:ok (not seated yet). */

@@ -9,6 +9,8 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { sharedAudioContext } from "./audioContext.ts";
 import { boostRemoteAudioTrack } from "./levels.ts";
 import { preferredCameraId, preferredMicId } from "../onboarding/deviceCheck.ts";
+import { authHeaders } from "../auth/supabase.ts";
+import { getClientId } from "../home/identity.ts";
 
 export type StageConnection = {
   room: Room;
@@ -37,23 +39,39 @@ export class LiveKitUnconfiguredError extends Error {
   }
 }
 
-async function fetchToken(
-  code: string,
-  identity: string,
-  displayName: string,
-): Promise<TokenResponse> {
-  const res = await fetch("/api/livekit/token", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code, identity, displayName }),
-  });
+/** Seat not visible yet on the isolate that answered. Worth a short retry. */
+const RETRYABLE = new Set(["NOT_SEATED", "ROOM_NOT_FOUND"]);
+const TOKEN_ATTEMPTS = 4;
 
-  if (res.status === 503) {
-    const body = (await res.json()) as { message?: string };
-    throw new LiveKitUnconfiguredError(body.message ?? "LiveKit is not configured");
+/**
+ * The server mints a token only for a player seated in `code`, as their public
+ * player id. `identity` is what we expect back (our `player:ok` id); the server
+ * refuses with IDENTITY_MISMATCH if it disagrees. Who we are comes from the
+ * Supabase bearer token with accounts on, else from our clientId.
+ */
+async function fetchToken(code: string, identity: string): Promise<TokenResponse> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < TOKEN_ATTEMPTS; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    const res = await fetch("/api/livekit/token", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ code, identity, clientId: getClientId() }),
+    });
+
+    if (res.status === 503) {
+      const body = (await res.json()) as { message?: string };
+      throw new LiveKitUnconfiguredError(body.message ?? "LiveKit is not configured");
+    }
+    if (res.ok) return (await res.json()) as TokenResponse;
+
+    const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
+    lastError = new Error(
+      `token request failed: ${res.status}${body.code ? ` ${body.code}` : ""}${body.message ? ` (${body.message})` : ""}`,
+    );
+    if (!body.code || !RETRYABLE.has(body.code)) break;
   }
-  if (!res.ok) throw new Error(`token request failed: ${res.status}`);
-  return (await res.json()) as TokenResponse;
+  throw lastError ?? new Error("token request failed");
 }
 
 export function whyFailed(err: unknown): string {
@@ -120,7 +138,10 @@ export async function connectToStage(
   identity: string,
   displayName: string,
 ): Promise<StageConnection> {
-  const { token, wsUrl } = await fetchToken(code, identity, displayName);
+  // The server names us from our seat; displayName stays in the signature for
+  // callers but no longer travels in the token request.
+  void displayName;
+  const { token, wsUrl } = await fetchToken(code, identity);
   // Devices picked in the mic check. A bare string is an "ideal" constraint,
   // so an unplugged one falls back to the default instead of failing.
   const micId = preferredMicId();

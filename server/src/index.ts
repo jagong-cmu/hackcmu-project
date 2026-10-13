@@ -68,6 +68,8 @@ import {
   sharedPairOrWait,
 } from "./liveState.ts";
 import { liveKitRoomName, mintToken, readLiveKitConfig } from "./livekit.ts";
+import { decideLiveKitAccess } from "./livekitAccess.ts";
+import { publicPlayerId } from "./publicId.ts";
 import { getDb, mongoConfigured, upsertPlayer } from "./db.ts";
 import { clampCard, enrichScore, registerLaneBRoutes } from "./judge.ts";
 import { attachSocketAuth, httpIdentity, registerAuthRoutes, socketIdentity } from "./auth.ts";
@@ -141,6 +143,9 @@ app.get("/api/health", async (_req, res) => {
 /**
  * LiveKit join token. The API secret stays server-side; the client only ever
  * sees a scoped, expiring JWT plus the public ws URL.
+ *
+ * Room codes are guessable, so a token is only minted for a player already
+ * seated in that room, as their public player id (see livekitAccess.ts).
  */
 app.post("/api/livekit/token", async (req, res) => {
   const config = readLiveKitConfig();
@@ -152,20 +157,42 @@ app.post("/api/livekit/token", async (req, res) => {
     return;
   }
 
-  const { code, identity, displayName } = req.body ?? {};
-  if (typeof code !== "string" || typeof identity !== "string") {
-    res.status(400).json({ code: "BAD_REQUEST", message: "code and identity required" });
+  const who = await httpIdentity(req, req.body?.clientId);
+  if (!who.ok) {
+    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
     return;
   }
 
-  const token = await mintToken(
-    config,
+  const rawCode: unknown = req.body?.code;
+  const code = typeof rawCode === "string" ? rawCode.trim() : rawCode;
+  const room =
+    typeof code === "string" && code ? ((await ensureRoom(code)) ?? getRoom(code)) : undefined;
+  const access = decideLiveKitAccess({
     code,
-    identity,
-    typeof displayName === "string" ? displayName : "Singer",
-  );
-  res.json({ token, wsUrl: config.wsUrl, room: liveKitRoomName(code) });
+    room,
+    clientId: who.clientId,
+    requested: req.body?.identity,
+  });
+  if (!access.ok) {
+    res.status(access.status).json({ code: access.code, message: access.message });
+    return;
+  }
+
+  const token = await mintToken(config, access.roomCode, access.identity, access.displayName);
+  res.json({
+    token,
+    wsUrl: config.wsUrl,
+    room: liveKitRoomName(access.roomCode),
+    identity: access.identity,
+  });
 });
+
+/** Error code for a failed httpIdentity check. */
+function httpIdentityCode(status: number): string {
+  if (status === 401) return "UNAUTHORIZED";
+  if (status === 403) return "IDENTITY_MISMATCH";
+  return "BAD_REQUEST";
+}
 
 /**
  * Score upload. The client runs the DSP locally and posts numbers — never a
@@ -220,9 +247,12 @@ app.post("/api/turns/:roomId/score", async (req, res) => {
   }
   const who = await httpIdentity(req, req.body?.clientId);
   if (!who.ok) {
-    res.status(who.status).json({ code: "UNAUTHORIZED", message: who.message });
+    res.status(who.status).json({ code: httpIdentityCode(who.status), message: who.message });
     return;
   }
+  // Verified identity only: with auth on, the token's user id; in guest mode,
+  // the secret clientId, which other players never see. A body naming someone
+  // else's public id cannot post for them.
   const clientId = who.clientId;
 
   const player = room.players.find((p) => p.clientId === clientId);
@@ -430,7 +460,9 @@ io.on("connection", (socket) => {
       existing && existing.clientId === clientId
         ? { ...existing, displayName: name }
         : {
-            playerId: clientId,
+            // Never the clientId: that is the credential, and this id is
+            // broadcast to everyone in the room.
+            playerId: publicPlayerId(clientId),
             clientId,
             displayName: name,
             elo: existing?.elo ?? StartingElo,
@@ -441,8 +473,8 @@ io.on("connection", (socket) => {
     const emitOk = () =>
       socket.emit(ServerEvents.playerOk, {
         player: {
+          // The client learns its own public id here and matches "me" by it.
           id: session.playerId,
-          clientId: session.clientId,
           displayName: session.displayName,
           elo: session.elo,
         },

@@ -16,6 +16,7 @@ import {
 } from "./rooms.ts";
 import type { Waiting } from "./matchmaking.ts";
 import { mergeRematchSnap } from "./rematch.ts";
+import { publicPlayerId } from "./publicId.ts";
 
 const WAITER_TTL_MS = 12_000;
 const PAIR_TTL_MS = 120_000;
@@ -291,7 +292,8 @@ function applySnap(room: Room, snap: RoomSnap): void {
     }
     if (!p.connected || !p.socketId || p.socketId === "pending") continue;
     addPlayer(room, {
-      id: p.id || p.clientId,
+      // Recompute rather than trust the snap: an older snap stored id = clientId.
+      id: publicPlayerId(p.clientId),
       clientId: p.clientId,
       displayName: p.displayName,
       socketId: p.socketId || "pending",
@@ -322,7 +324,7 @@ export async function seatPairOnThisIsolate(
     const already = room.players.find((p) => p.clientId === person.clientId);
     if (already) continue;
     addPlayer(room, {
-      id: person.clientId,
+      id: publicPlayerId(person.clientId),
       clientId: person.clientId,
       displayName: person.displayName,
       socketId: person.socketId,

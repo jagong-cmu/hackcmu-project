@@ -23,6 +23,12 @@ import {
 } from "@karaoke/shared";
 
 export type Player = PlayerPublic & {
+  /**
+   * Server-only. The verified identity this seat belongs to (Supabase user id
+   * with auth on, else the browser's secret clientId). Never put it in
+   * toPublic(): in guest mode it is the credential that plays as you.
+   */
+  clientId: string;
   socketId: string;
   ready: boolean;
   connected: boolean;
@@ -272,9 +278,9 @@ export function toPublic(room: Room): RoomState {
   return {
     code: room.code,
     mode: room.mode,
-    players: room.players.map(({ id, clientId, displayName, elo, ready }) => ({
+    // Public id only. clientId stays on the server (see Player).
+    players: room.players.map(({ id, displayName, elo, ready }) => ({
       id,
-      clientId,
       displayName,
       elo,
       ready,
