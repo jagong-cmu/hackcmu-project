@@ -22,7 +22,10 @@ export const ClientEvents = {
   safetyBlock: "safety:block",
   /** Remove someone: host kick in private rooms, a vote in Chaos. Payload: { targetId }. */
   safetyKick: "safety:kick",
-  /** Ranked/Duet: leave with no rating change after blocking or reporting the opponent. */
+  /**
+   * Ranked/Duet: leave after blocking or reporting the opponent. Free from the
+   * lobby; mid-match in a rated room it is a forfeit, like any other leave.
+   */
   safetyLeave: "safety:leave",
 } as const;
 
@@ -62,7 +65,7 @@ export const ReportLimit = 5;
 export const ReportWindowMs = 10 * 60_000;
 /** Per player: at most BlockLimit blocks per ReportWindowMs. */
 export const BlockLimit = 20;
-/** Lifetime cap on how many players one player can block (also caps no-penalty leaves). */
+/** Lifetime cap on how many players one player can block. */
 export const MaxBlockedPlayers = 10;
 /**
  * Chaos vote-kick: votes needed to remove someone, given how many *other*

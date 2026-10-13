@@ -46,6 +46,7 @@ import {
   catchUpClock,
   ensureChaosPlaying,
   forfeitFor,
+  settleIfScoresIn,
   handleRematchCancel,
   handleRematchRequest,
   maybeArmMatch,
@@ -272,7 +273,12 @@ app.get("/api/rooms/:code", asyncRoute(async (req, res) => {
     settled: room.settled,
     matchOver:
       room.status === "results" && room.settled
-        ? { scores, winnerId, eloDelta: room.lastEloDelta ?? 0 }
+        ? {
+            scores,
+            winnerId,
+            eloDelta: room.lastEloDelta ?? 0,
+            ...(room.mode === "ranked" && !room.rated ? { rated: false } : {}),
+          }
         : null,
   });
 }));
@@ -390,9 +396,12 @@ function leaveCurrentRoom(
   const player = room.players.find((p) => p.id === session.playerId);
   if (player) {
     player.connected = false;
-    // Safety exits (kicked, or leaving someone you blocked/reported) carry no forfeit.
+    // Kicks carry no forfeit. A safety:leave forfeits only mid-match in a rated
+    // Ranked room (moderation.ts leave), through this same path.
     if (opts.forfeit) forfeitFor(io, room, player);
     removePlayer(room, player.id);
+    // Left during the score wait: the seat still counts; settle if the rest is in.
+    settleIfScoresIn(io, room);
     // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
     rematchSeatLeft(room, player.id);
     dropMedia(room.code, player.id, opts.media ?? "now");
@@ -414,13 +423,16 @@ function leaveCurrentRoom(
 }
 
 function pruneRoom(room: Room): void {
+  // Seat order before the drop, so a forfeit or settlement still counts both seats.
+  const roster = room.players.slice();
   const removed = dropDeadPlayers(room, (socketId) => socketIsLive(socketId));
   for (const player of removed) {
     const session = sessions.get(player.socketId);
     if (session?.roomCode === room.code) session.roomCode = null;
     io.sockets.sockets.get(player.socketId)?.leave(room.code);
     if (room.mode !== "chaos") {
-      forfeitFor(io, room, player);
+      forfeitFor(io, room, player, roster);
+      settleIfScoresIn(io, room);
       rematchSeatLeft(room, player.id);
     }
   }
@@ -678,6 +690,7 @@ io.on("connection", (socket) => {
     }
 
     const room = createRoom(mode);
+    // Host + private + unrated (friendly), all in the room snapshot.
     markPrivateRoom(room, session.playerId);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId }).catch(

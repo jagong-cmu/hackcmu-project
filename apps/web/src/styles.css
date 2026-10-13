@@ -105,6 +105,15 @@
   font-size: 0.82rem;
 }
 .stage-song em { font-style: normal; color: var(--cream, #f4efe6); }
+.stage-friendly {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--mute, #8a8278);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
 .stage-alerts {
   flex-shrink: 0;
   max-height: 2.2rem;

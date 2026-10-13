@@ -161,6 +161,27 @@ export class FakeCollection {
   async countDocuments(filter: Doc = {}): Promise<number> {
     return this.docs.filter((d) => matches(d, filter)).length;
   }
+
+  /** Just enough for analytics: optional `$match`, then `$group` by one field with `$sum: 1`. */
+  aggregate(pipeline: Doc[]): { toArray: () => Promise<Doc[]> } {
+    let rows = this.docs.map((d) => structuredClone(d));
+    for (const stage of pipeline) {
+      if (stage.$match) rows = rows.filter((d) => matches(d, stage.$match));
+      if (stage.$group) {
+        const { _id, ...sums } = stage.$group as Doc;
+        const field = typeof _id === "string" && _id.startsWith("$") ? _id.slice(1) : null;
+        const groups = new Map<unknown, Doc>();
+        for (const d of rows) {
+          const key = field ? getPath(d, field) : _id;
+          const row = groups.get(key) ?? { _id: key };
+          for (const name of Object.keys(sums)) row[name] = Number(row[name] ?? 0) + 1;
+          groups.set(key, row);
+        }
+        rows = [...groups.values()];
+      }
+    }
+    return { toArray: async () => rows };
+  }
 }
 
 export class FakeDb {

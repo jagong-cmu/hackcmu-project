@@ -89,6 +89,14 @@ export type RoomState = {
   rematch?: RematchOffer | null;
   /** Why the last rematch offer closed without starting a match. Cleared by a new offer. */
   rematchLapse?: RematchLapse | null;
+  /**
+   * Whether a Ranked match in this room moves ELO. False for private rooms
+   * (room:create): friendly matches play exactly like Ranked but are unrated.
+   * Fixed when the room is made; a rematch keeps it. Absent = rated.
+   */
+  rated?: boolean;
+  /** Made with a shareable code (room:create, or a 4-digit Chaos code). */
+  isPrivate?: boolean;
 };
 
 /**
@@ -150,8 +158,13 @@ export type SafetyAck = {
   ok: boolean;
   message: string;
   targetId?: string;
-  /** Ranked/Duet: you may now leave with no rating change. */
+  /**
+   * Ranked/Duet: you may now leave with safety:leave. From the lobby that is
+   * free; mid-match in a rated room it counts as a forfeit (see `forfeit`).
+   */
   canLeave?: boolean;
+  /** Leave ack: true when your leave was rated as a forfeit loss. */
+  forfeit?: boolean;
   /** Kick: true once the target is actually out (host kick, or the vote passed). */
   removed?: boolean;
   /** Chaos vote-kick: the tally after your vote. */

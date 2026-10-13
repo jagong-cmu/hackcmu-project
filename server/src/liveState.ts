@@ -70,6 +70,15 @@ export type RoomSnap = {
   /** Open rematch offer while in results. Older snaps carried `rematchAtMs` instead; ignored. */
   rematch?: RematchOffer | null;
   rematchLapse?: RematchLapse | null;
+  /**
+   * See Room.rated / isPrivate / hostId. Fixed for the room's life. Absent on
+   * snaps written before private rooms were unrated: such a room keeps
+   * whatever this isolate already knows, and a room first built from one is
+   * rated, public and hostless (the old behaviour).
+   */
+  rated?: boolean;
+  isPrivate?: boolean;
+  hostId?: string | null;
   /** See Room.matchId. Absent on snaps written before score claims existed. */
   matchId?: number | null;
   /**
@@ -97,6 +106,7 @@ export type MatchOverPayload = {
   winnerId: string | null;
   eloDelta: number;
   forfeit?: boolean;
+  /** Ranked: false when no ELO moved (a friendly room, or a forfeit under ForfeitSkipMs). */
   rated?: boolean;
 };
 
@@ -262,6 +272,9 @@ export function snapFromRoom(room: Room): RoomSnap {
     settled: room.settled,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
+    rated: room.rated,
+    isPrivate: room.isPrivate,
+    hostId: room.hostId,
     // No scores here: they are written only by claimScore (see matchScores).
     updatedAt: new Date(),
   };
@@ -295,6 +308,12 @@ export async function ensureRoom(code: string): Promise<Room | undefined> {
 }
 
 export function applySnap(room: Room, snap: RoomSnap): void {
+  // Fixed per room, so they only ever move one way: if either copy says the
+  // room is private/unrated, it is. A stale or old-format snap cannot turn a
+  // friendly room into a rated one (or hand a private room a new host).
+  if (snap.rated === false) room.rated = false;
+  if (snap.isPrivate === true) room.isPrivate = true;
+  if (!room.hostId && typeof snap.hostId === "string" && snap.hostId) room.hostId = snap.hostId;
   const order: RoomStatus[] = ["lobby", "countdown", "turnA", "swap", "turnB", "live", "results"];
   const snapAhead = order.indexOf(snap.status) > order.indexOf(room.status);
   // Another isolate accepted a rematch: its snap is back in lobby/countdown with

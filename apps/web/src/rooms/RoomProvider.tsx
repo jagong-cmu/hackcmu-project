@@ -45,6 +45,8 @@ export type MatchOver = {
   winnerId: string | null;
   eloDelta: number;
   forfeit?: boolean;
+  /** Ranked: false when no ELO moved (friendly private room, or a forfeit under 5s). */
+  rated?: boolean;
 };
 
 export type SocketError = { code: string; message: string };

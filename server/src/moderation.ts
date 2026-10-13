@@ -17,7 +17,13 @@
  *     fewer than 2, so one person can never remove another alone. With only one
  *     other person present there is no vote; block instead.
  *   - Ranked/Duet (not host): no kick. Block or report your opponent and you
- *     can leave with no rating change for either of you; the match just ends.
+ *     can leave (safety:leave). From the lobby that is free. Mid-match
+ *     (countdown, turns, swap) in a rated Ranked room it is a forfeit exactly
+ *     like any other leave (clock.ts forfeitFor: K=16, thrown away under
+ *     ForfeitSkipMs). On the results screen before settlement it is not a
+ *     forfeit, but the leaver's seat still counts and the match settles on the
+ *     scores, so a report cannot be used to dodge a loss. Duet and friendly (private) rooms have no rating: the match just
+ *     ends and the room goes back to the lobby.
  *   A removed player is banned from that room code for RoomBanMs (memory +
  *   Mongo `roomBans`), their LiveKit connection is dropped, and the token
  *   endpoint and the join handlers refuse them via `isBannedFromRoom`.
@@ -49,9 +55,12 @@ import { liveKitRoomName, readLiveKitConfig } from "./livekit.ts";
 import {
   createRoom,
   findOpenPublicChaosLounge,
+  awaitingSettlement,
+  forfeitWouldRate,
   getRoom,
   isFull,
   livePlayers,
+  matchInProgress,
   removePlayer,
   resetToLobby,
   type Room,
@@ -323,35 +332,40 @@ export function openLoungeFor(playerId: string): Room {
 // ---------------------------------------------------------------------------
 
 type RoomMeta = {
-  isPrivate: boolean;
-  hostId: string | null;
   /** target -> voters */
   votes: Map<string, Set<string>>;
-  /** actor -> people they reported or blocked here (unlocks a no-penalty leave) */
+  /** actor -> people they reported or blocked here (unlocks safety:leave) */
   flagged: Map<string, Set<string>>;
 };
 
-/** Keyed by the Room object, so a reused 4-digit code never inherits a host. */
+/**
+ * Keyed by the Room object, so a reused 4-digit code never inherits votes.
+ * Per isolate. Host and privacy are not here: they live on the Room and in
+ * its snapshot (Room.isPrivate / hostId), so every isolate agrees on them.
+ */
 const metas = new WeakMap<Room, RoomMeta>();
 
 function metaOf(room: Room): RoomMeta {
   let meta = metas.get(room);
   if (!meta) {
-    meta = { isPrivate: false, hostId: null, votes: new Map(), flagged: new Map() };
+    meta = { votes: new Map(), flagged: new Map() };
     metas.set(room, meta);
   }
   return meta;
 }
 
-/** Call when a room is made with a code someone will share. The maker is host. */
+/**
+ * Call when a room is made with a code someone will share. The maker is host.
+ * Private rooms are friendly: a Ranked match in one never moves ELO.
+ */
 export function markPrivateRoom(room: Room, hostId: string): void {
-  const meta = metaOf(room);
-  meta.isPrivate = true;
-  meta.hostId = hostId;
+  room.isPrivate = true;
+  room.hostId = hostId;
+  room.rated = false;
 }
 
 export function roomHost(room: Room): string | null {
-  return metaOf(room).hostId;
+  return room.hostId;
 }
 
 function flag(room: Room, actor: string, target: string): void {
@@ -399,7 +413,8 @@ export function kickRule(input: {
   }
   return {
     kind: "deny",
-    message: "You can't remove your opponent in a 1v1. Block or report them, then leave with no rating change.",
+    message:
+      "You can't remove your opponent in a 1v1. Block or report them, then leave. Leaving mid-match counts as a forfeit.",
   };
 }
 
@@ -424,7 +439,7 @@ export function publicSafetyState(room: Room): SafetyState {
     const tally = tallyFor(room, target);
     if (tally.count > 0) votes[target] = tally;
   }
-  return { code: room.code, isPrivate: meta.isPrivate, hostId: meta.hostId, votes };
+  return { code: room.code, isPrivate: room.isPrivate, hostId: room.hostId, votes };
 }
 
 // ---------------------------------------------------------------------------
@@ -498,7 +513,10 @@ export type SafetyDeps = {
   resolveRoom: (code: string) => Promise<Room | undefined>;
   /** Sockets on this isolate seated as `playerId` in room `code`. */
   socketsOf: (playerId: string, code: string) => string[];
-  /** Take a socket out of its room. `forfeit: false` skips the rating forfeit. */
+  /**
+   * Take a socket out of its room. `forfeit: true` runs the normal mid-match
+   * leave (clock.ts forfeitFor); `forfeit: false` skips it.
+   */
   eject: (socketId: string, opts: { forfeit: boolean }) => void;
   broadcast: (room: Room) => void;
   /** Emit to a socket id or a room code. */
@@ -694,8 +712,8 @@ export function createSafety(deps: SafetyDeps) {
     const meta = metaOf(room);
     const decision = kickRule({
       mode: room.mode,
-      isPrivate: meta.isPrivate,
-      hostId: meta.hostId,
+      isPrivate: room.isPrivate,
+      hostId: room.hostId,
       actorId: me.id,
       targetId,
       seatedIds: room.players.map((p) => p.id),
@@ -731,7 +749,12 @@ export function createSafety(deps: SafetyDeps) {
     };
   }
 
-  /** Ranked/Duet: walk away from someone you blocked or reported. No rating change. */
+  /**
+   * Ranked/Duet: walk away from someone you blocked or reported. The report
+   * stays on record either way. Mid-match in a rated Ranked room this is a
+   * forfeit, through the same path as any other leave; otherwise (lobby, Duet,
+   * a friendly room) nobody's rating changes and the match just ends.
+   */
   async function leave(socketId: string): Promise<SafetyAck> {
     const ctx = await context(socketId);
     if (!ctx?.me) return deny("leave", "You're not in a match.");
@@ -741,6 +764,47 @@ export function createSafety(deps: SafetyDeps) {
     const flagged = metaOf(room).flagged.get(me.id) ?? new Set<string>();
     const earned = opponents.some((p) => flagged.has(p.id) || hasBlocked(me.id, p.id));
     if (!earned) return deny("leave", "Block or report your opponent first.");
+
+    if (room.mode === "ranked" && room.rated && awaitingSettlement(room)) {
+      // Both turns are sung: leaving is not a forfeit and not a dodge either.
+      // The seat is still counted and the match settles on the scores.
+      deps.eject(socketId, { forfeit: true });
+      if (room.players.length > 0) {
+        const notice: SafetyNotice = {
+          code: room.code,
+          kind: "opponent-left",
+          message: "Your opponent left. The match is still scored as sung.",
+        };
+        deps.emitTo(room.code, ServerEvents.safetyNotice, notice);
+        deps.broadcast(room);
+      }
+      return {
+        action: "leave",
+        ok: true,
+        forfeit: false,
+        message: "You left. Your match is still scored as sung.",
+      };
+    }
+
+    if (room.mode === "ranked" && room.rated && matchInProgress(room)) {
+      // Decide before ejecting: the forfeit settles (and moves status) at once.
+      const rated = forfeitWouldRate(room);
+      deps.eject(socketId, { forfeit: true });
+      if (room.players.length > 0) {
+        const notice: SafetyNotice = {
+          code: room.code,
+          kind: "opponent-left",
+          message: rated
+            ? "Your opponent left the match. You win by forfeit."
+            : "Your opponent left the match. No rating change.",
+        };
+        deps.emitTo(room.code, ServerEvents.safetyNotice, notice);
+        deps.broadcast(room);
+      }
+      return rated
+        ? { action: "leave", ok: true, forfeit: true, message: "You left. This counts as a forfeit." }
+        : { action: "leave", ok: true, forfeit: false, message: "You left. No rating change." };
+    }
 
     const wasActive = ACTIVE.has(room.status);
     deps.eject(socketId, { forfeit: false });
@@ -754,7 +818,7 @@ export function createSafety(deps: SafetyDeps) {
       deps.emitTo(room.code, ServerEvents.safetyNotice, notice);
       deps.broadcast(room);
     }
-    return { action: "leave", ok: true, message: "You left. No rating change." };
+    return { action: "leave", ok: true, forfeit: false, message: "You left. No rating change." };
   }
 
   async function sync(socketId: string): Promise<SafetyState | null> {

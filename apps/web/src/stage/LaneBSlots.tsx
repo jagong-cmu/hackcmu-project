@@ -579,8 +579,10 @@ export function StageResults() {
     room.mode === "duet" && oppCard
       ? Math.round((you.overall + oppCard.overall) / 2)
       : null;
+  // Private (code) rooms are friendly: same match, no ELO either way.
+  const friendly = room.mode === "ranked" && room.rated === false;
   const myDelta =
-    room.mode === "ranked"
+    room.mode === "ranked" && !friendly
       ? room.players[0]?.id === myPlayerId
         ? matchOver.eloDelta
         : -matchOver.eloDelta
@@ -603,6 +605,7 @@ export function StageResults() {
       youId={myPlayerId}
       opponentId={opponent?.id}
       eloDelta={myDelta}
+      unrated={friendly}
       shared={shared}
       songTitle={song?.title}
       songArtist={song?.artist}

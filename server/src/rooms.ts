@@ -8,6 +8,7 @@
 import {
   ChaosCap,
   DemoRoomCode,
+  ForfeitSkipMs,
   isPublicChaosCode,
   PublicChaosPrefix,
   publicChaosIndex,
@@ -49,6 +50,18 @@ export type Room = {
   /** Permanent rooms (0000) survive going empty. */
   persistent: boolean;
 
+  /**
+   * Ranked only: does a match here move ELO? Fixed when the room is made and
+   * kept across rematches. Queue (matchmaking) rooms and the 0000 demo room
+   * are rated; private rooms (room:create) are friendly and unrated.
+   * Persisted in the room snapshot so every isolate agrees.
+   */
+  rated: boolean;
+  /** Made with a shareable code (room:create, or a typed 4-digit Chaos code). In the snapshot. */
+  isPrivate: boolean;
+  /** Public id of whoever made a private room; they may kick. In the snapshot. */
+  hostId: string | null;
+
   /** Clip window currently scheduled, for late-join playhead math. */
   clipStartSec: number;
   clipDurationSec: number;
@@ -75,6 +88,11 @@ export type Room = {
 
   /** First-seated player's ELO delta; Lane B fills this before match:over. */
   lastEloDelta: number;
+  /**
+   * This isolate only: the seated roster captured when a seat left during the
+   * score wait, so the match still settles with both seats. Cleared per match.
+   */
+  settleSeats: { matchId: number; seats: Player[] } | null;
   /** Settled winner (or null for a draw). Survives the loser being removed. */
   lastWinnerId: string | null;
 
@@ -103,6 +121,9 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     activeSingerId: null,
     playAtUnixMs: null,
     persistent,
+    rated: true,
+    isPrivate: false,
+    hostId: null,
     clipStartSec: 0,
     clipDurationSec: 0,
     clipLeadInSec: 0,
@@ -113,6 +134,7 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     scores: new Map(),
     timers: new Set(),
     lastEloDelta: 0,
+    settleSeats: null,
     lastWinnerId: null,
     settled: false,
     rematch: null,
@@ -281,11 +303,60 @@ export function resetToLobby(room: Room): void {
   room.clipLeadInSec = 0;
   room.scores.clear();
   room.lastEloDelta = 0;
+  room.settleSeats = null;
   room.lastWinnerId = null;
   room.settled = false;
   room.rematch = null;
   room.rematchLapse = null;
   for (const player of room.players) player.ready = false;
+}
+
+/**
+ * A Ranked/Duet match is being sung: counting down, singing, or swapping.
+ * Leaving now is a forfeit. The results screen is never a forfeit (see
+ * awaitingSettlement).
+ */
+export function matchInProgress(room: Room): boolean {
+  if (room.mode === "chaos") return false;
+  return (
+    room.status === "countdown" ||
+    room.status === "turnA" ||
+    room.status === "swap" ||
+    room.status === "turnB" ||
+    room.status === "live"
+  );
+}
+
+/**
+ * Both turns are over and the result is not settled yet (the score wait on
+ * the results screen). A seat that leaves now is still counted: the match
+ * settles on the scores, its own card or the empty-score fallback.
+ */
+export function awaitingSettlement(room: Room): boolean {
+  return room.mode !== "chaos" && room.status === "results" && !room.settled && room.matchId != null;
+}
+
+/**
+ * The seats a settlement counts. Normally whoever is seated; if a seat left
+ * during the score wait, the roster as it stood then (clock.ts forfeitFor).
+ */
+export function seatsForSettlement(room: Room): Player[] {
+  const held = room.settleSeats;
+  if (held && held.matchId === room.matchId && held.seats.length >= room.players.length) {
+    return held.seats.slice();
+  }
+  return room.players.slice();
+}
+
+/**
+ * A forfeit right now would move ELO: a rated Ranked room, mid-match, at
+ * least ForfeitSkipMs after the first clip began (shorter ones are thrown
+ * away, PRD §6.1).
+ */
+export function forfeitWouldRate(room: Room, now = Date.now()): boolean {
+  if (room.mode !== "ranked" || !room.rated || !matchInProgress(room)) return false;
+  if (room.matchStartedAtMs === null) return false;
+  return now - room.matchStartedAtMs >= ForfeitSkipMs;
 }
 
 /**
@@ -322,5 +393,7 @@ export function toPublic(room: Room): RoomState {
     matchId: room.matchId,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
+    rated: room.rated,
+    isPrivate: room.isPrivate,
   };
 }

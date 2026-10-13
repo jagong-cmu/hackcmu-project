@@ -167,7 +167,11 @@ Catalog ids: `viva-la-vida` | `creep` | `california-gurls` | `payphone` | `perfe
 
 Client → server: `player:hello { clientId, displayName }`, `queue:join { mode }`, `room:create { mode }`, `room:join { code }`, `room:ready`, `chaos:join { code? }`.
 
-Server → client: `player:ok { player }`, `room:state`, `match:found`, `clock:play { songId, startSec, durationSec, playAtUnixMs }`, `score:ready { playerId, score }`, `match:over { scores, winnerId, eloDelta, forfeit? }`, `error { code, message }`.
+Server → client: `player:ok { player }`, `room:state`, `match:found`, `clock:play { songId, startSec, durationSec, playAtUnixMs }`, `score:ready { playerId, score }`, `match:over { scores, winnerId, eloDelta, rated?, forfeit? }`, `error { code, message }`.
+
+**Rated vs friendly rooms:** `Room.rated` is fixed when the room is made and kept across rematches. Queue (matchmaking) rooms and `0000` are rated; rooms made with `room:create` are private and unrated (friendly): they play exactly like Ranked, but `finishMatch` never moves ELO or `matchesPlayed`. The result is still written to `matches` with `rated: false` and `eloDelta: null`, and ranked match counts skip it. `room:state` carries `rated` and `isPrivate`; Ranked `match:over` carries `rated` (false for a friendly room, and for a forfeit under 5s) with `eloDelta: 0` when unrated. `rated`, `isPrivate` and `hostId` live on the Room and in the `liveRooms` snapshot, so every Vercel instance agrees on them. A snapshot without them (written before this change) leaves a room the instance already knows unchanged, and a room first built from one is rated, public and hostless. The flags only ever move toward private/unrated, so a stale snapshot cannot re-rate a friendly room.
+
+**safety:leave:** after reporting or blocking the opponent. From the lobby it is free. Mid-match (countdown, turns, swap) in a rated Ranked room it ejects with `forfeit: true`, through the same `forfeitFor` path as any other leave (K=16; under 5s thrown away). The ack carries `forfeit` and the copy "You left. This counts as a forfeit." On results before settlement no leave is a forfeit. `forfeitFor` keeps the seated roster (`settleSeats`), and the match settles normally on the scores with both seats; an unposted card counts as silence. Duet and friendly rooms end the match with no rating change.
 
 **Identity:** playing always needs a Google (Supabase) account. The server resolves who a request is from (`server/src/auth.ts`): the Supabase user id from the bearer token / socket handshake. It fails closed: with no Supabase config it refuses every play path (socket `player:hello` and everything behind it, score posts, LiveKit tokens, room snapshots, training scores) instead of trusting the client. The only exception is a local-dev opt-out (`AUTH_REQUIRED=0` / `VITE_AUTH_REQUIRED=0`), ignored when `NODE_ENV=production` or on Vercel / Render, and on the web only under `vite dev`; there the client's `clientId` is the credential, so it never leaves the server: `player:ok`, `room:state`, scores, and LiveKit identities use a public `id` (`server/src/publicId.ts`: the Supabase user id with accounts, else `p_` + HMAC of the `clientId` under `PLAYER_ID_SECRET`, falling back to a hash of other server secrets). Clients match "me" by the `id` from `player:ok`.
 
@@ -194,7 +198,7 @@ Lane A `<Stage>` provides context `{ audioRef, micStream, room }` and renders Vi
 - First joiner is Player A (`activeSingerId` on `turnA`).
 - FIFO queues for ranked and duet. Code `0000` always exists as Ranked.
 - Clock: `playAtUnixMs = Date.now() + 400`. Client plays when due, seek to startSec. Re-seek if drift >0.15s.
-- Ranked machine: both seated → random song → countdown 5s (`MatchCountdownMs`) → turnA 15s → swap 2s → turnB 15s → wait for two POSTs → `match:over`. Disconnect → forfeit.
+- Ranked machine: both seated → random song → countdown 5s (`MatchCountdownMs`) → turnA 15s → swap 2s → turnB 15s → wait for two POSTs → `match:over`. Disconnect or leave (including `safety:leave`) during countdown/turns/swap → forfeit. During the results score wait → still settled on the scores with both seats (not a forfeit). Private (`room:create`) rooms: same machine, unrated.
 - Chaos: autoplay 60s from `chaosDurationSec`, join mid-song with `playheadSec`, empty room stops, next joiner starts in 3s.
 - Deploy: Render Free serving Vite dist + Node. If Render wants a card: `cloudflared tunnel --url http://localhost:8080`. HTTPS required for `getUserMedia` off localhost.
 - Render sleeps: wake the URL before judging; rooms are memory-only and die on sleep.
@@ -219,11 +223,12 @@ Lane A `<Stage>` provides context `{ audioRef, micStream, room }` and renders Vi
 
 ```
 players     { clientId unique, displayName, elo, matchesPlayed, updatedAt }
-matches     { mode, songId, a, b, winnerId, eloDelta, createdAt }
+matches     { roomId, matchId, mode, songId, a, b, winnerId, eloDelta, rated, forfeit?, createdAt }
+            // rated:false = friendly (private room): eloDelta null, players untouched
 duetScores  { songId, names[2] sorted, score, createdAt }
 ```
 
-ELO start 1000, K=32. Draw 0.5. Forfeit <5s skip; else K=16.
+ELO start 1000, K=32. Draw 0.5. Forfeit <5s skip; else K=16. Private (friendly) rooms: no ELO at all.
 
 **Songs:** `apps/web/public/songs/<id>/{instrumental.mp3,lyrics.lrc,meta.json,melody.json}`. A song without `melody.json` stays disabled. Three complete tracks beat six incomplete ones. Prefer shipping viva-la-vida, payphone, take-on-me first.
 
