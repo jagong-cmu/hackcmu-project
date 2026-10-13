@@ -22,6 +22,8 @@ import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
 import { StageContext, type DuetVoiceCue, type StageContextValue } from "./StageContext.tsx";
 import { Slot, useStageSlots } from "./slots.tsx";
 import { useSharedClock } from "./useSharedClock.ts";
+import { leaveEffectOf, leaveSuffix, msUntilForfeit } from "./leaveEffect.ts";
+import { serverNow } from "../rooms/timeSync.ts";
 import TurnBadge from "./TurnBadge.tsx";
 import ClipTimer from "./ClipTimer.tsx";
 import TurnOverlay from "./TurnOverlay.tsx";
@@ -111,20 +113,20 @@ export default function Stage() {
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
   // Private Ranked rooms are friendly: same match, no ELO for either player.
   const friendly = room?.mode === "ranked" && room.rated === false;
-  // What leaving does right now in a rated Ranked room: a forfeit while the
-  // match is being sung; on results before settlement it still counts on the
-  // scores (never a forfeit); otherwise nothing.
-  const ratedRanked = room?.mode === "ranked" && room.rated !== false;
-  const leaveEffect: LeaveEffect =
-    ratedRanked &&
-    (room.status === "countdown" ||
-      room.status === "turnA" ||
-      room.status === "swap" ||
-      room.status === "turnB")
-      ? "forfeit"
-      : ratedRanked && room.status === "results" && !matchOver
-        ? "scored"
-        : "free";
+  // What leaving does right now, mirroring the server's forfeitWouldRate:
+  // a forfeit only once a rated match is ForfeitSkipMs in; results before
+  // settlement still count on the scores; otherwise nothing.
+  const [, setLeaveTick] = useState(0);
+  const forfeitInMs = msUntilForfeit(room, serverNow());
+  const forfeitPending = forfeitInMs != null;
+  useEffect(() => {
+    if (!forfeitPending) return;
+    const left = msUntilForfeit(room, serverNow());
+    if (left == null) return;
+    const id = window.setTimeout(() => setLeaveTick((n) => n + 1), left + 20);
+    return () => window.clearTimeout(id);
+  }, [forfeitPending, room?.matchId, room?.status]);
+  const leaveEffect: LeaveEffect = leaveEffectOf(room, Boolean(matchOver), serverNow());
 
   const visible = livekit.participants.filter((p) => !safety.blocked.has(p.identity));
   const them = visible.find((p) => p.identity !== identity);
@@ -331,11 +333,7 @@ export default function Stage() {
             <p className="warn">
               You blocked {opponent?.displayName ?? "your opponent"}.{" "}
               <button type="button" className="link" onClick={() => void leaveSafely()}>
-                {leaveEffect === "forfeit"
-                  ? "leave the match · counts as a forfeit"
-                  : leaveEffect === "scored"
-                    ? "leave the match · result still counts"
-                    : "leave the match · no rating change"}
+                {`leave the match · ${leaveSuffix(leaveEffect)}`}
               </button>
             </p>
           )}

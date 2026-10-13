@@ -28,6 +28,7 @@ import {
 import { getClientId, getDisplayName, helloPayload, recoverSocketAuth, setDisplayName, socket } from "./socket.ts";
 import { syncClock } from "./timeSync.ts";
 import { authHeaders } from "../auth/supabase.ts";
+import { mergeMatchOver, type MatchOver } from "./matchOverMerge.ts";
 
 export type ClockPlay = {
   songId: string | null;
@@ -40,14 +41,7 @@ export type ClockPlay = {
   anchor?: ClipAnchor | null;
 };
 
-export type MatchOver = {
-  scores: Record<string, ScoreCard>;
-  winnerId: string | null;
-  eloDelta: number;
-  forfeit?: boolean;
-  /** Ranked: false when no ELO moved (friendly private room, or a forfeit under 5s). */
-  rated?: boolean;
-};
+export type { MatchOver };
 
 export type SocketError = { code: string; message: string };
 
@@ -249,7 +243,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       );
     };
     const onMatchOver = (payload: MatchOver) => {
-      setMatchOver(payload);
+      setMatchOver({ ...payload, matchId: payload.matchId ?? roomRef.current?.matchId ?? null });
       setScores(payload.scores);
       setClockPlay(null);
       setLivePitch(null);
@@ -382,22 +376,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           }
         }
         if (data.matchOver) {
-          setMatchOver((prev) => {
-            if (!prev) return data.matchOver!;
-            const incoming = data.matchOver!;
-            const eloDelta =
-              prev.eloDelta !== 0 && incoming.eloDelta === 0 ? prev.eloDelta : incoming.eloDelta;
-            const scores =
-              Object.keys(incoming.scores).length >= Object.keys(prev.scores).length
-                ? incoming.scores
-                : prev.scores;
-            return {
-              ...incoming,
-              eloDelta,
-              scores,
-              winnerId: incoming.winnerId ?? prev.winnerId,
-            };
-          });
+          // Keeps the socket's rated/forfeit for the same match (the GET
+          // snapshot omits them).
+          const incoming = { ...data.matchOver, matchId: data.room?.matchId ?? null };
+          setMatchOver((prev) => mergeMatchOver(prev, incoming));
         }
       } catch {
         /* isolate blip */
@@ -510,8 +492,23 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       socket.emit(ClientEvents.roomLeave);
       socket.emit(ClientEvents.queueLeave);
     };
+    // Back from the bfcache: the server already let our seat go on pagehide.
+    // Drop the stale room so the Stage's join retry seats us again (it only
+    // emits room:join while room?.code differs from the page's code). The
+    // poll cannot restore it first: GET answers seated players only.
+    const onShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || !roomRef.current) return;
+      setRoom(null);
+      setClockPlay(null);
+      setLivePitch(null);
+      setLivePitches({});
+    };
     window.addEventListener("pagehide", onHide);
-    return () => window.removeEventListener("pagehide", onHide);
+    window.addEventListener("pageshow", onShow);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("pageshow", onShow);
+    };
   }, []);
 
   const value = useMemo<RoomContextValue>(

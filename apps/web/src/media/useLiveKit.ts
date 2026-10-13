@@ -19,7 +19,7 @@ import {
   whyFailed,
 } from "./livekit.ts";
 import { unlockSharedAudio, sharedAudioContext } from "./audioContext.ts";
-import { rejoinDelayMs } from "./rejoin.ts";
+import { rejoinDelayMs, rejoinOnPageShow, retryFailedConnectMs } from "./rejoin.ts";
 import type { Participant } from "livekit-client";
 
 export type LiveKitState = {
@@ -62,8 +62,14 @@ export function useLiveKit(
   // Bumped to reconnect from scratch (fresh token) after an unexpected drop.
   const [rejoin, setRejoin] = useState(0);
   const rejoinsRef = useRef(0);
+  /** The next connect is a rejoin: a failure there retries on the same budget. */
+  const rejoiningRef = useRef(false);
+  /** The same identity joined elsewhere: never rejoin from this tab. */
+  const intentionalRef = useRef(false);
   useEffect(() => {
     rejoinsRef.current = 0;
+    rejoiningRef.current = false;
+    intentionalRef.current = false;
   }, [code, identity]);
 
   useEffect(() => {
@@ -71,6 +77,7 @@ export function useLiveKit(
 
     let cancelled = false;
     let opened: Room | null = null;
+    let retry: number | undefined;
     setStatus("connecting");
     setError(null);
     setCapture({ mic: false, camera: false, error: null });
@@ -82,6 +89,7 @@ export function useLiveKit(
           return;
         }
         opened = connected;
+        rejoiningRef.current = false;
         setRoom(connected);
         // A half-open capture is still a usable stage. Only a failed connect
         // is an error; a missing camera is a notice.
@@ -92,16 +100,29 @@ export function useLiveKit(
       .catch((err: unknown) => {
         if (cancelled) return;
         setStatus("error");
-        if (err instanceof LiveKitUnconfiguredError) {
+        const permanent = err instanceof LiveKitUnconfiguredError;
+        if (permanent) {
           setUnconfigured(true);
           setError(err.message);
         } else {
           setError(err instanceof Error ? err.message : String(err));
         }
+        // A failed rejoin (403 NOT_SEATED before the Stage re-seats us, a
+        // network blip) fires no Disconnected event, so retry from here.
+        if (!rejoiningRef.current) return;
+        rejoinsRef.current += 1;
+        const delay = retryFailedConnectMs(rejoinsRef.current, {
+          intentional: intentionalRef.current,
+          rejoining: true,
+          permanent,
+        });
+        if (delay === null) return;
+        retry = window.setTimeout(() => setRejoin((n) => n + 1), delay);
       });
 
     return () => {
       cancelled = true;
+      if (retry !== undefined) window.clearTimeout(retry);
       void opened?.disconnect();
       setRoom(null);
       setStatus("idle");
@@ -117,9 +138,11 @@ export function useLiveKit(
     if (!room) return;
     let timer: number | undefined;
     const onDisconnected = (reason?: DisconnectReason) => {
+      if (reason === DisconnectReason.DUPLICATE_IDENTITY) intentionalRef.current = true;
       const intentional =
         reason === DisconnectReason.CLIENT_INITIATED || reason === DisconnectReason.DUPLICATE_IDENTITY;
       if (intentional) return;
+      rejoiningRef.current = true;
       rejoinsRef.current += 1;
       const delay = rejoinDelayMs(rejoinsRef.current, { intentional });
       if (delay === null) return;
@@ -131,6 +154,23 @@ export function useLiveKit(
       if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [room]);
+
+  // Back from the bfcache: pagehide sent room:leave and the server dropped
+  // our media (the SDK also disconnected itself on pagehide). The Stage's
+  // join retry re-seats us (RoomProvider clears the stale room on pageshow);
+  // reconnect media with a fresh budget, retrying while the seat comes back.
+  // Unmount (an intentional leave) removes this listener.
+  useEffect(() => {
+    if (!code || !identity) return;
+    const onShow = (event: PageTransitionEvent) => {
+      if (!rejoinOnPageShow({ persisted: event.persisted, intentional: intentionalRef.current })) return;
+      rejoinsRef.current = 0;
+      rejoiningRef.current = true;
+      setRejoin((n) => n + 1);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, [code, identity]);
 
   // LiveKit mutates its participant objects in place, so mirror its events into
   // a counter and recompute the list from the room each time.

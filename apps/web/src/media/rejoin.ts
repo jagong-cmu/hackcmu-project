@@ -22,3 +22,28 @@ export function rejoinDelayMs(attempt: number, opts: { intentional: boolean }): 
   if (!Number.isInteger(attempt) || attempt < 1 || attempt > MaxRejoins) return null;
   return Math.min(8000, 1000 * 2 ** (attempt - 1));
 }
+
+/**
+ * A token fetch / connect failed. During a rejoin (403 NOT_SEATED before the
+ * Stage re-seats us, a network blip) no further Disconnected event will
+ * fire, so schedule the next attempt here, on the same budget. Outside a
+ * rejoin (first connect), or when the failure is permanent (no LiveKit
+ * keys), stay in the error state.
+ */
+export function retryFailedConnectMs(
+  attempt: number,
+  opts: { intentional: boolean; rejoining: boolean; permanent: boolean },
+): number | null {
+  if (!opts.rejoining || opts.permanent) return null;
+  return rejoinDelayMs(attempt, { intentional: opts.intentional });
+}
+
+/**
+ * The page came back from the back/forward cache. pagehide already sent
+ * room:leave and the server dropped our media, so rejoin from scratch with a
+ * fresh budget, unless we left on purpose. A normal (non-persisted) load
+ * mounts fresh and needs nothing.
+ */
+export function rejoinOnPageShow(opts: { persisted: boolean; intentional: boolean }): boolean {
+  return opts.persisted && !opts.intentional;
+}

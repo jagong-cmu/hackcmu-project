@@ -15,6 +15,9 @@ import {
   type SafetyAck,
 } from "@karaoke/shared";
 import type { SafetyApi } from "../rooms/useSafety.ts";
+import { leaveSuffix, type LeaveEffect } from "./leaveEffect.ts";
+
+export type { LeaveEffect };
 
 export const ReasonLabels: Record<ReportReason, string> = {
   harassment: "Harassment or bullying",
@@ -31,13 +34,6 @@ export type RemoveRule =
   | { kind: "host" }
   | { kind: "vote"; count: number; needed: number; voted: boolean; possible: boolean }
   | { kind: "none" };
-
-/**
- * What leaving the 1v1 does right now: a forfeit (rated Ranked, being sung),
- * "scored" (results before settlement: not a forfeit, the match still counts
- * on the scores), or "free" (lobby, Duet, friendly rooms).
- */
-export type LeaveEffect = "forfeit" | "scored" | "free";
 
 type Step = "menu" | "report" | "block" | "remove" | "done";
 
@@ -372,13 +368,7 @@ export default function SafetyMenu({
                       disabled={busy}
                       onClick={() => void leave()}
                     >
-                      {busy
-                        ? "Leaving…"
-                        : leaveEffect === "forfeit"
-                          ? "Leave match · counts as a forfeit"
-                          : leaveEffect === "scored"
-                            ? "Leave match · result still counts"
-                            : "Leave match · no rating change"}
+                      {busy ? "Leaving…" : `Leave match · ${leaveSuffix(leaveEffect)}`}
                     </button>
                   </>
                 ) : (
