@@ -131,15 +131,40 @@ Product decisions closing the "private ranked rooms are rated" open item and aud
     - a queue match where seat A reports and leaves at turnA+6s settles once as a rated forfeit (−8/+8)
     - a queue match where losing seat B drops on results before posting settles at once on the scores (+16 for A, not a forfeit), with one `match:over` after the 8s wait
 
+### 8. Gemini quota limits and cross-instance room codes (`harden/gemini-and-codes`)
+Audit findings #9 (Gemini quota / PostHog burn) and #10 (`room:create` code collision across instances).
+- **Gemini verdicts (#9).** `/api/training/score` made one Gemini call per post with no limit, so one account looping training posts could use up the shared free quota.
+  - Turn scores were already capped: `enrichScore` runs only after `recordScore` accepts the card, which is one per seat per match (entry 5).
+  - Now every verdict call is charged to the verified user (`attachVerdict`, `server/src/abuseLimits.ts`). The limit is one call per 15s and 30 per rolling hour per user, and at most 4 calls in flight per instance. Past the in-flight cap the call is skipped, not queued. The existing 2.5s timeout still applies.
+  - Over a limit, the post still returns 200 with the DSP card and the no-Gemini verdict: empty, source `dsp`, and the client shows its coach line. A silent take, a missing key, or a skip at the in-flight cap doesn't use up the user's budget.
+  - The training analytics (the PostHog "training completed" event plus the stats counter) are capped the same way per user, at one per 15s and 30 per hour.
+  - Per instance, like the other limiters. Maps are bounded at 10k users (least recently used dropped first).
+- **Room codes (#10).** `room:create` checked its random code against this instance's rooms only. Another instance could already hold a live room with that code, and the new room's snapshot (`saveRoomSnap`, an upsert by code) would then overwrite it. The queue's `generateSharedCode` was check-then-insert, so it had a smaller version of the same race.
+  - New `reserveSharedCode` in `liveState.ts` upserts the draft room's whole snapshot with `$setOnInsert` and counts the code as reserved only when `upsertedCount === 1`. A code that matches any existing `liveRooms` doc is taken: a live room elsewhere, or a leftover snapshot of an ended room (this closes the "leftover snapshot merges into the new room" open item). E11000 from the unique `{code}` index is treated the same way.
+  - `room:create` uses `createSharedRoom`. Host, private and unrated are set on the draft, so the first snapshot already carries them. Queue matches reserve their code the same way.
+  - Typing a fresh private lounge code in `chaos:join` claims that exact code (`reserveExactCode`). If another instance claimed it first, the caller joins that room instead.
+  - Without Mongo (local, dev, tests), when Mongo errors, or after 40 taken codes, it falls back to the old local check. Join semantics are unchanged: unknown private codes still get `ROOM_UNAVAILABLE`, and the snapshot and LiveKit answers stay as they were (404 / 403 `NOT_SEATED`).
+- **Lyrics on Vercel (not changed).** The services schema allows `services.*.functions.*.includeFiles`. I couldn't confirm how a glob that leaves the service root (`root: "server"`, so `../apps/web/public/songs/**/lyrics.lrc`) resolves, so `vercel.json` is unchanged and the open item stays.
+- Verified:
+  - typecheck and build
+  - 305/305 tests (18 new):
+    - `geminiBudget.test.ts`: budget and cap units, a training loop making one Gemini call, per-user budgets, the analytics cap, silent takes and a missing key not charged, 4 calls in flight with a 5th skipped at once, and hung calls timing out
+    - `roomCodes.test.ts` on FakeDb: a code live on another instance is never handed out, two instances racing for one code, 200 concurrent creates all distinct, a leftover snapshot skipped, E11000 and Mongo-down fallbacks, `reserveExactCode`, unknown code still no room
+  - the peer e2e suite: 23/24, the one failure being the known entry-6 403
+  - `fullmatch.mjs` and `fullmatch-variants.mjs`: all passed
+
+- Real-database check (local MongoDB 7 replica set, two server instances sharing it):
+  - 800 concurrent `room:create`s split across both instances: **0 duplicate codes** on this branch, versus **19 duplicates** on main.
+  - The peer e2e and both full-match scripts pass on real Mongo, which also exercises PR #19's settlement claim and per-seat score claims.
+
 ## Open items (need a decision or larger change)
 
-- Rate limits are per instance (room joins, hello verification, reports, blocks, votes). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
+- Rate limits are per instance (room joins, hello verification, reports, blocks, votes, Gemini verdicts, training analytics). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.
 - A fresh handshake per connection can still cost one Supabase call per unique, well-formed but forged JWT. A per-IP connection limit (e.g. Vercel WAF rate limit on `/socket.io`) would cap it.
 - The `0000` demo room is still rated, and anyone who knows the code can join it. Consider making it friendly too.
-- `room:create` picks its code against this instance's rooms only. A leftover `liveRooms` snapshot with the same code (up to 2h) can merge into the new room. The flags are safe (they only move toward private), but other state is not. Use `generateSharedCode` there.
 - `safety:leave` needs a report or block recorded on the same instance (the "flagged" set is per instance). On Vercel the leave can be refused after a report on another instance. The ordinary leave still works, and it forfeits the same way.
 - On Vercel, the 20s delayed LiveKit drop after a socket disconnect only fires if the instance stays alive that long. An explicit `room:leave` (pagehide, navigation) drops the media session straight away.
 - Full Content-Security-Policy: draft in docs/csp-draft.md. Ship as Report-Only first.
-- Song lyrics may not be bundled with the Vercel API function, so Gemini falls back to cleaned client lyrics. Add `includeFiles` for `apps/web/public/songs/*/lyrics.lrc` to the api service.
+- Song lyrics may not be bundled with the Vercel API function, so Gemini falls back to cleaned client lyrics. `serverLyrics()` reads them with a computed path, which file tracing likely misses. The schema allows `services.api.functions["src/index.ts"].includeFiles`, but it's unconfirmed whether a glob leaving the service root (`../apps/web/public/songs/**/lyrics.lrc`) resolves. Try it on a preview deploy and check a training verdict quotes the song. The alternative is copying the LRCs under `server/` at build time.
 - react-router v6 → v7 upgrade to clear the remaining advisories. Our own `next=` handling goes through `safeNext`; check whether any `<Link>`/`navigate` takes user input.

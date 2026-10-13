@@ -13,13 +13,16 @@ import type {
 } from "@karaoke/shared";
 import { randomUUID } from "node:crypto";
 import type { Filter, UpdateFilter } from "mongodb";
-import { getDb } from "./db.ts";
+import { getDb, isDuplicateKey } from "./db.ts";
 import {
   addPlayer,
   clearTimers,
   createRoom,
+  draftRoom,
   generateCode,
   getRoom,
+  randomRoomCode,
+  registerRoom,
   type Player,
   type Room,
 } from "./rooms.ts";
@@ -161,19 +164,88 @@ export async function findOpenPair(clientId: string, mode: QueueMode): Promise<P
 }
 
 /**
+ * Reserve a fresh room code across instances. Each try upserts the draft's
+ * snapshot with $setOnInsert, so it only writes when no liveRooms doc has
+ * that code (a live room on another instance, or a leftover snapshot of an
+ * ended one). The unique {code} index turns a lost upsert race into E11000.
+ * Either way the code is taken and we try another.
+ *
+ * Returns the reserved draft (not registered on this instance), or null
+ * without Mongo, when Mongo errors, or after 40 taken codes. Callers then
+ * fall back to a code checked against this instance only.
+ */
+export async function reserveSharedCode(makeDraft: (code: string) => Room): Promise<Room | null> {
+  const col = await snaps();
+  if (!col) return null;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const code = randomRoomCode();
+    if (getRoom(code)) continue;
+    const draft = makeDraft(code);
+    try {
+      const res = await col.updateOne(
+        { code },
+        { $setOnInsert: snapFromRoom(draft) },
+        { upsert: true },
+      );
+      if (res.upsertedCount === 1) return draft;
+    } catch (err) {
+      if (isDuplicateKey(err)) continue;
+      console.error("[liveState] room code reservation failed; using a local code", err);
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Claim one specific code (a typed private lounge code). True when this call
+ * created its liveRooms doc, or without Mongo; false when another instance
+ * already holds a doc for it.
+ */
+export async function reserveExactCode(draft: Room): Promise<boolean> {
+  const col = await snaps();
+  if (!col) return true;
+  try {
+    const res = await col.updateOne(
+      { code: draft.code },
+      { $setOnInsert: snapFromRoom(draft) },
+      { upsert: true },
+    );
+    return res.upsertedCount === 1;
+  } catch (err) {
+    if (isDuplicateKey(err)) return false;
+    console.error("[liveState] room code reservation failed", err);
+    return true;
+  }
+}
+
+/**
+ * A new room (room:create) whose code no other live instance holds. `setup`
+ * runs on the draft before its snapshot is written (host, private, unrated).
+ * Without Mongo: a code free on this instance, as before.
+ */
+export async function createSharedRoom(mode: Mode, setup: (room: Room) => void = () => {}): Promise<Room> {
+  const reserved = await reserveSharedCode((code) => {
+    const draft = draftRoom(mode, code);
+    setup(draft);
+    return draft;
+  });
+  if (reserved && !getRoom(reserved.code)) return registerRoom(reserved);
+  const room = createRoom(mode);
+  setup(room);
+  return room;
+}
+
+/** Queue matches: a code reserved across instances (see reserveSharedCode). */
+async function generateSharedCode(mode: QueueMode): Promise<string> {
+  const reserved = await reserveSharedCode((code) => draftRoom(mode, code));
+  return reserved?.code ?? generateCode();
+}
+
+/**
  * Upsert this player in the shared queue. If another fresh waiter exists,
  * atomically create one pair document both isolates can read.
  */
-async function generateSharedCode(): Promise<string> {
-  const col = await snaps();
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const code = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-    if (getRoom(code)) continue;
-    if (col && (await col.findOne({ code }))) continue;
-    return code;
-  }
-  return generateCode();
-}
 
 export async function sharedPairOrWait(
   mode: QueueMode,
@@ -214,7 +286,7 @@ export async function sharedPairOrWait(
     { socketId: opp.socketId, clientId: opp.clientId, displayName: opp.displayName, elo: opp.elo },
     player,
   ];
-  const code = await generateSharedCode();
+  const code = await generateSharedCode(mode);
   try {
     await pairCol.insertOne({
       _id: id,

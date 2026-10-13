@@ -30,6 +30,7 @@ import {
 import { eloDelta, kForMatch, outcomeFromScores } from "./elo.ts";
 import { getArenaStats, trackMatchCompleted, trackTrainingCompleted } from "./analytics.ts";
 import { httpIdentity } from "./auth.ts";
+import { trainingEventBudget, verdictBudget, verdictConcurrency } from "./abuseLimits.ts";
 import {
   asyncRoute,
   cleanText,
@@ -200,16 +201,30 @@ Return JSON only: {"verdict":"..."}`;
   }
 }
 
-async function attachVerdict(score: ScoreCard, lyrics?: string): Promise<ScoreCard> {
+/**
+ * The DSP card plus a Gemini verdict when one is allowed. `who` is the
+ * verified user the call is charged to (abuseLimits.ts: one per 15s, 30 per
+ * hour, 4 in flight per instance). Over any limit, or without a key, the card
+ * keeps the no-Gemini verdict and no call is made. Never throws for that.
+ */
+async function attachVerdict(score: ScoreCard, lyrics: string | undefined, who: string): Promise<ScoreCard> {
   const numbers: ScoreCard = { ...score, verdict: score.silence ? SilenceVerdict : "", source: "dsp" };
   if (numbers.silence) return numbers;
-  const verdict = await geminiVerdict({
-    pitch: numbers.pitch,
-    tone: numbers.tone,
-    overall: numbers.overall,
-    silence: false,
-    lyrics,
-  });
+  if (!process.env.GEMINI_API_KEY?.trim()) return numbers;
+  if (!verdictConcurrency.tryEnter()) return numbers;
+  let verdict = "";
+  try {
+    if (!verdictBudget.take(who)) return numbers;
+    verdict = await geminiVerdict({
+      pitch: numbers.pitch,
+      tone: numbers.tone,
+      overall: numbers.overall,
+      silence: false,
+      lyrics,
+    });
+  } finally {
+    verdictConcurrency.leave();
+  }
   if (!verdict) return numbers;
   return { ...numbers, verdict, source: "dsp+gemini" };
 }
@@ -368,8 +383,9 @@ async function finishRankedOrDuet(turn: PendingTurn): Promise<Record<string, unk
   };
 }
 
-export async function enrichScore(raw: unknown, lyrics?: string): Promise<ScoreCard> {
-  return attachVerdict(clampCard(raw), lyrics);
+/** Clamp + verdict, charged to `who` (the verified user id) for the Gemini limits. */
+export async function enrichScore(raw: unknown, lyrics: string | undefined, who: string): Promise<ScoreCard> {
+  return attachVerdict(clampCard(raw), lyrics, who);
 }
 
 /** Persist a completed Ranked/Duet room. Returns ELO delta for the first-seated player. */
@@ -446,15 +462,19 @@ export function registerLaneBRoutes(app: Express): void {
     }
     const songId = typeof body.songId === "string" && songById(body.songId) ? body.songId : undefined;
     let score = clampCard(body.score);
-    score = await attachVerdict(score, verdictLyrics(songId, body.lyrics));
+    score = await attachVerdict(score, verdictLyrics(songId, body.lyrics), who.clientId);
     const db = await getDb();
     let player = null;
     if (db) player = await upsertPlayer(db, who.clientId, sanitizeDisplayName(body.displayName));
-    void trackTrainingCompleted({
-      songId,
-      distinctId: who.clientId,
-      overall: score.overall,
-    }).catch(logOnce("trackTrainingCompleted"));
+    // Analytics (PostHog event + stats counter) are capped per user too, so a
+    // looping client cannot flood them. The score is returned either way.
+    if (trainingEventBudget.take(who.clientId)) {
+      void trackTrainingCompleted({
+        songId,
+        distinctId: who.clientId,
+        overall: score.overall,
+      }).catch(logOnce("trackTrainingCompleted"));
+    }
     res.json({ ok: true, score, mongo: Boolean(db), player });
   }));
 

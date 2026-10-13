@@ -149,6 +149,19 @@ export function createRoom(mode: Mode, code?: string, persistent = false): Room 
   return room;
 }
 
+/**
+ * A blank room that is not registered on this instance yet. createSharedRoom
+ * (liveState.ts) reserves its code in Mongo first, then calls registerRoom.
+ */
+export function draftRoom(mode: Mode, code: string): Room {
+  return blankRoom(code, mode, false);
+}
+
+export function registerRoom(room: Room): Room {
+  rooms.set(room.code, room);
+  return room;
+}
+
 export function getRoom(code: string): Room | undefined {
   return rooms.get(code);
 }
@@ -157,9 +170,17 @@ export function allRooms(): Room[] {
   return [...rooms.values()];
 }
 
+export function randomRoomCode(): string {
+  return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+}
+
+/**
+ * A code free on this instance only. Other instances may hold it: with Mongo,
+ * new rooms take their code from liveState's createSharedRoom instead.
+ */
 export function generateCode(): string {
   for (let attempt = 0; attempt < 200; attempt++) {
-    const code = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    const code = randomRoomCode();
     if (!rooms.has(code)) return code;
   }
   throw new Error("room code space exhausted");

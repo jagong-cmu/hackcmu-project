@@ -70,7 +70,7 @@ export function registerScoreRoute(app: Express, io: Server): void {
         logOnce("trackScoreSubmitted"),
       );
       res.json({ ok: true, settled: outcome.settled, score: card });
-      void enrichScore(card, verdictLyrics(room.songId, body.lyrics))
+      void enrichScore(card, verdictLyrics(room.songId, body.lyrics), clientId)
         .then(async (enriched) => {
           if (enriched.verdict === card.verdict && enriched.source === card.source) return;
           // Verdict only; never replaces a card from a later match.
