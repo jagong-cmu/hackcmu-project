@@ -19,6 +19,7 @@ import {
   ClientEvents,
   DemoRoomCode,
   isPublicChaosCode,
+  RemovedFromRoomCode,
   ServerEvents,
   StartingElo,
   type Mode,
@@ -32,7 +33,6 @@ import {
   dropDeadPlayers,
   ensurePermanentRooms,
   createRoom,
-  findOpenPublicChaosLounge,
   getRoom,
   isFull,
   livePlayers,
@@ -78,6 +78,13 @@ import {
   trackRoomCreated,
   trackScoreSubmitted,
 } from "./analytics.ts";
+import {
+  isBannedFromRoom,
+  isBannedLocal,
+  markPrivateRoom,
+  openLoungeFor,
+  registerSafety,
+} from "./moderation.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(here, "../.env") });
@@ -157,6 +164,7 @@ app.post("/api/livekit/token", async (req, res) => {
     res.status(400).json({ code: "BAD_REQUEST", message: "code and identity required" });
     return;
   }
+  if (await isBannedFromRoom(code, identity)) return void res.status(403).json({ code: RemovedFromRoomCode, message: "removed from this room" });
 
   const token = await mintToken(
     config,
@@ -276,6 +284,7 @@ function seat(socketId: string, room: Room): boolean {
 
   pruneRoom(room);
 
+  if (isBannedLocal(room.code, session.playerId)) return false;
   const alreadyHere = room.players.some((p) => p.clientId === session.clientId);
   if (!alreadyHere && isFull(room)) return false;
 
@@ -305,7 +314,7 @@ function seat(socketId: string, room: Room): boolean {
   return true;
 }
 
-function leaveCurrentRoom(socketId: string): void {
+function leaveCurrentRoom(socketId: string, opts: { forfeit: boolean } = { forfeit: true }): void {
   const session = sessionOf(socketId);
   const room = roomOfSession(session);
   if (!session || !room) return;
@@ -313,7 +322,8 @@ function leaveCurrentRoom(socketId: string): void {
   const player = room.players.find((p) => p.id === session.playerId);
   if (player) {
     player.connected = false;
-    forfeitFor(io, room, player);
+    // Safety exits (kicked, or leaving someone you blocked/reported) carry no forfeit.
+    if (opts.forfeit) forfeitFor(io, room, player);
     removePlayer(room, player.id);
     // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
     rematchSeatLeft(room, player.id);
@@ -404,6 +414,16 @@ function announceQueueMatch(
   broadcastState(io, room);
   return true;
 }
+
+// Report / block / remove (moderation.ts). Its own socket handlers; these are the hooks it needs.
+registerSafety(io, {
+  sessionOf,
+  resolveRoom: async (code) => (await ensureRoom(code)) ?? getRoom(code),
+  socketsOf: (playerId, code) =>
+    [...sessions].filter(([, s]) => s.playerId === playerId && s.roomCode === code).map(([id]) => id),
+  eject: (socketId, opts) => leaveCurrentRoom(socketId, opts),
+  broadcast: (room) => broadcastState(io, room),
+});
 
 io.on("connection", (socket) => {
   socket.on(ClientEvents.playerHello, async (payload: unknown) => {
@@ -565,6 +585,7 @@ io.on("connection", (socket) => {
     }
 
     const room = createRoom(mode);
+    markPrivateRoom(room, session.playerId);
     if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
     void trackRoomCreated({ mode: room.mode, roomCode: room.code, distinctId: session.clientId });
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
@@ -577,6 +598,9 @@ io.on("connection", (socket) => {
     const code = String(((payload ?? {}) as { code?: unknown }).code ?? "").trim();
     const room = (await ensureRoom(code)) ?? getRoom(code);
     if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
+    if (await isBannedFromRoom(room.code, session.playerId)) {
+      return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
+    }
 
     if (session.roomCode === room.code) {
       broadcastState(io, room);
@@ -599,12 +623,18 @@ io.on("connection", (socket) => {
       return fail(socket, "BAD_CODE", "enter a 4-digit code");
     }
 
-    let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : findOpenPublicChaosLounge();
+    if (raw && (await isBannedFromRoom(raw, session.playerId))) {
+      return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
+    }
+    let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : openLoungeFor(session.playerId);
     if (raw) {
       if (room && room.mode !== "chaos") {
         return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
       }
-      room ??= createRoom("chaos", raw, false);
+      if (!room) {
+        room = createRoom("chaos", raw, false);
+        if (!isPublicChaosCode(raw)) markPrivateRoom(room, session.playerId);
+      }
     }
 
     if (!room) return fail(socket, "ROOM_NOT_FOUND", "no open lounge");
@@ -620,7 +650,7 @@ io.on("connection", (socket) => {
 
     if (!seat(socket.id, room)) {
       if (!raw) {
-        room = findOpenPublicChaosLounge();
+        room = openLoungeFor(session.playerId);
         if (seat(socket.id, room)) {
           trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(() => undefined);
           socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });

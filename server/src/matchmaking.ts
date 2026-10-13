@@ -2,10 +2,13 @@
  * LANE A — FIFO matchmaking for Ranked and Duet.
  *
  * Deliberately dumb: no skill bracketing, no backfill. Two live people waiting
- * in the same mode get paired in arrival order (TECHNICAL_PRD §6).
+ * in the same mode get paired in arrival order (TECHNICAL_PRD §6). The one
+ * exception: two players where either has blocked the other are never paired
+ * (moderation.ts). Players are keyed by clientId, which is the player id.
  */
 import type { Mode } from "@karaoke/shared";
 import { createRoom, type Room } from "./rooms.ts";
+import { blockedEitherWay } from "./moderation.ts";
 
 export type Waiting = {
   socketId: string;
@@ -68,7 +71,8 @@ export function enqueue(
   let opponent: Waiting | undefined;
   for (const waiting of queues[mode]) {
     if (!isLive(waiting.socketId) || waiting.clientId === player.clientId) continue;
-    if (!opponent) opponent = waiting;
+    // Blocked either way: never pair them. They keep their place for someone else.
+    if (!opponent && !blockedEitherWay(waiting.clientId, player.clientId)) opponent = waiting;
     else kept.push(waiting);
   }
   queues[mode] = kept;

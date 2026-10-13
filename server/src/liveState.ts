@@ -16,6 +16,7 @@ import {
 } from "./rooms.ts";
 import type { Waiting } from "./matchmaking.ts";
 import { mergeRematchSnap } from "./rematch.ts";
+import { pairingAvoidList } from "./moderation.ts";
 
 const WAITER_TTL_MS = 12_000;
 const PAIR_TTL_MS = 120_000;
@@ -136,10 +137,12 @@ export async function sharedPairOrWait(
   );
 
   const stale = new Date(Date.now() - WAITER_TTL_MS);
+  // Never pair two players where either has blocked the other (moderation.ts).
+  const avoid = await pairingAvoidList(player.clientId);
   const opp = await waiterCol.findOneAndDelete(
     {
       mode,
-      clientId: { $ne: player.clientId },
+      clientId: { $nin: [player.clientId, ...avoid] },
       updatedAt: { $gt: stale },
     },
     { sort: { updatedAt: 1 } },
