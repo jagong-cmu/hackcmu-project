@@ -78,7 +78,8 @@ const FRESH_TIMEOUT_MS = 4_000;
 /** Where /signin should send the user once the Google round trip is done. */
 export function peekAuthNext(): string | null {
   try {
-    return sessionStorage.getItem(NEXT_KEY);
+    const raw = sessionStorage.getItem(NEXT_KEY);
+    return raw == null ? null : safeNext(raw);
   } catch {
     return null;
   }

@@ -1,5 +1,20 @@
-import posthog from "posthog-js";
+import posthog, { type CaptureResult } from "posthog-js";
 import { getClientId, getDisplayName } from "../home/identity.ts";
+import { scrubProperties } from "./scrubUrl.ts";
+
+function scrubCaptureResult(cr: CaptureResult | null): CaptureResult | null {
+  if (!cr) return cr;
+  try {
+    return {
+      ...cr,
+      properties: scrubProperties(cr.properties),
+      $set: scrubProperties(cr.$set),
+      $set_once: scrubProperties(cr.$set_once),
+    };
+  } catch {
+    return cr;
+  }
+}
 
 const KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY?.trim() ?? "";
 const HOST = import.meta.env.VITE_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com";
@@ -21,6 +36,8 @@ export function initPostHog(): typeof posthog | null {
     disable_session_recording: true,
     person_profiles: "identified_only",
     persistence: "localStorage+cookie",
+    // Never ship OAuth codes/tokens/errors from /signin URLs.
+    before_send: scrubCaptureResult,
   });
   booted = true;
   return posthog;

@@ -6,6 +6,7 @@
  */
 import type { User } from "@supabase/supabase-js";
 import { getDisplayName, validName } from "../home/identity.ts";
+import { safeAuthNext } from "../lib/safeNext.ts";
 
 const ID = "karaoke.clientId";
 /** The pre-account id (PR #5 guest uuid, or a PR #3 email account id). */
@@ -84,8 +85,4 @@ export function nameFromUser(user: User): string {
 }
 
 /** Only same-site paths are allowed as a post-sign-in destination. */
-export function safeNext(raw: string | null | undefined): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/";
-  if (raw.startsWith("/signin")) return "/";
-  return raw;
-}
+export const safeNext = safeAuthNext;

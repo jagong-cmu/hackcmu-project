@@ -8,12 +8,13 @@ import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
 import { AccountSection } from "../auth/AccountSection.tsx";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { LegalLinks } from "../legal/LegalLinks.tsx";
+import { safeNextPath } from "../lib/safeNext.ts";
 
 export function Settings() {
   const navigate = useNavigate();
   const { hello } = useRoom();
   const [params] = useSearchParams();
-  const next = params.get("next") || "/";
+  const next = safeNextPath(params.get("next"), "/");
   const [name, setName] = useState(getDisplayName());
   const [mongo, setMongo] = useState<boolean | null>(null);
   const [msg, setMsg] = useState("");
