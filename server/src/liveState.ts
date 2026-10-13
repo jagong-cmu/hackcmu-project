@@ -11,6 +11,8 @@ import type {
   RoomStatus,
   ScoreCard,
 } from "@karaoke/shared";
+import { randomUUID } from "node:crypto";
+import type { Filter, UpdateFilter } from "mongodb";
 import { getDb } from "./db.ts";
 import {
   addPlayer,
@@ -68,9 +70,40 @@ export type RoomSnap = {
   /** Open rematch offer while in results. Older snaps carried `rematchAtMs` instead; ignored. */
   rematch?: RematchOffer | null;
   rematchLapse?: RematchLapse | null;
-  scores: Record<string, ScoreCard>;
+  /** See Room.matchId. Absent on snaps written before score claims existed. */
+  matchId?: number | null;
+  /**
+   * One card per seat per match. Written only by claimScore (and the verdict
+   * refresh of an already-claimed card), never by saveRoomSnap's whole-doc
+   * $set, so a stale isolate's save cannot erase or replace a claimed score.
+   * Entries from an older match are ignored (their matchId differs).
+   */
+  matchScores?: Record<string, SnapScore>;
+  /** Written only by claimSettlement: the matchId this room last settled. */
+  settledMatchId?: number;
+  settledBy?: string;
+  /** The winning isolate's match:over payload, so losers show the same result. */
+  settledResult?: SettledResult;
+  /** Legacy (pre-claim) snaps carried the score map here. Read only when matchId is absent. */
+  scores?: Record<string, ScoreCard>;
   updatedAt: Date;
 };
+
+export type SnapScore = { matchId: number; card: ScoreCard };
+
+/** What finishMatch emits as match:over. */
+export type MatchOverPayload = {
+  scores: Record<string, ScoreCard>;
+  winnerId: string | null;
+  eloDelta: number;
+  forfeit?: boolean;
+  rated?: boolean;
+};
+
+export type SettledResult = MatchOverPayload & { matchId: number };
+
+/** Names this isolate in `settledBy` (which instance settled a match). */
+export const instanceId = randomUUID();
 
 function waiters() {
   return getDb().then((db) => db?.collection<WaiterDoc>("queueWaiters") ?? null);
@@ -209,8 +242,6 @@ export async function sharedPairOrWait(
 
 /** What saveRoomSnap writes. Exported for the snapshot round-trip test. */
 export function snapFromRoom(room: Room): RoomSnap {
-  const scores: Record<string, ScoreCard> = {};
-  for (const [id, card] of room.scores) scores[id] = card;
   return {
     code: room.code,
     mode: room.mode,
@@ -225,12 +256,13 @@ export function snapFromRoom(room: Room): RoomSnap {
     clipAnchor: room.clipAnchor,
     songStartedAtMs: room.songStartedAtMs,
     matchStartedAtMs: room.matchStartedAtMs,
+    matchId: room.matchId,
     lastEloDelta: room.lastEloDelta,
     lastWinnerId: room.lastWinnerId,
     settled: room.settled,
     rematch: room.rematch,
     rematchLapse: room.rematchLapse,
-    scores,
+    // No scores here: they are written only by claimScore (see matchScores).
     updatedAt: new Date(),
   };
 }
@@ -239,6 +271,12 @@ export async function saveRoomSnap(room: Room): Promise<void> {
   const col = await snaps();
   if (!col) return;
   await col.updateOne({ code: room.code }, { $set: snapFromRoom(room) }, { upsert: true });
+}
+
+/** The raw snapshot document, or null without Mongo / when none exists. */
+export async function loadSnap(code: string): Promise<RoomSnap | null> {
+  const col = await snaps();
+  return col ? await col.findOne({ code }) : null;
 }
 
 export async function ensureRoom(code: string): Promise<Room | undefined> {
@@ -292,11 +330,13 @@ export function applySnap(room: Room, snap: RoomSnap): void {
     room.clipAnchor = snap.clipAnchor ?? null;
     room.songStartedAtMs = snap.songStartedAtMs;
     room.matchStartedAtMs = snap.matchStartedAtMs;
+    if (snap.matchId !== undefined) room.matchId = snap.matchId;
     room.lastEloDelta = snap.lastEloDelta;
     if (snap.lastWinnerId !== undefined) room.lastWinnerId = snap.lastWinnerId;
   }
   mergeRematchSnap(room, snap.rematch, snap.rematchLapse);
   if (snap.settled) room.settled = true;
+  if (room.matchId != null && snap.settledMatchId === room.matchId) room.settled = true;
   const snapIds = new Set(snap.players.map((p) => p.clientId));
   for (const p of snap.players) {
     const have = room.players.find((x) => x.clientId === p.clientId);
@@ -330,8 +370,125 @@ export function applySnap(room: Room, snap: RoomSnap): void {
   room.players = room.players.filter(
     (p) => snapIds.has(p.clientId) || now - p.lastSeenMs < 8_000,
   );
-  for (const [id, card] of Object.entries(snap.scores ?? {})) {
-    if (!room.scores.has(id)) room.scores.set(id, card);
+  // Merge, never replace: a score this isolate already holds for the match wins.
+  if (snap.matchId === undefined) {
+    for (const [id, card] of Object.entries(snap.scores ?? {})) {
+      if (!room.scores.has(id)) room.scores.set(id, card);
+    }
+  } else if (room.matchId != null) {
+    for (const [id, entry] of Object.entries(snap.matchScores ?? {})) {
+      if (entry?.matchId !== room.matchId || !entry.card) continue;
+      if (!room.scores.has(id)) room.scores.set(id, entry.card);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-isolate claims. Every isolate holding a room runs its clock, so two
+// isolates can each accept a score or settle the same match. These are atomic
+// conditional writes on the liveRooms doc; the first writer wins.
+// Without Mongo they answer "local": single-instance behaviour, unchanged.
+// ---------------------------------------------------------------------------
+
+export type ScoreClaim = "claimed" | "local" | "duplicate" | "settled" | "stale";
+
+/**
+ * Store `card` as `playerId`'s one score for the room's current match, unless
+ * one is already stored or the match is settled / no longer current.
+ */
+export async function claimScore(room: Room, playerId: string, card: ScoreCard): Promise<ScoreClaim> {
+  const matchId = room.matchId;
+  const col = await snaps();
+  if (!col || matchId == null) return "local";
+  const key = `matchScores.${playerId}`;
+  const filter = {
+    code: room.code,
+    matchId,
+    settledMatchId: { $ne: matchId },
+    [`${key}.matchId`]: { $ne: matchId },
+  } as Filter<RoomSnap>;
+  const update = { $set: { [key]: { matchId, card } } } as UpdateFilter<RoomSnap>;
+  const res = await col.updateOne(filter, update);
+  if (res.matchedCount > 0) return "claimed";
+  const doc = await col.findOne({ code: room.code });
+  if (!doc) return "local";
+  if (doc.matchScores?.[playerId]?.matchId === matchId) return "duplicate";
+  if (doc.settledMatchId === matchId) return "settled";
+  if ((doc.matchId ?? 0) > matchId) return "stale";
+  // The snap lags this isolate (its save has not landed yet): fall back to
+  // the local one-score rule, which the caller has already applied.
+  return "local";
+}
+
+/** Swap in the Gemini verdict on a card that is already claimed. Numbers never change. */
+export async function refreshClaimedCard(
+  room: Room,
+  matchId: number,
+  playerId: string,
+  card: ScoreCard,
+): Promise<void> {
+  const col = await snaps();
+  if (!col) return;
+  const key = `matchScores.${playerId}`;
+  await col.updateOne(
+    { code: room.code, [`${key}.matchId`]: matchId } as Filter<RoomSnap>,
+    { $set: { [`${key}.card`]: card } } as UpdateFilter<RoomSnap>,
+  );
+}
+
+export type SettleClaim = "won" | "lost" | "stale" | "local";
+
+/**
+ * Exactly one isolate may persist a match (ELO, matches doc, duet best).
+ * "won": this isolate persists. "lost": another isolate already did (or is
+ * doing it); converge from its published result. "stale": the room doc has
+ * moved on to a newer match. "local": no Mongo / no snap; settle as a single
+ * instance (the matches unique index still stops a double write).
+ */
+export async function claimSettlement(room: Room): Promise<SettleClaim> {
+  const matchId = room.matchId;
+  const col = await snaps();
+  if (!col || matchId == null) return "local";
+  const won = await col.findOneAndUpdate(
+    { code: room.code, matchId, settledMatchId: { $ne: matchId } } as Filter<RoomSnap>,
+    { $set: { settledMatchId: matchId, settledBy: instanceId, settled: true } },
+  );
+  if (won) return "won";
+  const doc = await col.findOne({ code: room.code });
+  if (!doc) return "local";
+  if (doc.settledMatchId === matchId) return "lost";
+  if ((doc.matchId ?? 0) > matchId) return "stale";
+  return "local";
+}
+
+/** The claim winner publishes its match:over payload for the losing isolates. */
+export async function publishSettlement(
+  room: Room,
+  matchId: number,
+  result: MatchOverPayload,
+): Promise<void> {
+  const col = await snaps();
+  if (!col) return;
+  await col.updateOne(
+    { code: room.code, settledMatchId: matchId } as Filter<RoomSnap>,
+    { $set: { settledResult: { ...result, matchId } } },
+  );
+}
+
+/** Poll for the winner's published result (it persists ELO first). Null on timeout. */
+export async function awaitSettlement(
+  code: string,
+  matchId: number,
+  timeoutMs: number,
+  pollMs = 250,
+): Promise<{ snap: RoomSnap; result: SettledResult } | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const snap = await loadSnap(code);
+    const result = snap?.settledResult;
+    if (snap && result && result.matchId === matchId) return { snap, result };
+    if (Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, pollMs));
   }
 }
 

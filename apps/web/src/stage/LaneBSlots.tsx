@@ -16,7 +16,7 @@ import { loadSongPack } from "../scoring/catalog.ts";
 import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { pitchAnalyser, rmsOf } from "../scoring/pitchGuide.ts";
-import { postTurnScore } from "../scoring/postScore.ts";
+import { postTurnScore, ScoreRefused } from "../scoring/postScore.ts";
 import { getClientId, getDisplayName } from "../home/identity.ts";
 import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
 import { InstrumentalVolume } from "../media/levels.ts";
@@ -230,6 +230,9 @@ export function StagePitch() {
   const framesRef = useRef<PitchFrame[]>([]);
   const singingRef = useRef(false);
   const postedRef = useRef(false);
+  /** The clip the current take belongs to, and its match (echoed in the score POST). */
+  const takeRef = useRef("");
+  const matchIdRef = useRef<number | null>(null);
   const postingRef = useRef(false);
   const scoringRef = useRef(false);
   const meterRef = useRef(false);
@@ -308,6 +311,7 @@ export function StagePitch() {
       clientId: getClientId(),
       displayName: getDisplayName() || "Singer",
       score: dsp,
+      matchId: matchIdRef.current,
       mode: r.mode,
       songId: r.songId ?? undefined,
       lyrics: lrcRef.current.slice(0, 600),
@@ -315,8 +319,21 @@ export function StagePitch() {
       .then(() => {
         postedRef.current = true;
       })
-      .catch(() => {
+      .catch((err) => {
         postingRef.current = false;
+        if (err instanceof ScoreRefused && err.final) {
+          // Settled, over, or already recorded: never re-post this clip.
+          postedRef.current = true;
+          return;
+        }
+        // Network error or TURN_NOT_ENDED (clock skew): flush again shortly.
+        // The pause keeps the per-frame past-clip check from hammering the route.
+        if (err instanceof ScoreRefused) {
+          window.setTimeout(() => {
+            if (!postedRef.current) singingRef.current = true;
+          }, 1000);
+          return;
+        }
         singingRef.current = true;
       });
   };
@@ -441,15 +458,20 @@ export function StagePitch() {
   }, [micStream, audioRef]);
 
   useEffect(() => {
-    if (isScoringClip(room, myPlayerId) && !singingRef.current) {
-      framesRef.current = [];
-      postedRef.current = false;
-      singingRef.current = true;
-      postingRef.current = false;
-      lastScoreAtRef.current = 0;
-      runningRef.current = null;
-      setMineLive(null);
-    }
+    if (!room || !isScoringClip(room, myPlayerId) || singingRef.current) return;
+    // One take per clip: a room update that lands while this clip's score is
+    // in flight (or paused after a refusal) must not restart it.
+    const take = `${room.matchId ?? ""}:${room.status}:${room.playAtUnixMs ?? ""}`;
+    if (takeRef.current === take) return;
+    takeRef.current = take;
+    matchIdRef.current = room.matchId ?? null;
+    framesRef.current = [];
+    postedRef.current = false;
+    singingRef.current = true;
+    postingRef.current = false;
+    lastScoreAtRef.current = 0;
+    runningRef.current = null;
+    setMineLive(null);
   }, [room, myPlayerId]);
 
   useEffect(() => {

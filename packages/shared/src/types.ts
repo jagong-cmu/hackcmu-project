@@ -79,6 +79,12 @@ export type RoomState = {
   clipDurationSec?: number;
   /** Instrumental lead-in before the anchor line: not sung, not scored. */
   clipLeadInSec?: number;
+  /**
+   * Ranked/Duet: identifies the current match (scheduled start of its first
+   * clip). Echo it as `matchId` in the score POST so a late retry cannot land
+   * on the next match. Null in lobby / Chaos.
+   */
+  matchId?: number | null;
   /** Ranked/Duet results only: an open rematch offer both seats must confirm. */
   rematch?: RematchOffer | null;
   /** Why the last rematch offer closed without starting a match. Cleared by a new offer. */
