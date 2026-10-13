@@ -19,6 +19,7 @@ import {
   safeNext,
   skipDeviceCheckForSession,
 } from "./deviceCheck.ts";
+import { shouldOfferVoiceCheck, voiceCheckPathFor } from "./voiceProfile.ts";
 import "./deviceCheck.css";
 
 type Kind = "mic" | "camera";
@@ -394,7 +395,9 @@ export function DeviceCheck() {
     // Release the devices before the next page (and LiveKit) asks for them.
     generation.current++;
     stopAll();
-    navigate(next);
+    // First pass through onboarding: step two is the voice range check.
+    if (kind === "done" && !rerun && shouldOfferVoiceCheck()) navigate(voiceCheckPathFor(next));
+    else navigate(next);
   }
 
   const micState = mic ? (heard ? "good" : "live") : micProblem ? "bad" : "wait";

@@ -17,6 +17,7 @@ import Stage from "./stage/Stage.tsx";
 import { AnalyticsRoot } from "./analytics/AnalyticsRoot.tsx";
 import { DeviceCheck } from "./onboarding/DeviceCheck.tsx";
 import { DeviceCheckGate } from "./onboarding/DeviceCheckGate.tsx";
+import { VoiceCheck } from "./onboarding/VoiceCheck.tsx";
 import { AuthProvider, RequireAuth } from "./auth/AuthProvider.tsx";
 import { SignIn } from "./auth/SignIn.tsx";
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/play" element={<RequireAuth><ModeSelect /></RequireAuth>} />
           <Route path="/play/:mode" element={<RequireAuth><DeviceCheckGate><Play /></DeviceCheckGate></RequireAuth>} />
           <Route path="/check" element={<DeviceCheck />} />
+          <Route path="/check/voice" element={<VoiceCheck />} />
           <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
           {import.meta.env.DEV ? (
             <Route path="/results-preview" element={<ResultsPreview />} />
