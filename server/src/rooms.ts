@@ -88,6 +88,11 @@ export type Room = {
 
   /** First-seated player's ELO delta; Lane B fills this before match:over. */
   lastEloDelta: number;
+  /**
+   * This isolate only: the seated roster captured when a seat left during the
+   * score wait, so the match still settles with both seats. Cleared per match.
+   */
+  settleSeats: { matchId: number; seats: Player[] } | null;
   /** Settled winner (or null for a draw). Survives the loser being removed. */
   lastWinnerId: string | null;
 
@@ -129,6 +134,7 @@ function blankRoom(code: string, mode: Mode, persistent: boolean): Room {
     scores: new Map(),
     timers: new Set(),
     lastEloDelta: 0,
+    settleSeats: null,
     lastWinnerId: null,
     settled: false,
     rematch: null,
@@ -297,6 +303,7 @@ export function resetToLobby(room: Room): void {
   room.clipLeadInSec = 0;
   room.scores.clear();
   room.lastEloDelta = 0;
+  room.settleSeats = null;
   room.lastWinnerId = null;
   room.settled = false;
   room.rematch = null;
@@ -305,12 +312,12 @@ export function resetToLobby(room: Room): void {
 }
 
 /**
- * A Ranked/Duet match is under way: counting down, singing, swapping, or on
- * the results screen before it has been settled. Leaving now is a forfeit.
+ * A Ranked/Duet match is being sung: counting down, singing, or swapping.
+ * Leaving now is a forfeit. The results screen is never a forfeit (see
+ * awaitingSettlement).
  */
 export function matchInProgress(room: Room): boolean {
   if (room.mode === "chaos") return false;
-  if (room.status === "results") return !room.settled && room.matchId != null;
   return (
     room.status === "countdown" ||
     room.status === "turnA" ||
@@ -318,6 +325,27 @@ export function matchInProgress(room: Room): boolean {
     room.status === "turnB" ||
     room.status === "live"
   );
+}
+
+/**
+ * Both turns are over and the result is not settled yet (the score wait on
+ * the results screen). A seat that leaves now is still counted: the match
+ * settles on the scores, its own card or the empty-score fallback.
+ */
+export function awaitingSettlement(room: Room): boolean {
+  return room.mode !== "chaos" && room.status === "results" && !room.settled && room.matchId != null;
+}
+
+/**
+ * The seats a settlement counts. Normally whoever is seated; if a seat left
+ * during the score wait, the roster as it stood then (clock.ts forfeitFor).
+ */
+export function seatsForSettlement(room: Room): Player[] {
+  const held = room.settleSeats;
+  if (held && held.matchId === room.matchId && held.seats.length >= room.players.length) {
+    return held.seats.slice();
+  }
+  return room.players.slice();
 }
 
 /**

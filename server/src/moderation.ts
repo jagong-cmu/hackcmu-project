@@ -18,10 +18,11 @@
  *     other person present there is no vote; block instead.
  *   - Ranked/Duet (not host): no kick. Block or report your opponent and you
  *     can leave (safety:leave). From the lobby that is free. Mid-match
- *     (countdown through results, before settlement) in a rated Ranked room it
- *     is a forfeit exactly like any other leave (clock.ts forfeitFor: K=16,
- *     thrown away under ForfeitSkipMs), so a report cannot be used to dodge a
- *     loss. Duet and friendly (private) rooms have no rating: the match just
+ *     (countdown, turns, swap) in a rated Ranked room it is a forfeit exactly
+ *     like any other leave (clock.ts forfeitFor: K=16, thrown away under
+ *     ForfeitSkipMs). On the results screen before settlement it is not a
+ *     forfeit, but the leaver's seat still counts and the match settles on the
+ *     scores, so a report cannot be used to dodge a loss. Duet and friendly (private) rooms have no rating: the match just
  *     ends and the room goes back to the lobby.
  *   A removed player is banned from that room code for RoomBanMs (memory +
  *   Mongo `roomBans`), their LiveKit connection is dropped, and the token
@@ -54,6 +55,7 @@ import { liveKitRoomName, readLiveKitConfig } from "./livekit.ts";
 import {
   createRoom,
   findOpenPublicChaosLounge,
+  awaitingSettlement,
   forfeitWouldRate,
   getRoom,
   isFull,
@@ -762,6 +764,27 @@ export function createSafety(deps: SafetyDeps) {
     const flagged = metaOf(room).flagged.get(me.id) ?? new Set<string>();
     const earned = opponents.some((p) => flagged.has(p.id) || hasBlocked(me.id, p.id));
     if (!earned) return deny("leave", "Block or report your opponent first.");
+
+    if (room.mode === "ranked" && room.rated && awaitingSettlement(room)) {
+      // Both turns are sung: leaving is not a forfeit and not a dodge either.
+      // The seat is still counted and the match settles on the scores.
+      deps.eject(socketId, { forfeit: true });
+      if (room.players.length > 0) {
+        const notice: SafetyNotice = {
+          code: room.code,
+          kind: "opponent-left",
+          message: "Your opponent left. The match is still scored as sung.",
+        };
+        deps.emitTo(room.code, ServerEvents.safetyNotice, notice);
+        deps.broadcast(room);
+      }
+      return {
+        action: "leave",
+        ok: true,
+        forfeit: false,
+        message: "You left. Your match is still scored as sung.",
+      };
+    }
 
     if (room.mode === "ranked" && room.rated && matchInProgress(room)) {
       // Decide before ejecting: the forfeit settles (and moves status) at once.

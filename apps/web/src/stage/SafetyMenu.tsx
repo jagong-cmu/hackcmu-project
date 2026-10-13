@@ -32,6 +32,13 @@ export type RemoveRule =
   | { kind: "vote"; count: number; needed: number; voted: boolean; possible: boolean }
   | { kind: "none" };
 
+/**
+ * What leaving the 1v1 does right now: a forfeit (rated Ranked, being sung),
+ * "scored" (results before settlement: not a forfeit, the match still counts
+ * on the scores), or "free" (lobby, Duet, friendly rooms).
+ */
+export type LeaveEffect = "forfeit" | "scored" | "free";
+
 type Step = "menu" | "report" | "block" | "remove" | "done";
 
 export function SafetySheet({
@@ -73,7 +80,7 @@ export default function SafetyMenu({
   target,
   rule,
   oneOnOne,
-  leaveForfeits = false,
+  leaveEffect = "free",
   safety,
   onLeft,
   onToast,
@@ -83,10 +90,10 @@ export default function SafetyMenu({
   /** Ranked/Duet: after a block or report, offer to leave the match. */
   oneOnOne: boolean;
   /**
-   * Leaving right now is a forfeit (rated Ranked, mid-match). Live from the
-   * room state, so the warning follows the match as the sheet stays open.
+   * What leaving does right now. Live from the room state, so the warning
+   * follows the match as the sheet stays open.
    */
-  leaveForfeits?: boolean;
+  leaveEffect?: LeaveEffect;
   safety: SafetyApi;
   onLeft: () => void;
   /** Echo results on the stage too: a Chaos block hides this tile (and its sheet) at once. */
@@ -204,9 +211,11 @@ export default function SafetyMenu({
               {oneOnOne && rule.kind === "none" ? (
                 <p className="safety-fine">
                   You can't remove someone from a 1v1. Block or report them and you can leave.
-                  {leaveForfeits
+                  {leaveEffect === "forfeit"
                     ? " The match is on, so leaving now counts as a forfeit."
-                    : " Leaving now doesn't change anyone's rating."}
+                    : leaveEffect === "scored"
+                      ? " Both turns are sung, so the match is still scored as sung if you leave."
+                      : " Leaving now doesn't change anyone's rating."}
                 </p>
               ) : null}
               <div className="safety-foot">
@@ -344,7 +353,7 @@ export default function SafetyMenu({
               <p className="safety-kicker">Done</p>
               <h2 className="safety-title">{result.removed ? "Removed" : "Thanks"}</h2>
               <p className="safety-body">{result.message}</p>
-              {oneOnOne && result.canLeave && leaveForfeits ? (
+              {oneOnOne && result.canLeave && leaveEffect === "forfeit" ? (
                 <p className="safety-fine">
                   Your report is in either way. Leaving mid-match counts as a forfeit: it's
                   rated as a loss, like any other leave.
@@ -365,9 +374,11 @@ export default function SafetyMenu({
                     >
                       {busy
                         ? "Leaving…"
-                        : leaveForfeits
+                        : leaveEffect === "forfeit"
                           ? "Leave match · counts as a forfeit"
-                          : "Leave match · no rating change"}
+                          : leaveEffect === "scored"
+                            ? "Leave match · result still counts"
+                            : "Leave match · no rating change"}
                     </button>
                   </>
                 ) : (

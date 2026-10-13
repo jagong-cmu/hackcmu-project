@@ -30,10 +30,12 @@ import {
 } from "@karaoke/shared";
 import {
   clearTimers,
+  awaitingSettlement,
   later,
   livePlayers,
   matchInProgress,
   resetToLobby,
+  seatsForSettlement,
   toPublic,
   type Player,
   type Room,
@@ -284,6 +286,7 @@ export function startMatch(io: Server, room: Room): void {
   clearTimers(room);
   room.scores.clear();
   room.lastEloDelta = 0;
+  room.settleSeats = null;
   room.settled = false;
   room.rematch = null;
   room.rematchLapse = null;
@@ -445,6 +448,17 @@ function swapToTurnB(io: Server, room: Room): void {
 function scoresAreIn(room: Room): boolean {
   const expected = room.players.filter((p) => p.connected);
   return expected.length > 0 && expected.every((p) => room.scores.has(p.id));
+}
+
+/**
+ * After a seat left during the score wait (forfeitFor held the roster): if
+ * everyone still here has posted, settle now on the scores rather than
+ * waiting out SCORE_WAIT_MS. The leaver's card, if it never arrived, is the
+ * empty-score fallback. Call after the seat is removed.
+ */
+export function settleIfScoresIn(io: Server, room: Room): void {
+  if (!awaitingSettlement(room) || !room.settleSeats) return;
+  if (scoresAreIn(room)) void finishMatch(io, room).catch(logOnce("finishMatch"));
 }
 
 function awaitScores(io: Server, room: Room): void {
@@ -626,7 +640,7 @@ export async function finishMatch(
   io: Server,
   room: Room,
   forfeit?: ForfeitInfo,
-  seated: Player[] = room.players.slice(),
+  seated: Player[] = seatsForSettlement(room),
 ): Promise<void> {
   const wasSettled = room.settled;
   // Pull the other isolate's claimed scores (and settlement) into this room.
@@ -793,20 +807,38 @@ export async function finishMatch(
 }
 
 /**
- * A disconnect or leave mid-match hands the win to whoever is left. Matches
- * shorter than ForfeitSkipMs are discarded entirely rather than rated (PRD
- * §6.1). "Mid-match" runs from the countdown until the result is settled, so
- * leaving on the results screen while the scores are still coming in is a
- * forfeit too (before, it settled with one seat and moved no ELO).
+ * A disconnect or leave mid-match (countdown, turns, swap, live) hands the win
+ * to whoever is left. Matches shorter than ForfeitSkipMs are discarded
+ * entirely rather than rated (PRD §6.1).
+ *
+ * The results screen is never a forfeit: both turns are sung, so a seat that
+ * leaves during the score wait (before settlement) is still counted and the
+ * match settles normally on the scores (its card, or the empty-score
+ * fallback), with ELO applied once. Before, it settled with one seat and
+ * persisted no ELO, so a losing player could dodge by leaving.
  * The safety:leave path (moderation.ts) comes through here as well.
+ * `roster` is the seated list in seat order, leaver included: call before the
+ * seat is removed, or pass the list from before (pruneRoom drops dead seats
+ * first, which used to leave a one-seat forfeit that persisted no ELO).
  */
-export function forfeitFor(io: Server, room: Room, leaver: Player): void {
+export function forfeitFor(
+  io: Server,
+  room: Room,
+  leaver: Player,
+  roster: Player[] = room.players.slice(),
+): void {
+  if (awaitingSettlement(room)) {
+    if (room.matchId != null && !room.settleSeats) {
+      room.settleSeats = { matchId: room.matchId, seats: roster.slice() };
+    }
+    return;
+  }
   if (!matchInProgress(room)) return;
 
-  const survivor = room.players.find((p) => p.id !== leaver.id && p.connected);
+  const survivor = roster.find((p) => p.id !== leaver.id && p.connected);
   const elapsed =
     room.matchStartedAtMs === null ? 0 : Date.now() - room.matchStartedAtMs;
-  const seated = room.players.slice();
+  const seated = roster.slice();
   room.status = "results";
 
   void finishMatch(

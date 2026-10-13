@@ -121,7 +121,8 @@ Chaos:
 
 - Higher `overall` wins.
 - Tie: “Draw”, ELO unchanged.
-- Disconnect or leave after start (countdown through results, until the result is settled): remaining player wins by forfeit. Skip ELO if the match ran under 5s. Otherwise apply forfeit with K=16 (not 32). Leaving after reporting or blocking the opponent is no exception (see §6.5). In a friendly room a forfeit moves no ELO either.
+- Disconnect or leave after start (countdown, either turn, the swap): remaining player wins by forfeit. Skip ELO if the match ran under 5s. Otherwise apply forfeit with K=16 (not 32). Leaving after reporting or blocking the opponent is no exception (see §6.5). In a friendly room a forfeit moves no ELO either.
+- Leaving on the results screen before the result is in is never a forfeit, and never a dodge: both turns were sung, so the match settles normally on the scores (an unposted take counts as silence) with both players rated.
 
 **On stage:** opponent cam large, self pip, current + next lyric, 15s timer, YOUR TURN / THEIR TURN, live pitch meter for the active singer.
 
@@ -184,7 +185,7 @@ accepts.
   |---|---|
   | Private room (made with Create or a 4-digit Chaos code) | The **host** (the person who made it) removes anyone immediately, in any mode. |
   | Chaos (public lounge, or a private one if you are not the host) | **Vote kick.** A strict majority of the *other* live people must vote, with a minimum of 2 votes (3 people → 2, 5 → 3). One person can never remove another alone. With only two people in the room, use Block. Nobody sees who voted. |
-  | Ranked / Duet, not host | **No kick.** Once you block or report your opponent, you can leave. From the lobby (before the match starts) that costs nothing: “You left. No rating change.” Mid-match in a rated Ranked room it **counts as a forfeit**, exactly like any other leave (the report is still recorded): “You left. This counts as a forfeit.”, and your opponent is told “Your opponent left the match. You win by forfeit.” The app says so before you leave. In Duet or a friendly room nobody's rating changes and the match just ends. |
+  | Ranked / Duet, not host | **No kick.** Once you block or report your opponent, you can leave. From the lobby (before the match starts) that costs nothing: “You left. No rating change.” Mid-match in a rated Ranked room it **counts as a forfeit**, exactly like any other leave (the report is still recorded): “You left. This counts as a forfeit.”, and your opponent is told “Your opponent left the match. You win by forfeit.” On the results screen before the result is in, the match is still scored as sung (“You left. Your match is still scored as sung.”). The app says which before you leave. In Duet or a friendly room nobody's rating changes and the match just ends. |
 
   A removed player gets disconnected from LiveKit
   (`RoomServiceClient.removeParticipant`). They are banned from that room code

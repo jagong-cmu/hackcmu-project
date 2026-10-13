@@ -102,20 +102,36 @@ Product decisions closing the "private ranked rooms are rated" open item and aud
   - `match:over` for Ranked now always carries `rated`, with `eloDelta: 0` when unrated. `room:state` carries `rated` and `isPrivate`.
   - Audit #13: `isPrivate`/`hostId` moved off the per-instance WeakMap in `moderation.ts` onto the Room/snapshot. A host can now kick from an instance that only knows the room from Mongo. Vote tallies and the report/block "flagged" set are still per instance.
 - **Report-then-leave.** `safety:leave` mid-match in a rated Ranked room ejects with `forfeit: true`, through the same `forfeitFor` path as any other leave (K=16; thrown away under `ForfeitSkipMs`).
-  - "Mid-match" is now one helper, `matchInProgress`: countdown, turnA/swap/turnB/live, or results before settlement. The results case is new for every leave. Before, a leave there settled with one seat and persisted no ELO, so a plain leave could dodge a loss too.
+  - The forfeit window is `matchInProgress`: countdown and turnA/swap/turnB/live.
+  - The results screen before settlement (`awaitingSettlement`) is never a forfeit. That way a player who already sang, maybe winning, can't lose on a network blip.
+    - When a seat leaves then, `forfeitFor` keeps the seated roster (`Room.settleSeats`, this instance only), so the match still settles on the scores with both seats. The leaver's card counts, or the empty-score fallback if it never arrived. ELO is applied once.
+    - `settleIfScoresIn` settles at once if the remaining seat has posted. Otherwise the normal score wait does.
+  - This closes the dodge for every kind of leave. Before, a leave there settled with one seat and persisted no ELO, so a losing player could escape by leaving or disconnecting.
+  - `pruneRoom` drops dead seats before calling `forfeitFor`, so it now passes the roster from before the drop. Before, an idle-timeout forfeit settled with one seat and persisted no ELO either.
+  - `safety:leave` on the score wait answers "You left. Your match is still scored as sung." The opponent is told "Your opponent left. The match is still scored as sung."
   - The report is still recorded. Lobby leaves stay free ("You left. No rating change."). Duet and friendly rooms keep the old behaviour: no rating, back to the lobby.
   - The ack carries `forfeit`. Copy: "You left. This counts as a forfeit." The opponent is told "Your opponent left the match. You win by forfeit."
 - **Client copy.**
   - Stage header chip in friendly rooms: "Friendly match · doesn't affect ELO". Lobby code bar: "Friendly match: doesn't affect ELO. Starts in 5 seconds when you both sit down."
   - Results: "Unrated — friendly match" in place of the ELO line. The match video and share card get no ELO delta.
   - Private-room picker: "Same 20-second chorus. You then them. A friendly match: private rooms don't affect ELO." Home: "Make a private room · friendly matches, no ELO".
-  - The safety sheet's leave button reads "Leave match · counts as a forfeit" mid-match (else "· no rating change"), with a line saying the report is in either way. The blocked banner and the 1v1 fine print say the same. `/results-preview?friendly=1` previews the unrated card.
+  - The safety sheet's leave button reads "Leave match · counts as a forfeit" while the match is sung, "Leave match · result still counts" on results before settlement, and otherwise "Leave match · no rating change". A line says the report is in either way. The blocked banner and the 1v1 fine print say the same. `/results-preview?friendly=1` previews the unrated card.
 - Verified:
   - typecheck and build
-  - 285/285 tests, 16 new in `friendlyRooms.test.ts`: rated queue room, friendly settle, two-isolate claim race, host kick from a snapshot-only isolate, rematch, friendly forfeit, snapshot round trip and old snapshots, stats, and report-then-leave in turnB, unsettled results, countdown, lobby and a friendly room
+  - 287/287 tests, 18 new in `friendlyRooms.test.ts`:
+    - rated queue room, friendly settle, two-isolate claim race, host kick from a snapshot-only isolate, rematch, friendly forfeit, snapshot round trip and old snapshots, stats
+    - report-then-leave in turnB, countdown, lobby and a friendly room
+    - a results-phase disconnect by the winner (+16/−16 on the scores, one `match:over`)
+    - a results-phase `safety:leave` by the loser (rated loss once the winner's card lands)
+    - a results-phase leave with no card (empty-score fallback)
   - the peer e2e socket suite: 23/24, the one failure being the known entry-6 403
   - the full ranked match script unchanged (queue, +16/−16)
-  - a new variants script: a private match settles unrated, and its rematch stays unrated; a queue match where seat A reports and leaves at turnA+6s settles once as a rated forfeit (−8/+8)
+  - a new variants script:
+    - a private match settles unrated, and its rematch stays unrated
+    - a queue match where seat A reports and leaves at turnA+6s settles once as a rated forfeit (−8/+8)
+    - a queue match where losing seat B drops on results before posting settles at once on the scores (+16 for A, not a forfeit), with one `match:over` after the 8s wait
+
+## Open items (need a decision or larger change)
 
 - Rate limits are per instance (room joins, hello verification, reports, blocks, votes). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
 - Private room codes are 4 digits. The join limit makes guessing slow, but a longer code (or a 6-digit option for private rooms) would make it impractical.

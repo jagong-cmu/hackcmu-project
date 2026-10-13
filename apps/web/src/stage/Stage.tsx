@@ -17,7 +17,7 @@ import { useRoom } from "../rooms/RoomProvider.tsx";
 import { useSafety } from "../rooms/useSafety.ts";
 import { useLiveKit } from "../media/useLiveKit.ts";
 import { useBlockedMedia } from "../media/useBlockedMedia.ts";
-import SafetyMenu, { SafetySheet, type RemoveRule } from "./SafetyMenu.tsx";
+import SafetyMenu, { SafetySheet, type LeaveEffect, type RemoveRule } from "./SafetyMenu.tsx";
 import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
 import { StageContext, type DuetVoiceCue, type StageContextValue } from "./StageContext.tsx";
 import { Slot, useStageSlots } from "./slots.tsx";
@@ -111,15 +111,20 @@ export default function Stage() {
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
   // Private Ranked rooms are friendly: same match, no ELO for either player.
   const friendly = room?.mode === "ranked" && room.rated === false;
-  // Leaving now is a forfeit: rated Ranked, between the countdown and the result.
-  const leaveForfeits =
-    room?.mode === "ranked" &&
-    room.rated !== false &&
+  // What leaving does right now in a rated Ranked room: a forfeit while the
+  // match is being sung; on results before settlement it still counts on the
+  // scores (never a forfeit); otherwise nothing.
+  const ratedRanked = room?.mode === "ranked" && room.rated !== false;
+  const leaveEffect: LeaveEffect =
+    ratedRanked &&
     (room.status === "countdown" ||
       room.status === "turnA" ||
       room.status === "swap" ||
-      room.status === "turnB" ||
-      (room.status === "results" && !matchOver));
+      room.status === "turnB")
+      ? "forfeit"
+      : ratedRanked && room.status === "results" && !matchOver
+        ? "scored"
+        : "free";
 
   const visible = livekit.participants.filter((p) => !safety.blocked.has(p.identity));
   const them = visible.find((p) => p.identity !== identity);
@@ -157,7 +162,7 @@ export default function Stage() {
         target={{ id: player.id, name: player.displayName }}
         rule={rule}
         oneOnOne={!isChaos}
-        leaveForfeits={leaveForfeits}
+        leaveEffect={leaveEffect}
         safety={safety}
         onLeft={() => navigate("/")}
         onToast={isChaos ? setToast : undefined}
@@ -326,9 +331,11 @@ export default function Stage() {
             <p className="warn">
               You blocked {opponent?.displayName ?? "your opponent"}.{" "}
               <button type="button" className="link" onClick={() => void leaveSafely()}>
-                {leaveForfeits
+                {leaveEffect === "forfeit"
                   ? "leave the match · counts as a forfeit"
-                  : "leave the match · no rating change"}
+                  : leaveEffect === "scored"
+                    ? "leave the match · result still counts"
+                    : "leave the match · no rating change"}
               </button>
             </p>
           )}

@@ -46,6 +46,7 @@ import {
   catchUpClock,
   ensureChaosPlaying,
   forfeitFor,
+  settleIfScoresIn,
   handleRematchCancel,
   handleRematchRequest,
   maybeArmMatch,
@@ -399,6 +400,8 @@ function leaveCurrentRoom(
     // Ranked room (moderation.ts leave), through this same path.
     if (opts.forfeit) forfeitFor(io, room, player);
     removePlayer(room, player.id);
+    // Left during the score wait: the seat still counts; settle if the rest is in.
+    settleIfScoresIn(io, room);
     // Leaving (Home, tab close, disconnect) mid-offer cancels it for the other seat.
     rematchSeatLeft(room, player.id);
     dropMedia(room.code, player.id, opts.media ?? "now");
@@ -420,13 +423,16 @@ function leaveCurrentRoom(
 }
 
 function pruneRoom(room: Room): void {
+  // Seat order before the drop, so a forfeit or settlement still counts both seats.
+  const roster = room.players.slice();
   const removed = dropDeadPlayers(room, (socketId) => socketIsLive(socketId));
   for (const player of removed) {
     const session = sessions.get(player.socketId);
     if (session?.roomCode === room.code) session.roomCode = null;
     io.sockets.sockets.get(player.socketId)?.leave(room.code);
     if (room.mode !== "chaos") {
-      forfeitFor(io, room, player);
+      forfeitFor(io, room, player, roster);
+      settleIfScoresIn(io, room);
       rematchSeatLeft(room, player.id);
     }
   }

@@ -22,6 +22,7 @@ const {
   addPlayer,
   clearTimers,
   createRoom,
+  awaitingSettlement,
   forfeitWouldRate,
   livePlayers,
   matchInProgress,
@@ -30,7 +31,9 @@ const {
   toPublic,
 } = await import("./rooms.ts");
 const { applySnap, claimScore, loadSnap, saveRoomSnap, snapFromRoom } = await import("./liveState.ts");
-const { finishMatch, forfeitFor, handleRematchRequest } = await import("./clock.ts");
+const { finishMatch, forfeitFor, handleRematchRequest, recordScore, settleIfScoresIn } = await import(
+  "./clock.ts"
+);
 const { persistSeatedMatch } = await import("./judge.ts");
 const { eloDelta } = await import("./elo.ts");
 const { getArenaStats } = await import("./analytics.ts");
@@ -377,6 +380,7 @@ function leaveHarness(room: Room) {
         player.connected = false;
         if (opts.forfeit) forfeitFor(io as never, room, player);
         removePlayer(room, player.id);
+        settleIfScoresIn(io as never, room);
       }
       session.roomCode = null;
       if (room.status === "countdown" && livePlayers(room).length < 2) resetToLobby(room);
@@ -385,11 +389,22 @@ function leaveHarness(room: Room) {
     emitTo: (target, event, payload) => io.events.push({ event: `${target}:${event}`, payload }),
     kickMedia: async () => undefined,
   });
-  return { io, safety, ejected };
+  /** A plain leave / disconnect (index.ts leaveCurrentRoom with forfeit:true). */
+  const disconnect = (socketId: string) => {
+    const session = sessions.get(socketId);
+    const player = room.players.find((p) => p.id === session?.playerId);
+    if (!session || !player) return;
+    player.connected = false;
+    forfeitFor(io as never, room, player);
+    removePlayer(room, player.id);
+    settleIfScoresIn(io as never, room);
+    session.roomCode = null;
+  };
+  return { io, safety, ejected, disconnect };
 }
 
-async function reportOpponent(safety: ReturnType<typeof createSafety>) {
-  const ack = await safety.report("sock-a", { targetId: B, reason: "harassment" });
+async function reportOpponent(safety: ReturnType<typeof createSafety>, from = "sock-a", target = B) {
+  const ack = await safety.report(from, { targetId: target, reason: "harassment" });
   assert.equal(ack.ok, true, ack.message);
   assert.equal(ack.canLeave, true);
 }
@@ -434,17 +449,71 @@ test("report then leave mid-match in a rated room is a forfeit, ELO applied once
   assert.equal((await db.collection("matches").findOne({}))?.forfeit, true);
 });
 
-test("report then leave on the results screen before settlement is a forfeit too", async () => {
-  const room = resultsRoom(); // results, both cards in, not settled; pa is ahead
+test("results before settlement is never a forfeit: a winner who disconnects still gets +16", async () => {
+  const room = resultsRoom(); // results, both cards in (A 87, B 50), settlement not run yet
   await saveRoomSnap(room);
-  assert.equal(matchInProgress(room), true);
+  assert.equal(awaitingSettlement(room), true);
+  assert.equal(matchInProgress(room), false, "not the forfeit window");
+  assert.equal(forfeitWouldRate(room), false);
   const h = leaveHarness(room);
-  await reportOpponent(h.safety);
-  const ack = await h.safety.leave("sock-a");
-  assert.equal(ack.forfeit, true);
+  // A plain disconnect: index.ts leaveCurrentRoom with forfeit:true.
+  h.disconnect("sock-a");
   await until(() => overs(h.io).length === 1);
-  assert.equal(overs(h.io)[0]?.payload.winnerId, B, "leaving forfeits even a winning take");
-  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo - 8);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.forfeit, undefined, "settled on the scores, not a forfeit");
+  assert.equal(over?.payload.rated, true);
+  assert.equal(over?.payload.winnerId, A, "the take that was sung still wins");
+  assert.equal(over?.payload.eloDelta, 16);
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo - 16);
+  // The score-wait timer (or another isolate) firing later changes nothing.
+  room.settled = false;
+  await finishMatch(recordingIo() as never, room);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(overs(h.io).length, 1, "exactly one match:over");
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16, "ELO applied once");
+  assert.equal(await db.collection("matches").countDocuments({}), 1);
+});
+
+test("the losing seat cannot dodge with report-then-leave during results: rated loss on the scores", async () => {
+  const room = resultsRoom();
+  room.scores.delete(A); // A (ahead) is still posting; B (50) is in
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  await reportOpponent(h.safety, "sock-b", A);
+  const ack = await h.safety.leave("sock-b");
+  assert.equal(ack.ok, true);
+  assert.equal(ack.forfeit, false);
+  assert.equal(ack.message, "You left. Your match is still scored as sung.");
+  assert.deepEqual(h.ejected, [{ socketId: "sock-b", forfeit: true }]);
+  assert.equal(overs(h.io).length, 0, "waits for the seat still posting");
+  assert.equal(room.players.length, 1);
+
+  // A's card lands after B has gone: the match settles with both seats.
+  const posted = await recordScore(h.io as never, room, A, card(90, 80), MATCH);
+  assert.deepEqual(posted, { ok: true, settled: true });
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.winnerId, A);
+  assert.equal(over?.payload.forfeit, undefined);
+  assert.equal(over?.payload.eloDelta, 16, "K=32 on the scores");
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo - 16, "B takes the rated loss");
+  assert.equal((await playerDoc("cid-a"))?.elo, StartingElo + 16);
+  assert.equal((await playerDoc("cid-b"))?.matchesPlayed, 1);
+  assert.equal(await db.collection("matches").countDocuments({}), 1);
+});
+
+test("a seat leaving during results with no card of its own settles on the empty-score fallback", async () => {
+  const room = resultsRoom();
+  room.scores.delete(B); // B never posted, then leaves; A's 87 is in
+  await saveRoomSnap(room);
+  const h = leaveHarness(room);
+  h.disconnect("sock-b");
+  await until(() => overs(h.io).length === 1);
+  const [over] = overs(h.io);
+  assert.equal(over?.payload.scores[B]?.overall, 0);
+  assert.equal(over?.payload.winnerId, A);
+  assert.equal((await playerDoc("cid-b"))?.elo, StartingElo - 16);
 });
 
 test("report then leave from the lobby is penalty-free", async () => {
