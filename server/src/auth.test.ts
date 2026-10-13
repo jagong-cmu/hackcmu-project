@@ -14,7 +14,12 @@ import {
   httpAccount,
   httpIdentity,
   clearSocketAuth,
+  helloAuth,
+  helloNeedsVerify,
+  ProactiveReverifyMs,
   refreshSocketAuth,
+  SocketAuthOutageGraceMs,
+  verifyAccessTokenOutcome,
   RejectedTokenCacheMax,
   rejectedTokenCacheSize,
   resolveAuthMode,
@@ -362,6 +367,280 @@ test("sockets with no recorded expiry (dev opt-out, unverified) never lapse", ()
   assert.equal(socketAuthExpired({ data: { authUserId: null } }), false);
   assert.equal(socketAuthExpired({ data: { authUserId: ALICE } }), false);
   assert.equal(socketAuthExpired({ data: {} }), false);
+});
+
+// ---------------------------------------------------------------------------
+// Rate limits and timeouts at Supabase are not rejections (second-pass #6)
+// ---------------------------------------------------------------------------
+
+test("a 429 or 408 from Supabase is retried once and never negatively cached", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  for (const status of [429, 408]) {
+    const token = fakeJwt(`limited-${status}`);
+    const f = stubFetch([async () => new Response("{}", { status })]);
+    try {
+      assert.deepEqual(await verifyAccessTokenOutcome(token), { kind: "unavailable" });
+      assert.equal(f.calls, 2, `${status}: retried once`);
+    } finally {
+      f.restore();
+    }
+    assert.equal(rejectedTokenCacheSize(), 0, `${status} is not cached`);
+    // The burst passes: the same token verifies at once, not a minute later.
+    const g = stubFetch([okUser(ALICE)]);
+    try {
+      assert.equal(await verifyAccessToken(token), ALICE);
+      assert.equal(g.calls, 1);
+    } finally {
+      g.restore();
+    }
+  }
+});
+
+test("a 429 then a 200 inside one verification succeeds (backoff retry)", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const f = stubFetch([async () => new Response("{}", { status: 429 }), okUser(ALICE)]);
+  try {
+    const t0 = Date.now();
+    assert.equal(await verifyAccessToken(fakeJwt("burst-1")), ALICE);
+    assert.equal(f.calls, 2);
+    assert.ok(Date.now() - t0 >= 200, "the retry waits a moment");
+  } finally {
+    f.restore();
+  }
+});
+
+test("only 400/401/403 are cached; other 4xx are refused without caching", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  for (const status of [400, 401, 403]) {
+    const f = stubFetch([async () => new Response("{}", { status })]);
+    try {
+      assert.deepEqual(await verifyAccessTokenOutcome(fakeJwt(`bad-${status}`)), { kind: "rejected" });
+      assert.equal(f.calls, 1, `${status} is final`);
+    } finally {
+      f.restore();
+    }
+  }
+  assert.equal(rejectedTokenCacheSize(), 3);
+  const g = stubFetch([async () => new Response("{}", { status: 404 })]);
+  try {
+    assert.deepEqual(await verifyAccessTokenOutcome(fakeJwt("gone-user")), { kind: "rejected" });
+    assert.equal(g.calls, 1);
+  } finally {
+    g.restore();
+  }
+  assert.equal(rejectedTokenCacheSize(), 3, "a 404 is not cached");
+});
+
+// ---------------------------------------------------------------------------
+// player:hello sign-in step (second-pass #7): presence is not authorisation,
+// and only a definite rejection signs a socket out
+// ---------------------------------------------------------------------------
+
+type TestSock = { data: Record<string, unknown> };
+const yes = () => true;
+const no = () => false;
+
+/** A socket verified with `token`, whose verified exp is then moved to `expMs`. */
+async function verifiedSock(token: string, expMs: number): Promise<TestSock> {
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    const s: TestSock = { data: { authUserId: null } };
+    await refreshSocketAuth(s as never, token);
+    assert.equal(s.data.authUserId, ALICE);
+    s.data.authExpMs = expMs;
+    return s;
+  } finally {
+    f.restore();
+  }
+}
+
+test("hello: Supabase down while lapsed keeps the sign-in for a bounded grace", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const exp = Date.now() - SocketAuthGraceMs - 5_000;
+  const s = await verifiedSock(fakeJwt("held-1"), exp);
+  assert.equal(socketAuthExpired(s as never), true);
+  const f = stubFetch([async () => new Response("", { status: 503 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-1"), yes), "kept");
+    assert.equal(f.calls, 2);
+  } finally {
+    f.restore();
+  }
+  assert.equal(s.data.authUserId, ALICE, "not signed out over a blip");
+  assert.equal(socketAuthExpired(s as never), false, "play events still allowed");
+  assert.equal(socketIdentity(s as never, ALICE).ok, true);
+  // The grace is rolling and bounded: about a minute per failed check...
+  assert.equal(socketAuthExpired(s as never, Date.now() + 2 * 60_000), true);
+  // ...and never past exp + SocketAuthOutageGraceMs.
+  s.data.authExpMs = Date.now() - SocketAuthOutageGraceMs - 1;
+  s.data.authOutageUntilMs = 0;
+  const g = stubFetch([async () => { throw new TypeError("fetch failed"); }]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-2"), yes), "lapsed");
+  } finally {
+    g.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, false);
+});
+
+test("hello: a 429 burst or a spent verify budget is 'could not check', not a rejection", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const s = await verifiedSock(fakeJwt("held-2"), Date.now() - SocketAuthGraceMs - 1_000);
+  const f = stubFetch([async () => new Response("{}", { status: 429 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-3"), yes), "kept");
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-4"), no), "kept", "gate refused");
+    assert.equal(f.calls, 2, "the refused gate made no call");
+  } finally {
+    f.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, true);
+  // Supabase is back: the next hello switches to the fresh token.
+  const g = stubFetch([okUser(ALICE)]);
+  try {
+    const fresh = fakeJwt("fresh-5");
+    assert.equal(await helloAuth(s as never, fresh, yes), "verified");
+    assert.equal(s.data.authOutageUntilMs, 0);
+    assert.equal(socketAuthExpired(s as never), false);
+  } finally {
+    g.restore();
+  }
+});
+
+test("hello: a definitively rejected token signs a lapsed socket out", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const s = await verifiedSock(fakeJwt("held-3"), Date.now() - SocketAuthGraceMs - 1_000);
+  const f = stubFetch([async () => new Response("{}", { status: 401 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("revoked-10"), yes), "rejected");
+  } finally {
+    f.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, false);
+});
+
+test("hello: the held token, once run out, lapses without a Supabase call", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const held = fakeJwt("held-4");
+  const s = await verifiedSock(held, Date.now() - SocketAuthGraceMs - 1_000);
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    assert.equal(await helloAuth(s as never, held, yes), "lapsed");
+    assert.equal(f.calls, 0);
+  } finally {
+    f.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, false);
+  // No token at all: same.
+  const t = await verifiedSock(fakeJwt("held-5"), Date.now() - SocketAuthGraceMs - 1_000);
+  assert.equal(await helloAuth(t as never, undefined, yes), "lapsed");
+  // An already-expired or malformed token is "lapsed" too, not a rejection
+  // (Supabase never said no; the seat keeps its heartbeat).
+  for (const junk of [fakeJwt("stale", -3600), "not-a-jwt"]) {
+    const u = await verifiedSock(fakeJwt(`held-${junk.length}`), Date.now() - SocketAuthGraceMs - 1_000);
+    const g = stubFetch([okUser(ALICE)]);
+    try {
+      assert.equal(await helloAuth(u as never, junk, yes), "lapsed");
+      assert.equal(g.calls, 0);
+    } finally {
+      g.restore();
+    }
+  }
+});
+
+test("hello: during an outage grace, the old token keeps the grace; a refused one ends it", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const held = fakeJwt("held-11");
+  const s = await verifiedSock(held, Date.now() - SocketAuthGraceMs - 1_000);
+  const f = stubFetch([async () => new Response("", { status: 502 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-11"), yes), "kept");
+  } finally {
+    f.restore();
+  }
+  assert.equal(await helloAuth(s as never, held, yes), "unchanged", "still inside the grace");
+  assert.equal(socketIdentity(s as never, ALICE).ok, true);
+  const g = stubFetch([async () => new Response("{}", { status: 401 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("fresh-12"), yes), "rejected");
+  } finally {
+    g.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, false, "a definite rejection ends the outage grace");
+});
+
+test("hello: a different bad token while the held one is valid changes nothing", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const s = await verifiedSock(fakeJwt("held-6"), Date.now() + 60_000);
+  const f = stubFetch([async () => new Response("{}", { status: 401 })]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("junk-6"), yes), "unchanged");
+    assert.equal(f.calls, 1, "checked, because the held one is close to expiry");
+  } finally {
+    f.restore();
+  }
+  assert.equal(socketIdentity(s as never, ALICE).ok, true);
+});
+
+test("hello: a new token is verified ahead of expiry, not after", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const held = fakeJwt("held-7");
+  // Plenty of time left: a different token is not checked (no Supabase call).
+  const s = await verifiedSock(held, Date.now() + ProactiveReverifyMs + 60_000);
+  assert.equal(helloNeedsVerify(s as never, fakeJwt("next-7")), false);
+  assert.equal(helloNeedsVerify(s as never, held), false);
+  const f = stubFetch([okUser(ALICE)]);
+  try {
+    assert.equal(await helloAuth(s as never, fakeJwt("next-7"), yes), "unchanged");
+    assert.equal(f.calls, 0);
+    // Inside the window: the hello's token is checked and taken over.
+    s.data.authExpMs = Date.now() + ProactiveReverifyMs - 1_000;
+    assert.equal(helloNeedsVerify(s as never, held), false, "the same token is never re-checked early");
+    const next = fakeJwt("next-8", 3600);
+    assert.equal(await helloAuth(s as never, next, yes), "verified");
+    assert.equal(f.calls, 1);
+    assert.ok(Number(s.data.authExpMs) > Date.now() + 3000_000, "the new exp is held");
+  } finally {
+    f.restore();
+  }
+});
+
+test("hello: answers synchronously unless Supabase is actually asked", async () => {
+  setEnv({ NODE_ENV: "production" });
+  setAuthConfigForTests({ url: "https://example.supabase.co", key: "anon" });
+  const held = fakeJwt("held-sync");
+  const s = await verifiedSock(held, Date.now() + 3600_000);
+  // The steady heartbeat: no promise, so the session is seated before the
+  // next event in the same packet runs.
+  assert.equal(helloAuth(s as never, held, yes), "unchanged");
+  assert.equal(helloAuth(s as never, undefined, yes), "unchanged");
+  const lapsed = await verifiedSock(fakeJwt("held-sync-2"), Date.now() - SocketAuthGraceMs - 1_000);
+  assert.equal(helloAuth(lapsed as never, fakeJwt("fresh-sync"), no), "kept", "budget spent: no promise either");
+  const g = stubFetch([okUser(ALICE)]);
+  try {
+    const asked = helloAuth(lapsed as never, fakeJwt("fresh-sync-2"), yes);
+    assert.ok(asked instanceof Promise, "an actual check is awaited");
+    assert.equal(await asked, "verified");
+  } finally {
+    g.restore();
+  }
+});
+
+test("hello: nothing to do outside verify mode", async () => {
+  setEnv({ AUTH_REQUIRED: "0" });
+  setAuthConfigForTests(null);
+  const s: TestSock = { data: { authUserId: null } };
+  assert.equal(await helloAuth(s as never, fakeJwt("dev"), yes), "unchanged");
 });
 
 test("dev opt-out room snapshot reader comes from X-Client-Id (or nobody)", async () => {

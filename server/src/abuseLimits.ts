@@ -147,6 +147,63 @@ export function createWindowGate(limit: number, windowMs: number): (now?: number
   };
 }
 
+// ---------------------------------------------------------------------------
+// room:create. Each create reserves a 4-digit code in liveRooms (liveState.ts),
+// so a loop of creates could hold most of the 10,000 codes. Limited per
+// verified account (per socket in the dev opt-out), like failed joins.
+// ---------------------------------------------------------------------------
+
+/** room:create calls allowed per caller per RoomCreateWindowMs (all at once is fine). */
+export const RoomCreateLimit = 6;
+export const RoomCreateWindowMs = 5 * 60_000;
+export const CreateRateLimitedCode = "CREATE_RATE_LIMITED";
+
+export function createRateLimitedMessage(waitMs: number): string {
+  const min = Math.max(1, Math.ceil(waitMs / 60_000));
+  return `You've made a lot of rooms. Wait ${min} minute${min === 1 ? "" : "s"} and try again, or join a friend's code.`;
+}
+
+/**
+ * Sliding window per key: at most `limit` hits per `windowMs`, in any burst.
+ * Bounded to `maxKeys` keys, least recently used dropped first.
+ */
+export class WindowLimiter {
+  private byKey = new Map<string, number[]>();
+
+  constructor(
+    readonly limit: number,
+    readonly windowMs: number,
+    readonly maxKeys = 10_000,
+  ) {}
+
+  /**
+   * Spend one hit for `key`. Returns 0 when allowed, else the ms until the
+   * oldest hit in the window ages out (nothing is spent then).
+   */
+  take(key: string, now = Date.now()): number {
+    const hits = (this.byKey.get(key) ?? []).filter((t) => now - t < this.windowMs && t <= now);
+    let wait = 0;
+    if (hits.length >= this.limit) wait = Math.max(1, hits[0]! + this.windowMs - now);
+    else hits.push(now);
+    this.byKey.delete(key);
+    if (hits.length) this.byKey.set(key, hits);
+    while (this.byKey.size > this.maxKeys) {
+      const oldest = this.byKey.keys().next().value;
+      if (oldest === undefined) break;
+      this.byKey.delete(oldest);
+    }
+    return wait;
+  }
+
+  get size(): number {
+    return this.byKey.size;
+  }
+
+  reset(): void {
+    this.byKey.clear();
+  }
+}
+
 /** player:hello may trigger at most this many token verifications per socket per window. */
 export const HelloVerifyLimit = 5;
 export const HelloVerifyWindowMs = 30_000;

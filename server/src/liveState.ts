@@ -604,3 +604,123 @@ export async function seatPairOnThisIsolate(
   }
   await saveRoomSnap(room);
 }
+
+// ---------------------------------------------------------------------------
+// Releasing abandoned room:create reservations.
+//
+// Every reservation is a liveRooms doc that otherwise lives until the 2h TTL
+// on updatedAt, and disposeIfEmpty (rooms.ts) never deletes it. Codes are 4
+// digits, so a loop of room:create could hold most of them. A private room
+// this instance created is watched; once this instance no longer holds it and
+// its doc is still an empty private lobby by the same host that never played
+// a match and that nobody has saved for ReservationReleaseGraceMs, the doc
+// is deleted. The delete is conditional on all of that, so it never removes
+// a room another instance is using (a seat or any save there keeps it).
+// Best effort: an instance that stops (Vercel) leaves the doc to the TTL.
+// ---------------------------------------------------------------------------
+
+/** How long an abandoned reservation is kept, so its host can reload and rejoin. */
+export const ReservationReleaseGraceMs = 2 * 60_000;
+/** How often watched reservations are checked. */
+export const ReservationSweepMs = 30_000;
+/** Watched reservations per instance (oldest dropped first; those fall back to the TTL). */
+export const ReservationWatchMax = 10_000;
+/** Matches the liveRooms TTL: past this, the doc expires on its own. */
+const ReservationWatchMaxAgeMs = 2 * 60 * 60_000;
+
+type WatchedReservation = { hostId: string | null; since: number };
+const watched = new Map<string, WatchedReservation>();
+let sweepTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Watch a private room this instance just reserved with room:create, so its
+ * code is released once the room is abandoned (see releaseReservation).
+ */
+export function watchReservation(room: Room, now = Date.now()): void {
+  if (!room.isPrivate || room.persistent) return;
+  watched.delete(room.code);
+  watched.set(room.code, { hostId: room.hostId, since: now });
+  while (watched.size > ReservationWatchMax) {
+    const oldest = watched.keys().next().value;
+    if (oldest === undefined) break;
+    watched.delete(oldest);
+  }
+  if (!sweepTimer) {
+    sweepTimer = setInterval(() => {
+      void sweepReservations().catch((err) => console.error("[liveState] reservation sweep failed", err));
+    }, ReservationSweepMs);
+    sweepTimer.unref?.();
+  }
+}
+
+/**
+ * Delete a reservation's liveRooms doc if, and only if, it is still the empty
+ * private lobby `hostId` made, it never played a match, and nobody has saved
+ * it for ReservationReleaseGraceMs. "released" when deleted; "busy" when it
+ * may still be in use (check again later); "gone" when there is nothing of
+ * ours to release (no doc, another host's room, a match was played, no Mongo).
+ */
+export async function releaseReservation(
+  code: string,
+  hostId: string | null,
+  now = Date.now(),
+): Promise<"released" | "busy" | "gone"> {
+  const col = await snaps();
+  if (!col) return "gone";
+  const res = await col.deleteOne({
+    code,
+    isPrivate: true,
+    hostId,
+    status: "lobby",
+    players: [],
+    settledMatchId: { $exists: false },
+    matchScores: { $exists: false },
+    updatedAt: { $lt: new Date(now - ReservationReleaseGraceMs) },
+  } as Filter<RoomSnap>);
+  if (res.deletedCount === 1) return "released";
+  const doc = await col.findOne({ code });
+  if (!doc || doc.hostId !== hostId || doc.settledMatchId !== undefined || doc.matchScores !== undefined) {
+    return "gone";
+  }
+  return "busy";
+}
+
+/**
+ * One pass over watched reservations: try to release each whose room this
+ * instance no longer holds. Exported for tests; normally run on a timer.
+ */
+export async function sweepReservations(now = Date.now()): Promise<number> {
+  let released = 0;
+  for (const [code, entry] of [...watched]) {
+    if (now - entry.since > ReservationWatchMaxAgeMs) {
+      watched.delete(code);
+      continue;
+    }
+    if (getRoom(code)) continue;
+    try {
+      const out = await releaseReservation(code, entry.hostId, now);
+      if (out === "busy") continue;
+      watched.delete(code);
+      if (out === "released") released++;
+    } catch (err) {
+      watched.delete(code);
+      console.error("[liveState] reservation release failed", err);
+    }
+  }
+  if (watched.size === 0 && sweepTimer) {
+    clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
+  return released;
+}
+
+/** Test-only: how many reservations are watched; `reset` forgets them all. */
+export function watchedReservations(reset = false): number {
+  const n = watched.size;
+  if (reset) {
+    watched.clear();
+    if (sweepTimer) clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
+  return n;
+}
