@@ -65,9 +65,9 @@ No spectator role in v1.
 
 - Display name, 2–16 characters, prompted once.
 - Random avatar color.
-- Stable `clientId` (UUID) in `localStorage` with the name.
-- ELO and history key off `clientId`, not the display name. Duplicate names are allowed.
-- No auth.
+- Accounts: Supabase Google sign-in when `AUTH_REQUIRED=1`. ELO and history then key off the Supabase user id.
+- Guest mode (accounts off): a stable random `clientId` (UUID) in `localStorage` with the name. ELO and history key off it, not the display name. Duplicate names are allowed.
+- The `clientId` is a secret. Other players only ever see a public player id (the Supabase user id, or a server-side hash of the `clientId` for guests).
 
 ---
 
@@ -228,7 +228,7 @@ Clip windows start at the **chorus**.
 3. Compare to `melody.json`, octave-invariant, skip unvoiced frames.
 4. Map mean cents error to 0–100 so a casual in-tune chorus lands **70–85**.
 5. Tone from pitch stability + harmonic-to-noise. `overall = round(0.7 * pitch + 0.3 * tone)`.
-6. Client POSTs the ScoreCard. Server trusts it (anti-cheat out of scope).
+6. Client POSTs the ScoreCard as the verified player. The server checks who is posting but trusts the numbers (no server-side scoring; anti-cheat out of scope).
 7. Gemini may receive the **numbers + lyric text** and return a verdict. It must not overwrite pitch/tone.
 
 **ELO (Ranked only)**
@@ -236,6 +236,7 @@ Clip windows start at the **chorus**.
 - Start 1000, K=32, standard expected score. Win 1, loss 0, draw 0.5.
 - Show `+18` / `-18` on results.
 - Ladder: name, rating, matches played.
+- ELO is **casual and unverified**: each client scores its own take, so a modified client can post any number. The UI says so on the Ranked picker and the leaderboard.
 
 ---
 
@@ -324,7 +325,7 @@ Stop at the first row you can demo if time dies.
 | A7 | FIFO matchmaking. |
 | A8 | Local instrumentals, not YouTube. |
 | A9 | Line-timed LRC. |
-| A10 | Client DSP is judge of record. Server trusts the posted ScoreCard. Gemini is verdict only. |
+| A10 | Scores are client-computed: the singer’s own browser DSP is judge of record, and the server trusts the posted ScoreCard numbers (it only verifies who posted them). Ranked ELO and the ladder are therefore casual and unverified, and labeled that way. Gemini is verdict only. |
 | A11 | Chaos is P1, no score, join/leave, cap 8, 60s cuts. |
 | A12 | Desktop Chrome. |
 | A13 | No in-app recording. |

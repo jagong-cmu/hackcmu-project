@@ -8,7 +8,7 @@ import { PageShell } from "../theme/PageShell.tsx";
 type PlayMode = Extract<Mode, "ranked" | "duet" | "chaos">;
 
 const PRIVATE_MODES: { mode: PlayMode; label: string; blurb: string }[] = [
-  { mode: "ranked", label: "Ranked", blurb: "Same 20-second chorus. You then them. Winner takes ELO." },
+  { mode: "ranked", label: "Ranked", blurb: "Same 20-second chorus. You then them. Winner takes casual ELO." },
   { mode: "duet", label: "Duet", blurb: "Sing the whole song together. One shared score. No ELO." },
   { mode: "chaos", label: "Chaos", blurb: "A lounge for your crew. Cameras and lyrics. No score." },
 ];
@@ -21,7 +21,7 @@ const PRIVATE_MODES: { mode: PlayMode; label: string; blurb: string }[] = [
 const QUEUE_COPY: Record<PlayMode, { title: string; tag: string; waiting: string; hint: string }> = {
   ranked: {
     title: "Ranked",
-    tag: "Same 20-second chorus. You then them. Winner takes ELO.",
+    tag: "Same 20-second chorus. You then them. Winner takes casual ELO.",
     waiting: "Looking for a singer",
     hint: "Stay here. The next person who taps Play is your match.",
   },
