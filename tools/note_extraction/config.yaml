@@ -1,0 +1,118 @@
+# Note-extraction thresholds. Every stage reads only this file (or a copy passed
+# with --config). Changing a value here invalidates the cache for that stage and
+# every stage after it, so re-runs stay correct.
+
+separation:
+  # Demucs model. htdemucs_ft is ~4x slower than htdemucs and a little cleaner
+  # on vocals; htdemucs is the default because it is fine for pitch tracking.
+  model: htdemucs
+  # Sample rate of the vocal WAV every later stage reads.
+  vocal_sr: 44100
+  # Warn when this share of samples sit at full scale (clipping flattens peaks
+  # and adds harmonics that confuse pitch trackers).
+  clip_warn_fraction: 0.001
+  # Warn when vocal RMS is this far (dB) below the mix: separation found little voice.
+  low_vocal_db: -30
+  # Warn when this share of voiced frames carries a second, competing pitch
+  # (backing vocals / harmonies bleeding into the stem).
+  bleed_warn_fraction: 0.15
+
+pitch:
+  # rmvpe | crepe | pyin. RMVPE is trained on singing and handles breathy and
+  # processed vocals far better than the other two.
+  tracker: rmvpe
+  hop_sec: 0.01
+  # Search range. C2..C#6 covers bass to soprano; widen only for unusual voices.
+  fmin_hz: 65
+  fmax_hz: 1100
+  # A frame is voiced when the tracker's confidence is at least this.
+  # RMVPE salience, CREPE periodicity and pYIN voiced-probability all live on 0..1.
+  voiced_confidence:
+    rmvpe: 0.05
+    crepe: 0.5
+    pyin: 0.5
+  # Octave-error repair: a voiced frame this close (semitones) to exactly an
+  # octave from the median of its neighbours gets snapped to the neighbours'
+  # octave, provided the neighbours agree with each other.
+  octave_window_sec: 0.2
+  octave_tolerance_st: 1.0
+  # Neighbours "agree" when their median absolute deviation is under this.
+  octave_neighbour_mad_st: 1.0
+
+tuning:
+  # Only frames at least this confident vote on the song's tuning offset.
+  min_confidence: 0.3
+  # Offsets larger than this (cents) are flagged: bad detection, a pitch-shifted
+  # track, or a non-A440 recording.
+  review_cents: 40
+
+segmentation:
+  # Light median filter on the MIDI curve. 50 ms removes tracker jitter without
+  # moving note boundaries by more than a frame or two.
+  median_sec: 0.05
+  # A new note starts when the pitch moves this far (semitones) from the running
+  # note centre...
+  split_st: 0.7
+  # ...and stays there at least this long.
+  split_hold_sec: 0.06
+  # The split decision reads the curve averaged over this window, about one
+  # vibrato cycle at 5-8 Hz, so vibrato up to about +-1 st averages out instead of
+  # looking like note changes. Boundaries and pitches still come from the sharp
+  # curve. Longer windows tolerate slower/wider vibrato but blur very fast runs.
+  vibrato_sec: 0.12
+  # Unvoiced gaps longer than this always end a note; shorter ones (consonants,
+  # a dropped frame) are bridged.
+  gap_break_sec: 0.1
+  # Notes shorter than this are dropped (glide notes excepted).
+  min_note_sec: 0.08
+  # Adjacent notes with the same pitch separated by less than this are merged
+  # (tracker dropouts), unless a loudness dip marked the second as re-sung.
+  merge_gap_sec: 0.08
+  # Repeated same-pitch notes ("you were here") have no pitch change to split on.
+  # A loudness dip of at least this many dB, recovering within the window on both
+  # sides, splits the note there (a consonant). 0 disables. Too low splits notes on
+  # tremolo or uneven breath support; too high misses soft consonants (l, m, n).
+  onset_dip_db: 8
+  onset_dip_window_sec: 0.1
+  # Glide detection: a stretch whose pitch keeps moving at least this fast
+  # (semitones per second) for at least glide_min_sec, covering at least
+  # glide_min_span_st, is emitted as a run of short notes, flagged "glide".
+  glide_rate_st_per_sec: 8
+  # Shorter slides (scoops, portamento into a note) are left to the note they
+  # land on, as hand-made karaoke charts do. Was 0.12; 0.2 lifted synthetic note F
+  # 0.738 -> 0.761 on every voice, but that gain is partly the benchmark's own
+  # convention, so it was not pushed further: longer values start swallowing
+  # the melismas this stage exists to spell out.
+  glide_min_sec: 0.2
+  glide_min_span_st: 1.5
+  # Shortest note emitted inside a glide.
+  glide_min_note_sec: 0.03
+
+lyrics:
+  # faster-whisper model for transcription when no lyrics are given (and for
+  # timing plain-text lyrics). small is a good CPU trade-off; medium is better
+  # on fast or mumbled lines.
+  whisper_model: small
+  language: en
+  # Pyphen dictionary for syllable splitting.
+  hyphen_dict: en_US
+  # A pause at least this long between words starts a new lyric line when the
+  # lyrics carry no line structure of their own.
+  phrase_gap_sec: 0.6
+
+export:
+  # Site melody.json frame rate. Must match what the site's MelodyFile uses.
+  site_frame_rate: 50
+  # UltraStar BPM field. Beat length is 15 / bpm seconds; 1200 gives 12.5 ms beats.
+  ultrastar_bpm: 1200
+
+sanity:
+  # Plausible sung range (MIDI). Notes outside are flagged.
+  min_midi: 36
+  max_midi: 88
+  # Consecutive notes further apart than this (semitones) are flagged.
+  max_jump_st: 12
+  # Unvoiced stretches longer than this inside a lyric line are flagged.
+  long_unvoiced_sec: 1.5
+  # Section length for the per-section "needs review" score.
+  section_sec: 10
