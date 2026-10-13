@@ -85,6 +85,18 @@ import {
 } from "./hardening.ts";
 import { attachSocketAuth, authMode, httpAccount, httpIdentity, refreshSocketAuth, socketIdentity } from "./auth.ts";
 import {
+  createWindowGate,
+  HelloVerifyLimit,
+  HelloVerifyWindowMs,
+  isGuardedRoomCode,
+  JoinAttemptLimiter,
+  joinLimitKey,
+  JoinRateLimitedCode,
+  joinRateLimitedMessage,
+  RoomUnavailableCode,
+  roomUnavailableMessage,
+} from "./abuseLimits.ts";
+import {
   posthogConfigured,
   trackChaosJoined,
   trackQueueJoined,
@@ -131,6 +143,9 @@ type Session = {
   roomCode: string | null;
 };
 const sessions = new Map<string, Session>();
+
+/** Failed private-code joins, per verified account (abuseLimits.ts). Per instance. */
+const sharedJoinLimiter = new JoinAttemptLimiter();
 
 function sessionOf(socketId: string): Session | undefined {
   return sessions.get(socketId);
@@ -433,13 +448,20 @@ registerSafety(io, {
 });
 
 io.on("connection", (socket) => {
+  // Token checks cost a Supabase round trip, so a socket gets a few per window.
+  const helloVerifyGate = createWindowGate(HelloVerifyLimit, HelloVerifyWindowMs);
+
   socket.on(ClientEvents.playerHello, safeHandler(socket, ClientEvents.playerHello, async (payload: unknown) => {
     const { clientId: claimedId, displayName, accessToken } = (payload ?? {}) as Record<string, unknown>;
     // Not verified at handshake (session restored late, or the token had
     // expired): re-verify in place from the token sent with this hello. Only
     // then do we await, so an already-verified hello still seats the session
     // synchronously before a following room:create / room:ready.
-    if (!socket.data.authUserId) await refreshSocketAuth(socket, accessToken);
+    // Re-verification is rate limited per socket; hellos from an
+    // already-verified socket do not count.
+    if (!socket.data.authUserId && typeof accessToken === "string" && accessToken && authMode() === "verify") {
+      if (helloVerifyGate()) await refreshSocketAuth(socket, accessToken);
+    }
     // The verified Supabase user id, never whatever was sent. Every other
     // play event needs the session this creates, so this is the socket gate.
     const who = socketIdentity(socket, claimedId);
@@ -599,13 +621,37 @@ io.on("connection", (socket) => {
     socket.emit(ServerEvents.matchFound, { code: room.code, mode });
   }));
 
+  const joinKey = () => joinLimitKey(socket.data.authUserId, socket.id);
+
+  /**
+   * A private code this socket is not already in: limited, and every miss
+   * (no such room, full, wrong mode) is the same ROOM_UNAVAILABLE answer.
+   * Returns false (after telling the client) while the caller is cooling down.
+   */
+  const mayTryCode = (code: string, session: Session): boolean => {
+    if (!isGuardedRoomCode(code) || session.roomCode === code) return true;
+    const wait = sharedJoinLimiter.waitMs(joinKey());
+    if (wait <= 0) return true;
+    fail(socket, JoinRateLimitedCode, joinRateLimitedMessage(wait));
+    return false;
+  };
+  const missedCode = (code: string): void => {
+    if (isGuardedRoomCode(code)) sharedJoinLimiter.fail(joinKey(), code);
+    fail(socket, RoomUnavailableCode, roomUnavailableMessage(code));
+  };
+
   socket.on(ClientEvents.roomJoin, safeHandler(socket, ClientEvents.roomJoin, async (payload: unknown) => {
     const session = sessionOf(socket.id);
     if (!session) return fail(socket, "NO_SESSION", "send player:hello first");
 
     const code = roomCodeOf(fieldOf(payload, "code"));
-    const room = code ? ((await ensureRoom(code)) ?? getRoom(code)) : undefined;
-    if (!room) return fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
+    if (!code) return fail(socket, "BAD_CODE", "enter a 4-digit code");
+    if (!mayTryCode(code, session)) return;
+    const room = (await ensureRoom(code)) ?? getRoom(code);
+    // Public codes keep their specific errors; private ones never say why.
+    if (!room) {
+      return isGuardedRoomCode(code) ? missedCode(code) : fail(socket, "ROOM_NOT_FOUND", `no room ${code}`);
+    }
     if (await isBannedFromRoom(room.code, session.playerId)) {
       return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
     }
@@ -618,7 +664,9 @@ io.on("connection", (socket) => {
     leaveCurrentRoom(socket.id);
     dequeue(socket.id);
 
-    if (!seat(socket.id, room)) return fail(socket, "ROOM_FULL", "room is full");
+    if (!seat(socket.id, room)) {
+      return isGuardedRoomCode(room.code) ? missedCode(room.code) : fail(socket, "ROOM_FULL", "room is full");
+    }
     socket.emit(ServerEvents.matchFound, { code: room.code, mode: room.mode });
   }));
 
@@ -630,6 +678,7 @@ io.on("connection", (socket) => {
     if (raw && !isPublicChaosCode(raw) && !/^\d{4}$/.test(raw)) {
       return fail(socket, "BAD_CODE", "enter a 4-digit code");
     }
+    if (raw && !mayTryCode(raw, session)) return;
 
     if (raw && (await isBannedFromRoom(raw, session.playerId))) {
       return fail(socket, RemovedFromRoomCode, "You were removed from this room.");
@@ -637,9 +686,15 @@ io.on("connection", (socket) => {
     let room = raw ? ((await ensureRoom(raw)) ?? getRoom(raw)) : openLoungeFor(session.playerId);
     if (raw) {
       if (room && room.mode !== "chaos") {
-        return fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
+        return isGuardedRoomCode(raw) ? missedCode(raw) : fail(socket, "NOT_CHAOS", `${raw} is not a lounge`);
       }
       if (!room) {
+        // Opening a fresh private lounge by typing a code also tells the caller
+        // that code was free, so it counts against the join limit (the web
+        // client makes private lounges with room:create, never this way).
+        if (isGuardedRoomCode(raw) && session.roomCode !== raw) {
+          sharedJoinLimiter.fail(joinKey(), raw);
+        }
         room = createRoom("chaos", raw, false);
         if (!isPublicChaosCode(raw)) markPrivateRoom(room, session.playerId);
       }
@@ -665,6 +720,7 @@ io.on("connection", (socket) => {
           return;
         }
       }
+      if (raw && isGuardedRoomCode(raw)) return missedCode(raw);
       return fail(socket, "ROOM_FULL", "lounge is full");
     }
     trackChaosJoined({ roomCode: room.code, distinctId: session.clientId }).catch(logOnce("trackChaosJoined"));

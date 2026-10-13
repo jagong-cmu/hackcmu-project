@@ -61,23 +61,49 @@ import {
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-/** Sliding-window counter: at most `limit` hits per key per `windowMs`. */
+/**
+ * Sliding-window counter: at most `limit` hits per key per `windowMs`.
+ * Keys whose hits have all aged out are dropped, and at most `maxKeys` keys
+ * are kept (the least recently used go first), so memory stays bounded.
+ * Per instance: on Vercel each instance counts on its own.
+ */
 export class RateLimiter {
   private hits = new Map<string, number[]>();
   constructor(
     readonly limit: number,
     readonly windowMs: number,
+    readonly maxKeys = 10_000,
   ) {}
 
   take(key: string, now = Date.now()): boolean {
     const recent = (this.hits.get(key) ?? []).filter((t) => now - t < this.windowMs);
+    // Re-insert so Map order tracks recency.
+    this.hits.delete(key);
     if (recent.length >= this.limit) {
       this.hits.set(key, recent);
       return false;
     }
     recent.push(now);
     this.hits.set(key, recent);
+    if (this.hits.size > this.maxKeys) this.sweep(now);
     return true;
+  }
+
+  /** Drop keys with no live hits; then, if still over the cap, the oldest. */
+  sweep(now = Date.now()): void {
+    for (const [key, times] of this.hits) {
+      if (!times.some((t) => now - t < this.windowMs)) this.hits.delete(key);
+    }
+    while (this.hits.size > this.maxKeys) {
+      const oldest = this.hits.keys().next().value;
+      if (oldest === undefined) break;
+      this.hits.delete(oldest);
+    }
+  }
+
+  /** Keys currently tracked. */
+  get size(): number {
+    return this.hits.size;
   }
 
   reset(): void {
@@ -405,7 +431,38 @@ export function publicSafetyState(room: Room): SafetyState {
 // Reports
 // ---------------------------------------------------------------------------
 
-const reported = new Set<string>();
+/**
+ * reporter|reported|room -> when it was reported, so a repeat is acknowledged
+ * but not stored twice. Bounded: entries expire after ReportDedupeMs and at
+ * most ReportDedupeMax are kept (oldest dropped first). Past either bound a
+ * repeat report is simply stored again, which is harmless.
+ */
+const reported = new Map<string, number>();
+export const ReportDedupeMs = 24 * 60 * 60_000;
+export const ReportDedupeMax = 20_000;
+
+function alreadyReported(key: string, now: number): boolean {
+  const at = reported.get(key);
+  if (at === undefined) return false;
+  if (now - at < ReportDedupeMs) return true;
+  reported.delete(key);
+  return false;
+}
+
+function rememberReport(key: string, now: number): void {
+  reported.delete(key);
+  reported.set(key, now);
+  while (reported.size > ReportDedupeMax) {
+    const oldest = reported.keys().next().value;
+    if (oldest === undefined) break;
+    reported.delete(oldest);
+  }
+}
+
+/** Test-only: how many report de-dupe keys are held. */
+export function reportDedupeSize(): number {
+  return reported.size;
+}
 
 /** A string field of a socket payload, else "" (never coerces an object). */
 function stringField(payload: unknown, key: string): string {
@@ -559,16 +616,23 @@ export function createSafety(deps: SafetyDeps) {
 
     const once = `${ctx.me.id}|${target.id}|${ctx.room.code}`;
     const canLeave = isOneOnOne(ctx.room);
-    if (body.block === true) await addBlock(ctx.me.id, target.id);
+    // "Report and block" goes through block() so the block cap and block rate
+    // limit apply here too. A refused block never stops the report.
+    let blockNote = "";
+    if (body.block === true) {
+      const blocked = await block(socketId, { targetId: target.id });
+      if (!blocked.ok) blockNote = ` Not blocked: ${blocked.message}`;
+    }
     flag(ctx.room, ctx.me.id, target.id);
 
-    if (reported.has(once)) {
-      return { action: "report", ok: true, message: "Already reported. Thanks.", targetId, canLeave };
+    const now = Date.now();
+    if (alreadyReported(once, now)) {
+      return { action: "report", ok: true, message: `Already reported. Thanks.${blockNote}`, targetId, canLeave };
     }
-    if (!reportLimiter.take(ctx.me.id)) {
-      return deny("report", "You've sent a lot of reports. Try again in a few minutes.", targetId);
+    if (!reportLimiter.take(ctx.me.id, now)) {
+      return deny("report", `You've sent a lot of reports. Try again in a few minutes.${blockNote}`, targetId);
     }
-    reported.add(once);
+    rememberReport(once, now);
     await persistReport({
       reporterId: ctx.me.id,
       reportedId: target.id,
@@ -583,7 +647,7 @@ export function createSafety(deps: SafetyDeps) {
     return {
       action: "report",
       ok: true,
-      message: "Report sent. Thanks for keeping the room safe.",
+      message: `Report sent. Thanks for keeping the room safe.${blockNote}`,
       targetId,
       canLeave,
     };

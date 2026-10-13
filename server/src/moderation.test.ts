@@ -28,6 +28,9 @@ import {
   markPrivateRoom,
   openLoungeFor,
   pairingAvoidList,
+  RateLimiter,
+  ReportDedupeMax,
+  reportDedupeSize,
   resetSafetyForTests,
   votesNeeded,
 } from "./moderation.ts";
@@ -339,6 +342,70 @@ test("a player can block at most MaxBlockedPlayers people", async () => {
     assert.equal(hasBlocked("me", "next"), false);
     // Re-blocking someone already blocked is not a new block.
     assert.equal((await h.safety.block(h.sock("me"), { targetId: "old0" })).ok, true);
+  } finally {
+    clearTimers(h.room);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Audit #16: "report and block" obeys the block cap
+// ---------------------------------------------------------------------------
+
+test("report with block:true cannot exceed MaxBlockedPlayers; the report still goes in", async () => {
+  const h = harness("chaos", ["me", "next"]);
+  try {
+    for (let i = 0; i < MaxBlockedPlayers; i += 1) await addBlock("me", `old${i}`);
+    const ack = await h.safety.report(h.sock("me"), { targetId: "next", reason: "spam", block: true });
+    assert.equal(ack.ok, true, "the report itself is accepted");
+    assert.match(ack.message ?? "", /Not blocked: You can block up to 10/);
+    assert.equal(hasBlocked("me", "next"), false, "cap enforced");
+  } finally {
+    clearTimers(h.room);
+  }
+});
+
+test("report with block:true under the cap blocks, like the block button", async () => {
+  const h = harness("duet", ["me", "them"]);
+  try {
+    const ack = await h.safety.report(h.sock("me"), { targetId: "them", reason: "spam", block: true });
+    assert.equal(ack.ok, true);
+    assert.doesNotMatch(ack.message ?? "", /Not blocked/);
+    assert.equal(hasBlocked("me", "them"), true);
+    assert.equal(ack.canLeave, true);
+  } finally {
+    clearTimers(h.room);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Audit #17: bounded in-memory state
+// ---------------------------------------------------------------------------
+
+test("RateLimiter drops keys whose hits aged out and stays under its key cap", () => {
+  const rl = new RateLimiter(2, 1000, 50);
+  for (let i = 0; i < 50; i++) assert.equal(rl.take(`k${i}`, 0), true);
+  assert.equal(rl.size, 50);
+  // Past the window, a new key triggers a sweep of the stale ones.
+  assert.equal(rl.take("fresh", 5000), true);
+  assert.equal(rl.size, 1);
+  // Still a sliding window per key.
+  assert.equal(rl.take("fresh", 5001), true);
+  assert.equal(rl.take("fresh", 5002), false);
+  assert.equal(rl.take("fresh", 6001), true, "oldest hit aged out");
+  // Live keys over the cap: the least recently used are evicted.
+  for (let i = 0; i < 200; i++) rl.take(`burst${i}`, 7000);
+  assert.ok(rl.size <= 50, `size ${rl.size}`);
+  rl.sweep(100_000);
+  assert.equal(rl.size, 0);
+});
+
+test("report de-dupe memory is bounded", async () => {
+  const ids = ["r", "t"];
+  const h = harness("chaos", ids);
+  try {
+    await h.safety.report(h.sock("r"), { targetId: "t", reason: "spam" });
+    assert.equal(reportDedupeSize(), 1);
+    assert.ok(ReportDedupeMax > 0 && ReportDedupeMax <= 100_000);
   } finally {
     clearTimers(h.room);
   }
