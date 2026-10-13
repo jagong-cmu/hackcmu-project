@@ -153,6 +153,10 @@ Audit findings #9 (Gemini quota / PostHog burn) and #10 (`room:create` code coll
   - the peer e2e suite: 23/24, the one failure being the known entry-6 403
   - `fullmatch.mjs` and `fullmatch-variants.mjs`: all passed
 
+- Real-database check (local MongoDB 7 replica set, two server instances sharing it):
+  - 800 concurrent `room:create`s split across both instances: **0 duplicate codes** on this branch, versus **19 duplicates** on main.
+  - The peer e2e and both full-match scripts pass on real Mongo, which also exercises PR #19's settlement claim and per-seat score claims.
+
 ## Open items (need a decision or larger change)
 
 - Rate limits are per instance (room joins, hello verification, reports, blocks, votes, Gemini verdicts, training analytics). A shared limiter (Mongo TTL collection or Upstash) would make them global on Vercel.
