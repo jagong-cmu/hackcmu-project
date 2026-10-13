@@ -208,18 +208,6 @@ export function parseVoiceProfile(raw: unknown): VoiceProfile | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Initial octave fold for a clip: the shift that maps the singer's comfortable
- * centre onto the melody's centre. smoothLivePitch folds with
- * `12·round((anchor − raw)/12)`; seeding with the same formula on the profile
- * centre means a voice an octave under the tune lands on the line from the
- * first frame instead of after SHIFT_HOLD frames.
- */
-export function seedOctaveShift(melodyCenterMidi: number, profile: Pick<VoiceProfile, "centerMidi">): number {
-  const shift = 12 * Math.round((melodyCenterMidi - profile.centerMidi) / 12);
-  return shift === 0 ? 0 : shift; // normalise -0
-}
-
-/**
  * Range-guided octave correction for a raw detector reading.
  *
  * Mirrors pitchGuide's fixOctave: it only ever moves a reading by exactly one
@@ -240,22 +228,4 @@ export function fixOctaveByRange(
   if (raw >= lo && raw <= hi) return raw;
   const shifted = raw < lo ? raw + 12 : raw - 12;
   return shifted >= lo && shifted <= hi ? shifted : raw;
-}
-
-/**
- * Duration-weighted median of a clip's held notes: the pitch the tune "lives"
- * around, used to seed the fold. Null when there are no notes.
- */
-export function melodyCenterMidi(runs: Array<{ startSec: number; endSec: number; midi: number }>): number | null {
-  const notes = runs
-    .filter((r) => r.endSec > r.startSec && Number.isFinite(r.midi))
-    .sort((a, b) => a.midi - b.midi);
-  const total = notes.reduce((s, r) => s + (r.endSec - r.startSec), 0);
-  if (!notes.length || total <= 0) return null;
-  let acc = 0;
-  for (const r of notes) {
-    acc += r.endSec - r.startSec;
-    if (acc >= total / 2) return r.midi;
-  }
-  return notes[notes.length - 1]!.midi;
 }

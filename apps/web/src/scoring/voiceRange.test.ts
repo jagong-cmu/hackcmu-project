@@ -1,7 +1,7 @@
 /**
  * Voice range profile: estimator, profile sanity checks, and how the live
- * visualizer uses the profile (seeded fold + range-guided octave correction).
- * Also pins that no profile → smoothLivePitch behaves exactly as before.
+ * visualizer uses the profile (range-guided octave correction). Also pins
+ * that no profile → smoothLivePitch behaves exactly as the plain default.
  *
  * Run: npx tsx --test apps/web/src/scoring/voiceRange.test.ts
  */
@@ -14,9 +14,7 @@ import {
   estimateHeldPitch,
   fixOctaveByRange,
   formatVoiceProfile,
-  melodyCenterMidi,
   parseVoiceProfile,
-  seedOctaveShift,
   type VoiceFrame,
   type VoiceProfile,
 } from "./voiceRange.ts";
@@ -128,14 +126,6 @@ test("profile: parse rejects junk, accepts a stored profile", () => {
 
 const bass: VoiceProfile = { lowMidi: 40, highMidi: 57, centerMidi: 48, measuredAt: 0 };
 
-test("seedOctaveShift: rounds the centre gap to whole octaves", () => {
-  assert.equal(seedOctaveShift(60, bass), 12);
-  assert.equal(seedOctaveShift(72, bass), 24);
-  assert.equal(seedOctaveShift(50, bass), 0);
-  assert.equal(seedOctaveShift(40, bass), -12);
-  assert.ok(!Object.is(seedOctaveShift(50, bass), -0));
-});
-
 test("fixOctaveByRange: readings inside range ± margin are untouched", () => {
   for (const raw of [35, 40, 48, 57, 62]) assert.equal(fixOctaveByRange(raw, bass), raw);
 });
@@ -156,18 +146,6 @@ test("fixOctaveByRange: leaves readings that one octave cannot rescue", () => {
   assert.equal(fixOctaveByRange(20, bass), 20);
 });
 
-test("melodyCenterMidi: duration-weighted median of the runs", () => {
-  assert.equal(melodyCenterMidi([]), null);
-  assert.equal(
-    melodyCenterMidi([
-      { startSec: 0, endSec: 4, midi: 60 },
-      { startSec: 4, endSec: 5, midi: 72 },
-      { startSec: 5, endSec: 6, midi: 55 },
-    ]),
-    60,
-  );
-});
-
 // ---------------------------------------------------------------- smoothLivePitch
 
 type Frame = { midi: number | null; target: number | null };
@@ -179,27 +157,17 @@ function run(state: PitchSmoothState, frames: Frame[]) {
       clarity: 0.9,
       rms: 0.05,
       targetMidi: f.target,
-      restMidi: 60,
-      minMidi: 57,
-      maxMidi: 63,
       playheadSec: i / 60,
       nowMs: 1000 + i * (1000 / 60),
     }),
   );
 }
 
-test("no profile: state and output identical to the old defaults", () => {
+test("no profile: state and output identical to the plain default", () => {
   const a = createPitchSmoothState();
   const b = createPitchSmoothState({});
-  const c = createPitchSmoothState({ profile: null, melodyCenterMidi: 60 });
-  const d = createPitchSmoothState({ profile: bass, melodyCenterMidi: null });
-  for (const s of [a, b, c]) {
-    assert.equal(s.octaveShift, 0);
-    assert.equal(s.pendingShift, 0);
-    assert.equal(s.voiceRange, null);
-  }
-  // A profile with no melody centre doesn't seed the fold.
-  assert.equal(d.octaveShift, 0);
+  const c = createPitchSmoothState({ profile: null });
+  for (const st of [a, b, c]) assert.equal(st.voiceRange, null);
 
   // A melody-agnostic trace with octave jumps, glitches and silence.
   const trace: Frame[] = [];
@@ -212,44 +180,33 @@ test("no profile: state and output identical to the old defaults", () => {
     trace.push({ midi, target });
   }
   const outA = run(a, trace);
-  const outB = run(b, trace);
-  const outC = run(c, trace);
-  assert.deepEqual(outB, outA);
-  assert.deepEqual(outC, outA);
+  assert.deepEqual(run(b, trace), outA);
+  assert.deepEqual(run(c, trace), outA);
 });
 
-test("seeded fold: a bass an octave under the tune is on the line from frame 1", () => {
-  // 47.5, not 48: exactly 12.00 below the rest line would be caught by fixOctave.
-  const trace: Frame[] = Array.from({ length: 30 }, () => ({ midi: 47.5, target: 60 }));
-
-  const plain = run(createPitchSmoothState(), trace);
-  const seeded = run(createPitchSmoothState({ profile: bass, melodyCenterMidi: 60 }), trace);
-
-  // Unseeded: drifts down toward 47.5 until SHIFT_HOLD frames pass.
-  assert.ok(plain[8]!.midi < 56, `plain frame 8 = ${plain[8]!.midi}`);
-  // Seeded: on (within half a semitone of) the target throughout.
-  for (const [i, f] of seeded.entries()) {
-    assert.ok(Math.abs(f.midi - 60) < 0.6, `seeded frame ${i} = ${f.midi}`);
+test("no fold: a bass an octave under the tune is drawn where sung, and still in tune", () => {
+  const trace: Frame[] = Array.from({ length: 30 }, () => ({ midi: 48, target: 60 }));
+  const out = run(createPitchSmoothState({ profile: bass }), trace);
+  for (const [i, f] of out.entries()) {
+    assert.ok(f.midi != null && Math.abs(f.midi - 48) < 0.01, `frame ${i} = ${f.midi}`);
+    assert.ok(f.inTune, `frame ${i} should count as in tune (octave-independent)`);
   }
 });
 
-test("range-guided correction: a 2nd-harmonic glitch while folded doesn't throw the line an octave", () => {
-  // Bass sings 52 against a 64 target, so the line is folded +12. The detector
-  // then locks onto the 2nd harmonic (64) for 6 frames. fixOctave compares
-  // against the folded line (≈64), sees no jump, and lets it through, so the
-  // folded value would be 76. 64 is above the bass's range + margin (57+5),
-  // so the range guard maps it back to 52.
+test("range-guided correction: a 2nd-harmonic glitch doesn't throw the line an octave", () => {
+  // Bass sings 52. The detector then locks onto the 2nd harmonic (64) for 6
+  // frames -- long enough for the jump filter to accept it as a real leap.
+  // 64 is above the bass's range + margin (57+5), so the range guard maps it
+  // back to 52 before the jump filter ever sees it.
   const trace: Frame[] = [
     ...Array.from({ length: 30 }, () => ({ midi: 52, target: 64 })),
     ...Array.from({ length: 6 }, () => ({ midi: 64, target: 64 })),
     ...Array.from({ length: 10 }, () => ({ midi: 52, target: 64 })),
   ];
-  const seed = { melodyCenterMidi: 64 };
-  const plain = run(createPitchSmoothState(seed), trace).slice(30);
-  const guided = run(createPitchSmoothState({ ...seed, profile: bass }), trace).slice(30);
-  const peak = (xs: { midi: number }[]) => Math.max(...xs.map((x) => x.midi));
-  assert.ok(peak(guided) < 64.6, `guided peak ${peak(guided)}`);
-  assert.ok(peak(plain) > 65, `plain peak ${peak(plain)}`);
-  // The guided label stays in the singer's own octave.
+  const plain = run(createPitchSmoothState(), trace).slice(30);
+  const guided = run(createPitchSmoothState({ profile: bass }), trace).slice(30);
+  const peak = (xs: { midi: number | null }[]) => Math.max(...xs.map((x) => x.midi ?? -Infinity));
+  assert.ok(peak(guided) < 52.6, `guided peak ${peak(guided)}`);
+  assert.ok(peak(plain) > 63, `plain peak ${peak(plain)}`);
   for (const f of guided) assert.ok(f.rawMidi != null && Math.abs(f.rawMidi - 52) < 0.01);
 });
