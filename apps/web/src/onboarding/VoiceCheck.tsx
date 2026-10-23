@@ -269,7 +269,6 @@ export function VoiceCheck() {
       tag="Three quick hums so the pitch line starts where your voice is. It doesn’t change your score."
       wide
       className="device-check-page voice-check-page"
-      stream={micStream}
       onHome={stopMic}
     >
       {saved ? (

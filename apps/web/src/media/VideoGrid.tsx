@@ -54,10 +54,13 @@ function Tile({
   waiting = false,
   cue = null,
   menu = null,
+  side,
 }: {
   participant: Participant;
   singing: boolean;
   isLocal: boolean;
+  /** Seat: opponent left ("a"), you right ("b"). Absent in the Chaos grid. */
+  side?: "a" | "b";
   waiting?: boolean;
   cue?: "you" | "them" | "together" | "wait" | null;
   /** Safety controls ("…") for a remote tile. */
@@ -68,7 +71,12 @@ function Tile({
   const cameraOn = Boolean(cameraPub?.track) && cameraPub?.isMuted === false;
 
   return (
-    <div className={singing ? "tile singing" : waiting ? "tile waiting" : "tile"}>
+    <div
+      className={`tile feed${singing ? " singing" : waiting ? " waiting" : ""}`}
+      data-state={cameraOn ? "live" : "off"}
+      data-side={side}
+      data-you={isLocal ? "" : undefined}
+    >
       <video
         ref={videoRef}
         autoPlay
@@ -76,12 +84,13 @@ function Tile({
         muted={isLocal}
         style={isLocal ? { transform: "scaleX(-1)" } : undefined}
       />
-      {!cameraOn && <div className="placeholder">camera off</div>}
+      {!cameraOn && (
+        <div className="feed-state">
+          <strong>Camera off</strong>
+        </div>
+      )}
       {cue ? <div className={singing || cue === "together" ? "cam-cue on" : "cam-cue"}>{cue}</div> : null}
-      <div className="name">
-        {participant.name || participant.identity}
-        {isLocal ? " (you)" : ""}
-      </div>
+      <div className="feed-label">{participant.name || participant.identity}</div>
       {menu}
     </div>
   );
@@ -94,8 +103,8 @@ function RemoteAudio({ participant }: { participant: Participant }) {
 
 function EmptyTile({ label }: { label: string }) {
   return (
-    <div className="tile">
-      <div className="placeholder">{label}</div>
+    <div className="tile feed" data-state="off">
+      <div className="feed-state">{label}</div>
     </div>
   );
 }
@@ -129,6 +138,7 @@ export function CameraPane({
             participant={participant}
             singing={singing}
             isLocal={isLocal}
+            side={isLocal ? "b" : "a"}
             waiting={waiting}
             cue={cue}
           />
@@ -164,12 +174,23 @@ export default function VideoGrid({
     );
   }
 
+  // Chaos: one featured singer (whoever has the mic, else you) above a strip of
+  // everyone else, so up to 8 feeds fit without every tile shrinking.
+  const featured =
+    participants.find((p) => p.identity === activeIdentity) ??
+    participants.find((p) => p.identity === localIdentity) ??
+    participants[0];
+  const ordered = [featured, ...participants.filter((p) => p !== featured)];
+
   return (
-    <div className={compact ? "grid compact" : "grid"}>
-      {participants.map((participant) => {
+    <div className={compact ? "grid compact has-featured" : "grid"}>
+      {ordered.map((participant) => {
         const isLocal = participant.identity === localIdentity;
         return (
-          <div key={participant.sid || participant.identity}>
+          <div
+            key={participant.sid || participant.identity}
+            className={compact && participant === featured ? "chaos-featured" : undefined}
+          >
             <Tile
               participant={participant}
               singing={participant.identity === activeIdentity}

@@ -1,6 +1,6 @@
 import {
-  BLUE,
-  BLUE_DEEP,
+  ACCENT,
+  ACCENT_DEEP,
   DANGER,
   DIM,
   eloLabel,
@@ -54,7 +54,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   const frameW = W - 96;
   const frameH = 560;
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
-  ctx.fillStyle = "#070b14";
+  ctx.fillStyle = "#1a1410";
   ctx.fill();
   ctx.save();
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
@@ -68,29 +68,29 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
     ctx.drawImage(bitmap, frameX + (frameW - dw) / 2, frameY + (frameH - dh) / 2, dw, dh);
     bitmap.close();
   } else {
-    ctx.fillStyle = "#0c1320";
+    ctx.fillStyle = "#1a1410";
     ctx.fillRect(frameX, frameY, frameW, frameH);
     ctx.fillStyle = DIM;
-    ctx.font = "500 28px Outfit, sans-serif";
+    ctx.font = "500 28px Figtree, sans-serif";
     ctx.textBaseline = "middle";
     ctx.fillText("The room went dark", W / 2, frameY + frameH / 2);
   }
   ctx.restore();
 
-  ctx.strokeStyle = "rgba(168, 208, 255, 0.28)";
+  ctx.strokeStyle = "rgba(255, 231, 176, 0.28)";
   ctx.lineWidth = 1.5;
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
   ctx.stroke();
 
   let y = frameY + frameH + 36;
   ctx.fillStyle = FG;
-  ctx.font = "600 48px Outfit, sans-serif";
+  ctx.font = "600 48px Figtree, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillText(input.songTitle || "Karaoke", W / 2, y, frameW);
   y += 56;
   ctx.fillStyle = DIM;
-  ctx.font = "400 28px Outfit, sans-serif";
+  ctx.font = "400 28px Figtree, sans-serif";
   ctx.fillText(input.songArtist || "Aria", W / 2, y, frameW);
   y += 64;
 
@@ -98,40 +98,40 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   if (hasOpp) {
     const leftX = 220;
     const rightX = W - 220;
-    ctx.font = "500 30px Outfit, sans-serif";
+    ctx.font = "500 30px Figtree, sans-serif";
     ctx.fillStyle = DIM;
     ctx.textAlign = "center";
     ctx.fillText(input.youName, leftX, y);
     ctx.fillText(input.opponentName ?? "Them", rightX, y);
     y += 46;
-    ctx.font = "400 140px 'Bebas Neue', sans-serif";
+    ctx.font = "400 140px 'Familjen Grotesk', sans-serif";
     ctx.textBaseline = "top";
     ctx.fillStyle = input.youWon ? GOOD : FG;
     ctx.fillText(String(Math.round(input.youScore)), leftX, y);
     ctx.fillStyle = input.theyWon ? GOOD : FG;
     ctx.fillText(String(Math.round(input.opponentScore ?? 0)), rightX, y);
 
-    ctx.strokeStyle = "rgba(121, 180, 255, 0.25)";
+    ctx.strokeStyle = "rgba(255, 187, 69, 0.25)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(W / 2, y + 28);
     ctx.lineTo(W / 2, y + 112);
     ctx.stroke();
     ctx.fillStyle = DIM;
-    ctx.font = "500 24px Outfit, sans-serif";
+    ctx.font = "500 24px Figtree, sans-serif";
     ctx.textBaseline = "middle";
     ctx.fillText("vs", W / 2, y + 72);
     y += 156;
   } else {
     ctx.fillStyle = FG;
-    ctx.font = "400 180px 'Bebas Neue', sans-serif";
+    ctx.font = "400 180px 'Familjen Grotesk', sans-serif";
     ctx.textBaseline = "top";
     ctx.fillText(String(Math.round(input.youScore)), W / 2, y - 12);
     y += 168;
   }
 
   ctx.fillStyle = FG;
-  ctx.font = "600 40px Outfit, sans-serif";
+  ctx.font = "600 40px Figtree, sans-serif";
   ctx.textBaseline = "top";
   ctx.fillText(input.kicker, W / 2, y, frameW);
   y += 52;
@@ -142,22 +142,22 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
     chips.push(eloLabel(input.eloDelta));
   }
   if (chips.length) {
-    ctx.fillStyle = input.eloDelta && input.eloDelta < 0 ? DANGER : BLUE;
-    ctx.font = "500 28px Outfit, sans-serif";
+    ctx.fillStyle = input.eloDelta && input.eloDelta < 0 ? DANGER : ACCENT;
+    ctx.font = "500 28px Figtree, sans-serif";
     ctx.fillText(chips.join("   "), W / 2, y, frameW);
     y += 46;
   }
 
   const verdict = input.verdict?.trim();
   if (verdict) {
-    ctx.fillStyle = "rgba(206, 224, 255, 0.78)";
-    ctx.font = "400 26px Outfit, sans-serif";
+    ctx.fillStyle = "rgba(246, 239, 228, 0.78)";
+    ctx.font = "400 26px Figtree, sans-serif";
     wrapText(ctx, verdict, W / 2, y, frameW - 24, 34, 3);
     y += 90;
   }
 
-  ctx.fillStyle = BLUE_DEEP;
-  ctx.font = "500 22px Outfit, sans-serif";
+  ctx.fillStyle = ACCENT_DEEP;
+  ctx.font = "500 22px Figtree, sans-serif";
   ctx.textBaseline = "bottom";
   ctx.fillText("aria", W / 2, H - 36);
 

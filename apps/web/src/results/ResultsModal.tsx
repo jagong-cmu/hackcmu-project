@@ -8,9 +8,10 @@ import {
 } from "./composeShareImage.ts";
 import { extForMime, feedMatchReelResults, waitForCurrentReel } from "./matchReel.ts";
 import { buildReelResults, OutroMs, ResultsWaitMs } from "./reelResults.ts";
-import { ScoreBurst } from "./ScoreBurst.tsx";
 import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
+import { formatEloDelta, formatScore } from "./format.ts";
+import { retryScore, useScoreStatus } from "./scoreStatus.ts";
 import { useMatchMoment, useMatchReel, useMatchReelPending } from "./useMatchMoment.ts";
 import type { RematchView } from "../stage/rematchView.ts";
 
@@ -25,6 +26,7 @@ const WAIT_LINES = [
 ];
 
 export function ScoringWait() {
+  const sendStatus = useScoreStatus();
   const [left, setLeft] = useState(SCORE_COUNTDOWN_SEC);
   const [line, setLine] = useState(0);
 
@@ -72,6 +74,14 @@ export function ScoringWait() {
         <div className="scoring-track">
           <span style={{ width: `${pct}%` }} />
         </div>
+        {sendStatus === "failed" ? (
+          <div className="scoring-failed" role="alert">
+            <p>We couldn&rsquo;t send your score. Still trying.</p>
+            <button type="button" className="btn" onClick={retryScore}>
+              Try again
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -137,6 +147,7 @@ export function ResultsModal({
 }: Props) {
   // An unrated match never shows (or shares) an ELO change, not even "unchanged".
   const eloDelta = unrated ? null : eloDeltaIn;
+  const elo = revealOpponent ? formatEloDelta(eloDeltaIn, unrated) : null;
   const moment = useMatchMoment();
   const reel = useMatchReel();
   const reelPending = useMatchReelPending();
@@ -206,7 +217,6 @@ export function ResultsModal({
 
   const heroTarget = shared != null ? shared : you.overall;
   const shown = useCountUp(you.silence ? 0 : heroTarget, true);
-  const burstCount = you.silence ? 0 : you.overall >= 80 ? 36 : you.overall >= 55 ? 22 : 0;
   const [landed, setLanded] = useState(false);
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -280,11 +290,16 @@ export function ResultsModal({
       >
         <h2 id="results-title">{title}</h2>
         <div className="results-hero">
-          {burstCount > 0 ? <ScoreBurst count={burstCount} /> : null}
-          <p className="results-hero-score" aria-label={`Score ${heroTarget}`}>
-            {you.silence ? "--" : shown}
+          <p
+            className="results-hero-score"
+            aria-label={you.silence ? "No score" : `Score ${heroTarget}`}
+          >
+            {formatScore(shown, you.silence)}
           </p>
-          <p className="results-blurb">{coach.line}</p>
+          {/* One quiet line under the score: the AI verdict when there is one, else the coach line. */}
+          <p className={`results-blurb${showGemini ? " is-verdict" : ""}`}>
+            {showGemini ? `“${gemini}”` : coach.line}
+          </p>
         </div>
         {opponent ? (
           <div className="score-row split">
@@ -302,13 +317,7 @@ export function ResultsModal({
           </div>
         )}
         {shared != null ? <p className="shared">Shared score {shared}</p> : null}
-        {unrated && revealOpponent ? <p className="elo friendly">Unrated — friendly match</p> : null}
-        {eloDelta != null && revealOpponent ? (
-          <p className={`elo ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
-            {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : ""}${eloDelta} ELO`}
-          </p>
-        ) : null}
-        {showGemini ? <p className="verdict">{gemini}</p> : null}
+        {elo ? <p className={`elo ${elo.tone}`}>{elo.text}</p> : null}
         {reel || moment || reelPending ? (
           <button type="button" className="results-moment" onClick={() => void openShare()}>
             {moment ? (

@@ -1,12 +1,14 @@
 /**
- * Score reveal — one slam, then the number drops.
+ * Results: the payoff of a match. The DSP score is the biggest thing here; the
+ * Gemini verdict is a quiet line under it and never competes.
+ *
+ * Order of events: the card lands, the score counts up, then the Elo change,
+ * blurb, and actions arrive (the .is-landed class, set after the count-up).
  * Loaded after theme.css so these rules win.
  */
 
 .results-scrim {
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(47, 116, 216, 0.28), transparent 62%),
-    color-mix(in srgb, var(--ink) 88%, transparent);
+  background: var(--scrim);
 }
 
 .results.results-show,
@@ -16,114 +18,55 @@
   overflow-y: auto;
   max-width: 34rem;
   max-height: calc(100vh - 32px);
-  padding: 28px 26px 22px;
-  border: 1px solid color-mix(in srgb, var(--blue-200) 28%, var(--edge));
-  border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(79, 151, 245, 0.16), transparent 58%),
-    rgba(7, 11, 20, 0.92);
-  box-shadow:
-    0 0 0 1px rgba(168, 208, 255, 0.06) inset,
-    0 24px 80px rgba(0, 0, 0, 0.55),
-    var(--glow-soft);
+  padding: var(--sp-6) var(--sp-5) var(--sp-5);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
   text-align: center;
 }
+.results.results-show { animation: results-land var(--dur-slow) var(--ease-out) both; }
+.results.booth-wait { animation: results-land var(--dur) var(--ease-out) both; max-width: 26rem; }
 
-.results.results-show {
-  animation: results-slam 0.48s cubic-bezier(0.16, 1.2, 0.32, 1) both;
-}
-
-.results.booth-wait {
-  animation: results-slam 0.4s cubic-bezier(0.16, 1.1, 0.32, 1) both;
-  max-width: 26rem;
-}
-
-@keyframes results-slam {
-  from {
-    opacity: 0;
-    transform: translateY(36px) scale(0.86);
-  }
-  62% {
-    opacity: 1;
-    transform: translateY(-6px) scale(1.03);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes results-land {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to { opacity: 1; transform: none; }
 }
 
 .results.results-show h2,
 .results.booth-wait h2 {
-  margin: 0 0 6px;
-  font-size: clamp(2.6rem, 7vw, 3.6rem);
-  line-height: 0.9;
-  text-shadow: 0 0 28px rgba(121, 180, 255, 0.35);
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  text-shadow: none;
+  text-wrap: balance;
 }
 
-.results.band-good h2,
-.results.is-win h2 {
-  text-shadow: 0 0 32px rgba(62, 224, 138, 0.45), 0 0 18px rgba(121, 180, 255, 0.3);
-}
-.results.band-bad h2,
-.results.is-loss h2 {
-  text-shadow: 0 0 24px rgba(255, 138, 138, 0.28);
-}
-
-/* ---- listening booth (wait) ------------------------------------------ */
+/* ---- listening booth (waiting on the scores) -------------------------- */
 
 .booth {
   position: relative;
-  width: 11.5rem;
-  height: 11.5rem;
-  margin: 2px auto 16px;
+  width: 9rem;
+  height: 9rem;
+  margin: var(--sp-2) auto var(--sp-5);
 }
-
-.booth-sweep {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0 68%,
-    rgba(168, 208, 255, 0.0) 72%,
-    rgba(168, 208, 255, 0.7) 88%,
-    transparent 100%
-  );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-  animation: booth-spin 2.6s linear infinite;
-}
-
-@keyframes booth-spin {
-  to { transform: rotate(360deg); }
-}
-
+.booth-sweep { display: none; }
 .booth-ring {
   position: absolute;
   inset: 18%;
   border-radius: 50%;
-  border: 1.5px solid rgba(168, 208, 255, 0.22);
-  box-shadow: 0 0 18px rgba(79, 151, 245, 0.18);
-  animation: booth-pulse 2.2s ease-out infinite;
+  border: 1.5px solid rgb(var(--amber-rgb) / 0.4);
+  animation: booth-pulse 2.2s var(--ease-out) infinite;
 }
-.booth-ring:nth-child(2) {
-  inset: 8%;
-  animation-delay: 0.35s;
-  border-color: rgba(168, 208, 255, 0.14);
-}
-.booth-ring:nth-child(3) {
-  inset: 0;
-  animation-delay: 0.7s;
-  border-color: rgba(168, 208, 255, 0.08);
-}
-
+.booth-ring:nth-child(3) { inset: 8%; animation-delay: 0.35s; border-color: rgb(var(--amber-rgb) / 0.25); }
+.booth-ring:nth-child(4) { inset: 0; animation-delay: 0.7s; border-color: rgb(var(--amber-rgb) / 0.14); }
 @keyframes booth-pulse {
-  0% { transform: scale(0.82); opacity: 0.85; }
-  70% { transform: scale(1.08); opacity: 0.15; }
-  100% { transform: scale(1.14); opacity: 0; }
+  0% { transform: scale(0.85); opacity: 0.9; }
+  100% { transform: scale(1.12); opacity: 0; }
 }
-
 .booth-eq {
   position: absolute;
   inset: 0;
@@ -131,340 +74,207 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  z-index: 1;
 }
-
 .booth-eq i {
   display: block;
-  width: 7px;
+  width: 6px;
   height: 18px;
-  border-radius: 99px;
-  background: var(--blue-200);
-  box-shadow: 0 0 14px rgba(168, 208, 255, 0.9);
-  animation: booth-eq 0.85s ease-in-out infinite;
-  transform-origin: center;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  animation: booth-eq 0.85s var(--ease-in-out) infinite;
 }
-.booth-eq i:nth-child(1) { animation-delay: 0s; height: 18px; }
-.booth-eq i:nth-child(2) { animation-delay: 0.1s; height: 32px; }
-.booth-eq i:nth-child(3) { animation-delay: 0.18s; height: 46px; }
-.booth-eq i:nth-child(4) { animation-delay: 0.06s; height: 58px; }
-.booth-eq i:nth-child(5) { animation-delay: 0.22s; height: 42px; }
-.booth-eq i:nth-child(6) { animation-delay: 0.12s; height: 28px; }
-.booth-eq i:nth-child(7) { animation-delay: 0.28s; height: 20px; }
-
+.booth-eq i:nth-child(1) { animation-delay: 0s; height: 16px; }
+.booth-eq i:nth-child(2) { animation-delay: 0.1s; height: 28px; }
+.booth-eq i:nth-child(3) { animation-delay: 0.18s; height: 40px; }
+.booth-eq i:nth-child(4) { animation-delay: 0.06s; height: 50px; }
+.booth-eq i:nth-child(5) { animation-delay: 0.22s; height: 36px; }
+.booth-eq i:nth-child(6) { animation-delay: 0.12s; height: 24px; }
+.booth-eq i:nth-child(7) { animation-delay: 0.28s; height: 18px; }
 @keyframes booth-eq {
-  0%, 100% { transform: scaleY(0.45); opacity: 0.65; }
-  50% { transform: scaleY(1.15); opacity: 1; }
+  0%, 100% { transform: scaleY(0.5); opacity: 0.7; }
+  50% { transform: scaleY(1.1); opacity: 1; }
 }
 
 .booth-wait .scoring-copy {
   min-height: 1.5em;
-  margin: 0 0 18px;
-  color: var(--fg);
-  font-size: 1.05rem;
-  animation: copy-swap 0.35s ease both;
-}
-.booth-wait .scoring-copy span {
+  margin: 0 0 var(--sp-4);
   color: var(--fg-dim);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--text-md);
 }
-
-@keyframes copy-swap {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
-}
-
 .booth-wait .scoring-track {
-  height: 8px;
-  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--edge-soft);
+  overflow: hidden;
 }
 .booth-wait .scoring-track span {
-  background: linear-gradient(90deg, var(--blue-500), var(--blue-200));
-  box-shadow: 0 0 18px rgba(121, 180, 255, 0.65);
+  display: block;
+  height: 100%;
+  background: var(--accent);
 }
 
-/* ---- hero score ------------------------------------------------------ */
+/* The score could not be sent: say so, offer a retry. */
+.scoring-failed {
+  margin-top: var(--sp-5);
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-3);
+}
+.scoring-failed p { margin: 0; color: var(--danger); font-size: var(--text-base); }
+
+/* ---- hero score: scoreboard numerals ---------------------------------- */
 
 .results-hero {
-  position: relative;
-  isolation: isolate;
-  margin: 4px 0 8px;
-  min-height: 8.2rem;
+  margin: var(--sp-2) 0;
   display: grid;
   place-items: center;
 }
 
-.results-hero::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  width: min(22rem, 92%);
-  height: 14rem;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle,
-    rgba(168, 208, 255, 0.42) 0%,
-    rgba(47, 116, 216, 0.18) 38%,
-    transparent 68%
-  );
-  filter: blur(8px);
-  z-index: 0;
-  pointer-events: none;
-  animation: hero-bloom 1.1s ease-out both;
-}
-
-.results.band-good .results-hero::before {
-  background: radial-gradient(
-    circle,
-    rgba(62, 224, 138, 0.38) 0%,
-    rgba(79, 151, 245, 0.16) 42%,
-    transparent 68%
-  );
-}
-.results.band-bad .results-hero::before {
-  background: radial-gradient(
-    circle,
-    rgba(255, 138, 138, 0.28) 0%,
-    rgba(47, 116, 216, 0.12) 42%,
-    transparent 68%
-  );
-}
-
-@keyframes hero-bloom {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
+/* Thin scanlines cut the numerals, like an LED panel. Digits are tabular. */
 .results-hero-score {
   position: relative;
-  z-index: 1;
   margin: 0;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(6.2rem, 20vw, 9rem);
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(6rem, 16vw, 8.5rem);
   letter-spacing: 0.02em;
-  line-height: 0.78;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--fg);
-  text-shadow:
-    0 0 18px rgba(242, 248, 255, 0.55),
-    0 0 48px rgba(121, 180, 255, 0.55);
+  color: var(--amber-200);
 }
-
-.results.band-good .results-hero-score {
-  color: var(--score-good);
-  text-shadow:
-    0 0 18px rgba(62, 224, 138, 0.7),
-    0 0 52px rgba(62, 224, 138, 0.4);
+@supports (mask-image: linear-gradient(#000, #000)) {
+  .results-hero-score {
+    -webkit-mask-image: repeating-linear-gradient(0deg, var(--mask-on) 0 4px, transparent 4px 5px);
+    mask-image: repeating-linear-gradient(0deg, var(--mask-on) 0 4px, transparent 4px 5px);
+  }
 }
-.results.band-mid .results-hero-score {
-  color: var(--warning);
-  text-shadow:
-    0 0 16px rgba(240, 198, 116, 0.55),
-    0 0 40px rgba(240, 198, 116, 0.28);
-}
-.results.band-bad .results-hero-score {
-  color: var(--danger);
-  text-shadow:
-    0 0 16px rgba(255, 138, 138, 0.5),
-    0 0 36px rgba(255, 138, 138, 0.25);
-}
+.results.is-win .results-hero-score { color: var(--amber-100); }
+.results.is-loss .results-hero-score { color: var(--fg-dim); }
 
 .results-blurb {
-  position: relative;
-  z-index: 1;
-  margin: 10px auto 0;
+  margin: var(--sp-2) auto 0;
   max-width: 26rem;
-  font-size: 1.12rem;
-  line-height: 1.35;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
   color: var(--fg);
   opacity: 0;
 }
-.results-show.is-landed .results-blurb {
-  animation: blurb-in 0.45s ease both;
-}
+.results-show.is-landed .results-blurb { animation: reveal var(--dur) var(--ease-out) both; }
 
-@keyframes blurb-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(0.5rem); }
   to { opacity: 1; transform: none; }
 }
 
-.results-subs {
-  margin: 14px 0 4px;
-  text-align: left;
-}
-.results-subs .score-meter + .score-meter { margin-top: 10px; }
+.results-subs { margin: var(--sp-4) 0 var(--sp-1); text-align: left; }
+.results-subs .score-meter + .score-meter { margin-top: var(--sp-3); }
 
-.results .score-row {
-  margin: 16px 0 4px;
-  text-align: left;
-}
-
+.results .score-row { margin: var(--sp-4) 0 var(--sp-1); text-align: left; }
 .results .score-break {
-  padding: 12px 12px 10px;
-  border-radius: 14px;
-  background: rgba(12, 19, 32, 0.55);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
   border: 1px solid var(--edge-soft);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.results .score-break.winner {
-  border-color: color-mix(in srgb, var(--score-good) 55%, var(--edge));
-  box-shadow: 0 0 24px rgba(62, 224, 138, 0.18);
-}
+.results .score-break.winner { border-color: var(--accent); }
 .results .score-break .who {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
 }
+/* Winner is a word, not a colour. */
 .win-tag {
-  font-family: "Bebas Neue", sans-serif;
-  letter-spacing: 0.08em;
-  font-size: 0.92rem;
-  color: var(--score-good);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  color: var(--accent);
   text-transform: uppercase;
-  border: 1.5px solid color-mix(in srgb, var(--score-good) 70%, transparent);
-  border-radius: 4px;
-  padding: 1px 7px 0;
-  transform: rotate(-8deg);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 1px var(--sp-2);
 }
 
 .results-show .score-meter-track span {
   transform-origin: left center;
-  animation: results-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: results-fill 0.9s var(--ease-out) both;
 }
 .results-show .score-meter:nth-of-type(1) .score-meter-track span { animation-delay: 0.42s; }
 .results-show .score-meter:nth-of-type(2) .score-meter-track span { animation-delay: 0.56s; }
 .results-show .score-meter:nth-of-type(3) .score-meter-track span { animation-delay: 0.7s; }
-.results-show .score-row.split .score-break:last-child .score-meter:nth-of-type(1) .score-meter-track span { animation-delay: 0.52s; }
-.results-show .score-row.split .score-break:last-child .score-meter:nth-of-type(2) .score-meter-track span { animation-delay: 0.66s; }
-.results-show .score-row.split .score-break:last-child .score-meter:nth-of-type(3) .score-meter-track span { animation-delay: 0.8s; }
-
 @keyframes results-fill {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
 
-.results .shared,
+.results .shared { margin: var(--sp-3) 0 0; font-size: var(--text-md); color: var(--fg-dim); }
+
+/* Elo arrives after the score has landed. The sign is in the text. */
 .results .elo {
-  margin: 12px 0 0;
-  font-size: 1.05rem;
+  margin: var(--sp-3) 0 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
 }
-.results .elo.up { color: var(--score-good); }
+.results-show.is-landed .elo { animation: reveal var(--dur) var(--ease-out) both; }
+.results .elo.up { color: var(--positive); }
 .results .elo.down { color: var(--danger); }
+.results .elo.flat,
+.results .elo.unrated { color: var(--fg-dim); font-weight: 500; font-size: var(--text-base); }
 
+/* The AI verdict: a quiet line, clearly secondary to the score. */
 .results .verdict {
-  margin: 14px auto 0;
+  margin: var(--sp-3) auto 0;
   max-width: 28rem;
-  padding: 10px 14px;
-  border-left: 2px solid var(--blue-300);
-  color: var(--blue-100);
-  font-size: 0.98rem;
-  line-height: 1.4;
-  text-align: left;
-  background: color-mix(in srgb, var(--blue-800) 35%, transparent);
+  color: var(--fg-dim);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  font-style: italic;
 }
 
-/* ---- rematch handshake ---------------------------------------------- */
+/* ---- rematch handshake ------------------------------------------------ */
 .results .rematch-status {
-  margin: 0.75rem 0 0;
-  text-align: center;
-  font-size: 0.95rem;
+  margin: var(--sp-3) 0 0;
+  font-size: var(--text-sm);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
-.results .rematch-status.rematch-invited {
-  color: var(--fg);
-  font-weight: 600;
-}
+.results .rematch-status.rematch-invited { color: var(--fg); font-weight: 600; }
 .results .rematch-status.rematch-lapsed,
-.results .rematch-status.rematch-unavailable {
-  color: var(--warning);
-}
+.results .rematch-status.rematch-unavailable { color: var(--warning); }
 
-.results-show .result-actions { opacity: 0; }
+.results-show .result-actions,
 .results-show .results-moment { opacity: 0; }
 .results-show.is-landed .result-actions,
-.results-show.is-landed .results-moment {
-  animation: blurb-in 0.4s ease 0.12s both;
-}
-
-/* ---- score burst ----------------------------------------------------- */
-
-.score-burst {
-  position: absolute;
-  inset: -12%;
-  pointer-events: none;
-  z-index: 2;
-}
-.score-burst i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  margin-top: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 9px rgba(168, 208, 255, 0.95), 0 0 20px rgba(79, 151, 245, 0.55);
-  opacity: 0;
-  animation: score-spark 1.35s ease-out var(--pd, 0s) both;
-}
-.results.band-good .score-burst i {
-  background: #e8fff4;
-  box-shadow: 0 0 9px rgba(62, 224, 138, 0.95), 0 0 18px rgba(168, 208, 255, 0.5);
-}
-
-@keyframes score-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  12%  { opacity: 1; transform: translate(calc(var(--dx) * 0.12), calc(var(--dy) * 0.12)) scale(1.15); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
-}
+.results-show.is-landed .results-moment { animation: reveal var(--dur) var(--ease-out) 0.12s both; }
 
 @media (prefers-reduced-motion: reduce) {
   .results.results-show,
   .results.booth-wait,
+  .results-show .score-meter-track span { animation: none; }
+  .booth-ring, .booth-eq i { animation: none; }
   .results-blurb,
+  .results .elo,
   .results-show .result-actions,
-  .results-show .results-moment,
-  .booth-wait .scoring-copy {
-    animation: none;
-  }
-  .booth-ring,
-  .booth-sweep,
-  .booth-eq i,
-  .score-burst i,
-  .results-hero::before,
-  .results-show .score-meter-track span {
-    animation: none;
-  }
-  .results-blurb,
-  .results-show .result-actions,
-  .results-show .results-moment { opacity: 1; }
-  .results-show .score-meter-track span { transform: none; }
-  .booth-eq i { transform: none; }
+  .results-show .results-moment { opacity: 1; animation: none; }
 }
 
 @media (max-width: 760px) {
   .results.results-show,
-  .results.booth-wait {
-    max-width: 100%;
-    border-radius: 18px;
-  }
-  .results-hero-score { font-size: clamp(4.6rem, 28vw, 7rem); }
-  .results.results-show h2,
-  .results.booth-wait h2 { font-size: 2.1rem; }
+  .results.booth-wait { max-width: 100%; }
 }
 
+/* ---- the match video / still ------------------------------------------ */
 .results-moment {
   display: block;
   width: min(100%, 12rem);
-  margin: 12px auto 0;
+  margin: var(--sp-3) auto 0;
   padding: 0;
   border: 1px solid var(--edge);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
-  background: #070b14;
+  background: var(--ink);
   cursor: pointer;
 }
 .results-moment img,
@@ -475,90 +285,56 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
 }
-/* The match video is still rendering its results outro. */
 .moment-pending {
   display: block;
   aspect-ratio: 16 / 9;
-  background:
-    linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--blue-300) 18%, transparent) 50%, transparent 70%)
-      0 0 / 200% 100%,
-    color-mix(in srgb, var(--blue-800) 40%, var(--ink));
-  animation: moment-sheen 1.4s linear infinite;
-}
-@keyframes moment-sheen {
-  to { background-position: -200% 0, 0 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .moment-pending { animation: none; }
+  background: var(--surface-2);
 }
 .moment-label {
   display: block;
-  padding: 6px 8px 8px;
+  padding: var(--sp-2);
   color: var(--fg-dim);
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
+  font-size: var(--text-xs);
 }
-.results-moment:hover,
-.results-moment:focus-visible {
-  outline: none;
-  border-color: var(--blue-300);
-  box-shadow: var(--glow-soft);
-}
+.results-moment:hover { border-color: var(--edge-strong); }
 
-.share-scrim {
-  z-index: 80;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 42%, rgba(47, 116, 216, 0.22), transparent 62%),
-    color-mix(in srgb, var(--ink) 90%, transparent);
-}
-
+/* ---- share sheet ------------------------------------------------------ */
+.share-scrim { z-index: 80; background: var(--scrim); }
 .share-sheet {
   width: min(28rem, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
-  padding: 22px 20px 18px;
-  border: 1px solid color-mix(in srgb, var(--blue-200) 28%, var(--edge));
-  border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(79, 151, 245, 0.16), transparent 58%),
-    rgba(7, 11, 20, 0.96);
-  box-shadow:
-    0 0 0 1px rgba(168, 208, 255, 0.06) inset,
-    0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: var(--sp-5);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
   text-align: center;
 }
-
 .share-sheet h2 {
-  margin: 0 0 14px;
-  font-size: 1.55rem;
-  line-height: 1.1;
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
 }
-
 .share-card {
   display: block;
   width: 100%;
   height: auto;
   max-height: min(62vh, 34rem);
   object-fit: contain;
-  border-radius: 14px;
-  background: #04060c;
+  border-radius: var(--r-md);
+  background: var(--ink);
 }
-.share-sheet video.share-card {
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
+.share-sheet video.share-card { aspect-ratio: 16 / 9; object-fit: cover; }
 .share-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--sp-3);
   justify-content: center;
-  margin-top: 16px;
+  margin-top: var(--sp-4);
 }
-.share-actions .cta {
-  width: auto;
-  min-width: 8.5rem;
-  max-width: none;
-  min-height: 46px;
-  padding: 12px 22px;
-}
+.share-actions .cta { width: auto; min-width: 8.5rem; max-width: none; }
+
+/* The verdict is a quiet line, clearly secondary to the score. */
+.results-blurb.is-verdict { font-size: var(--text-sm); font-style: italic; color: var(--fg-dim); max-width: 28rem; }

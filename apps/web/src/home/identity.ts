@@ -4,7 +4,7 @@ const NAME = "karaoke.displayName";
 const ID = "karaoke.clientId";
 const COLOR = "karaoke.avatarColor";
 
-const COLORS = ["#e8c36a", "#c4312e", "#7eb8c9", "#d9783a", "#b86b9a", "#6dbf8b"];
+const COLORS = ["#f5a21f", "#ff4f9a", "#9fc6e4", "#7fdc97", "#ffbb45", "#d9840b"];
 
 export function getClientId(): string {
   let id = localStorage.getItem(ID);

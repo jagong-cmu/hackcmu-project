@@ -1,7 +1,7 @@
 import { PitchDetector } from "pitchy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
+import { MaxDriftSec, singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
@@ -24,6 +24,7 @@ import { useStage } from "./StageContext.tsx";
 import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
 import { playheadFromClock } from "./useSharedClock.ts";
 import { useRematchView } from "./useRematchView.ts";
+import { registerScoreRetry, setScoreStatus } from "../results/scoreStatus.ts";
 import { isScoringClip, shouldStartTake, takeKey } from "./takeKey.ts";
 import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
@@ -69,6 +70,25 @@ function displayPlayhead(
     }
   }
   return audio?.currentTime ?? 0;
+}
+
+/**
+ * What the lyrics follow. The shared clock keeps both laptops on the same line,
+ * but the local <audio> may sit up to MaxDriftSec off it before it is re-seeked,
+ * and the wipe has to match what the singer hears. So while the element is
+ * playing and within that bound, follow it; otherwise fall back to the clock.
+ * Lyrics only: scoring keeps displayPlayhead.
+ */
+function lyricPlayhead(
+  clockPlay: ClockPlay | null,
+  room: RoomState | null,
+  audio: HTMLAudioElement | null | undefined,
+): number {
+  const shared = displayPlayhead(clockPlay, room, audio);
+  if (audio && !audio.paused && !audio.ended && Math.abs(audio.currentTime - shared) <= MaxDriftSec) {
+    return audio.currentTime;
+  }
+  return shared;
 }
 
 /** The current match clip with its lead-in, from clock:play or else room state. */
@@ -162,7 +182,7 @@ export function StageLyrics() {
     if (!running) return;
     let raf = 0;
     const tick = () => {
-      setT(displayPlayhead(clockPlayRef.current, roomRef.current, audioRef.current));
+      setT(lyricPlayhead(clockPlayRef.current, roomRef.current, audioRef.current));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -302,6 +322,7 @@ export function StagePitch() {
       runningRef.current = next;
       setMineLive(next);
     }
+    setScoreStatus("sending");
     void postTurnScore(r.code, {
       clientId: getClientId(),
       displayName: getDisplayName() || "Singer",
@@ -313,14 +334,17 @@ export function StagePitch() {
     })
       .then(() => {
         postedRef.current = true;
+        setScoreStatus("idle");
       })
       .catch((err) => {
         postingRef.current = false;
         if (err instanceof ScoreRefused && err.final) {
           // Settled, over, or already recorded: never re-post this clip.
           postedRef.current = true;
+          setScoreStatus("idle");
           return;
         }
+        setScoreStatus("failed");
         // Network error or TURN_NOT_ENDED (clock skew): flush again shortly.
         // The pause keeps the per-frame past-clip check from hammering the route.
         if (err instanceof ScoreRefused) {
@@ -334,6 +358,13 @@ export function StagePitch() {
   };
   const flushRef = useRef(flushScore);
   flushRef.current = flushScore;
+  useEffect(() => {
+    // "Try again" on the results screen: let the next frame post the clip again.
+    registerScoreRetry(() => {
+      if (!postedRef.current && !postingRef.current) singingRef.current = true;
+    });
+    return () => registerScoreRetry(null);
+  }, []);
   const refreshRef = useRef(refreshRunning);
   refreshRef.current = refreshRunning;
 

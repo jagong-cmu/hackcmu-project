@@ -1,0 +1,173 @@
+/**
+ * The play screen (desktop). Reference layout for every mode: two feeds on top,
+ * the board underneath. Priority is lyrics, then feeds, then scoring.
+ * Phone-sized rules stay in theme.css and are out of scope for v1.
+ */
+.stage.stage-fit {
+  /* Lyrics share the board with the timer and pitch staff, so they run a step
+     smaller here than the token's full size. Still the largest text on screen. */
+  --text-lyric: clamp(1.75rem, 3.6vw, 3.25rem);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.stage-arena {
+  grid-template-rows: minmax(8rem, 30vh) minmax(0, 1fr);
+  gap: var(--sp-3) var(--sp-4);
+}
+.stage-cam .tile { border-radius: var(--r-lg); }
+.stage-board { gap: var(--sp-2); align-items: stretch; }
+
+.stage-fit .lyrics { min-height: 0; flex: 0 1 auto; justify-content: center; padding: var(--sp-1) var(--sp-3); }
+.stage-fit .lyrics-now {
+  font-size: var(--text-lyric);
+  line-height: 1.1;
+  color: var(--unsung);
+  -webkit-line-clamp: 3;
+}
+.stage-fit .lyrics-next { font-size: var(--text-md); margin-top: var(--sp-2); }
+
+/* Duet seat cue on a feed: words, top left. */
+.cam-cue {
+  top: var(--sp-3);
+  left: var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--shade);
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--fg-dim);
+  text-shadow: none;
+}
+.cam-cue.on { color: var(--accent); }
+
+/* Whose turn: a quiet pill at the top, not a banner. The stage-wide
+   position:relative rule would otherwise drop it into the flow below the dock. */
+.stage.stage-fit > .turn-guide {
+  position: absolute;
+  top: var(--sp-2);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--scrim);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-pill);
+}
+.turn-guide.go { border-color: var(--neon); }
+.turn-guide.wait { border-color: var(--edge-strong); }
+.turn-guide strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-md);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.turn-guide span { font-size: var(--text-sm); color: var(--fg-dim); }
+
+/* Stage and landing buttons share the system button; the old rules used
+   the pink "hot" alias for primary. */
+.stage button:not(.btn):not(.cta),
+.landing button:not(.btn):not(.cta) {
+  min-height: 2.5rem;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  border-color: var(--edge-strong);
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.stage button:not(.btn):not(.cta):hover:not(:disabled),
+.landing button:not(.btn):not(.cta):hover:not(:disabled) { border-color: var(--edge-strong); background: var(--surface-3); }
+.stage button:not(.btn):not(.cta).primary,
+.landing button:not(.btn):not(.cta).primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.stage button:not(.btn):not(.cta).primary:hover:not(:disabled),
+.landing button:not(.btn):not(.cta).primary:hover:not(:disabled) { background: var(--accent-hi); border-color: var(--accent-hi); }
+.timer .bar span { background: var(--accent); }
+
+/* Match intro: the versus card that opens the countdown. Left is the opponent,
+   right is you, the way the feeds sit. */
+.versus { display: grid; justify-items: center; gap: var(--sp-2); margin-bottom: var(--sp-5); }
+.versus-names {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-5);
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+.versus-name { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.versus-name:first-child { color: var(--player-a); }
+.versus-name:last-child { color: var(--player-b); }
+.versus-vs { font-size: var(--text-lg); color: var(--fg-dim); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-caps); }
+.versus-song { margin: 0; font-size: var(--text-md); color: var(--fg-dim); }
+.versus-skip { margin: 0; font-size: var(--text-xs); color: var(--fg-faint); }
+
+/* Chaos: a featured singer, then a strip of the rest (up to 8 feeds). */
+.grid.compact.has-featured {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--sp-2);
+}
+.grid.compact.has-featured > .chaos-featured {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, calc(36vh * 16 / 9));
+}
+.grid.compact.has-featured > .chaos-featured .tile { aspect-ratio: 16 / 9; }
+.grid.compact.has-featured > :not(.chaos-featured) .feed-label {
+  left: var(--sp-2);
+  bottom: var(--sp-2);
+  font-size: var(--text-xs);
+  padding: 2px var(--sp-2);
+}
+
+/* Countdown and callouts: the loud moments, in the display face. Amber for
+   "you sing", dim for "you wait". The words carry it, not the colour alone. */
+.countdown-headline {
+  font-weight: 700;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+  text-shadow: none;
+}
+.countdown-go { color: var(--accent); }
+.countdown-wait { color: var(--fg-dim); }
+.countdown-num {
+  font-weight: 700;
+  font-size: clamp(5rem, 13vw, 9rem);
+  letter-spacing: -0.02em;
+  text-shadow: none;
+}
+.countdown-kicker { letter-spacing: var(--track-caps); text-shadow: none; }
+.callout-title,
+.callout-count {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+  text-shadow: none;
+}
+.callout-count.go { color: var(--accent); }
+
+/* Use the height: lyrics scale up on big screens, the board centres under the feeds. */
+.stage.stage-fit { --text-lyric: clamp(1.75rem, 3.6vw, 4.25rem); }
+.stage-board { justify-content: center; gap: var(--sp-4); }
+
+/* The live score HUD sits under the staff, not over it, so it never covers the axis labels. */
+.pitch-stage .live-scores-slim {
+  position: static;
+  margin-top: var(--sp-2);
+}
+
+/* The clip timer is the second thing the singer glances at: give it size. */
+.stage .timer { font-family: var(--font-display); font-weight: 700; font-size: var(--text-xl); font-variant-numeric: tabular-nums; }
+.stage .timer.timer-compact { font-size: var(--text-lg); }

@@ -35,7 +35,7 @@ export function Leaderboard() {
   }, []);
 
   return (
-    <PageShell title="Leaderboard" tag="Who’s been singing." wide quietWave>
+    <PageShell title="Leaderboard" tag="Who’s been singing." wide>
       {!mongo ? <p className="dim">Leaderboard is unavailable right now.</p> : null}
       <div className="tabs">
         <button type="button" className={tab === "ranked" ? "on" : ""} onClick={() => setTab("ranked")}>

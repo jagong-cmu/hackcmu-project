@@ -1,20 +1,20 @@
 /**
  * Shared canvas look for the share card and the match-video outro: palette,
- * fonts, the spaced ARIA wordmark, the blue bloom, and the chip copy.
+ * fonts, the spaced ARIA wordmark, the amber bloom, and the chip copy.
  */
 
-export const INK = "#04060c";
-export const PANEL = "#070b14";
-export const FG = "#ffffff";
-export const DIM = "rgba(206, 224, 255, 0.62)";
-export const BLUE = "#79b4ff";
-export const BLUE_DEEP = "#1b4fa3";
-export const GOOD = "#3ee08a";
-export const WARN = "#f0c674";
-export const DANGER = "#ff8a8a";
+export const INK = "#0f0b08";
+export const PANEL = "#1a1410";
+export const FG = "#f6efe4";
+export const DIM = "rgba(246, 239, 228, 0.62)";
+export const ACCENT = "#f5a21f";
+export const ACCENT_DEEP = "#a2600a";
+export const GOOD = "#7fdc97";
+export const WARN = "#ffd27a";
+export const DANGER = "#ff7b6b";
 
-export const DISPLAY = "'Bebas Neue', sans-serif";
-export const BODY = "Outfit, sans-serif";
+export const DISPLAY = "'Familjen Grotesk', sans-serif";
+export const BODY = "Figtree, sans-serif";
 
 export async function loadCardFonts() {
   try {
@@ -82,9 +82,9 @@ export function paintBloom(
   strength = 1,
 ) {
   const bloom = ctx.createRadialGradient(cx, cy - radius * 0.11, 20, cx, cy, radius);
-  bloom.addColorStop(0, `rgba(79, 151, 245, ${0.38 * strength})`);
-  bloom.addColorStop(0.45, `rgba(27, 79, 163, ${0.16 * strength})`);
-  bloom.addColorStop(1, "rgba(4, 6, 12, 0)");
+  bloom.addColorStop(0, `rgba(245, 162, 31, ${0.38 * strength})`);
+  bloom.addColorStop(0.45, `rgba(162, 96, 10, ${0.16 * strength})`);
+  bloom.addColorStop(1, "rgba(15, 11, 8, 0)");
   ctx.fillStyle = bloom;
   ctx.fillRect(0, 0, width, height);
 }
@@ -113,13 +113,13 @@ export function paintWordmark(
 
   const ruleY = top + size * 1.16;
   const half = size * 2.8;
-  ctx.strokeStyle = "rgba(121, 180, 255, 0.35)";
+  ctx.strokeStyle = "rgba(255, 187, 69, 0.35)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx - half, ruleY);
   ctx.lineTo(cx + half, ruleY);
   ctx.stroke();
-  ctx.fillStyle = BLUE;
+  ctx.fillStyle = ACCENT;
   ctx.beginPath();
   ctx.arc(cx, ruleY, Math.max(2.5, size * 0.055), 0, Math.PI * 2);
   ctx.fill();
@@ -134,7 +134,7 @@ export function eloLabel(delta: number): string {
 export function eloColor(delta: number): string {
   if (delta > 0) return GOOD;
   if (delta < 0) return DANGER;
-  return BLUE;
+  return ACCENT;
 }
 
 /** Same bands as the on-screen meters (scoreBand). */

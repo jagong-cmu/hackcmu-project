@@ -5,10 +5,16 @@ import App from "./App.tsx";
 import { registerStageSlots } from "./stage/slots.tsx";
 import { StageLyrics, StagePitch, StageResults } from "./stage/LaneBSlots.tsx";
 import { initPostHog } from "./analytics/posthog.ts";
+import "./theme/tokens.css";
 import "./index.css";
 import "./styles.css";
-// Last: the palette and the spectrum accents override both legacy sheets.
+// Last: component styles override both legacy sheets; tokens load first.
 import "./theme/theme.css";
+import "./theme/components.css";
+import "./lyrics/lyrics.css";
+import "./stage/stage.css";
+import "./home/home.css";
+import "./theme/pages.css";
 import "./results/results.css";
 
 registerStageSlots({

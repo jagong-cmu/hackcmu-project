@@ -16,18 +16,18 @@
   padding: 28px 32px 32px;
   border: 1px solid var(--edge-soft);
   border-radius: 18px;
-  background: rgba(7, 11, 20, 0.82);
+  background: rgb(var(--surface-rgb) / 0.82);
   backdrop-filter: blur(6px);
-  color: rgba(232, 240, 255, 0.9);
-  font-size: 1rem;
+  color: rgb(var(--fg-rgb) / 0.9);
+  font-size: var(--text-base);
   line-height: 1.68;
   text-align: left;
 }
 
 .legal-doc h2 {
   margin: 34px 0 10px;
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.15rem;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--fg);
@@ -41,13 +41,13 @@
 .legal-doc ul,
 .legal-doc ol { padding-left: 1.3em; }
 .legal-doc li { margin: 0 0 6px; }
-.legal-doc li::marker { color: var(--blue-300); }
+.legal-doc li::marker { color: var(--amber-300); }
 .legal-doc strong { color: var(--fg); font-weight: 600; }
 
 .legal-doc a {
-  color: var(--blue-200);
+  color: var(--amber-200);
   text-decoration: underline;
-  text-decoration-color: rgba(168, 208, 255, 0.4);
+  text-decoration-color: rgb(var(--amber-pale-rgb) / 0.4);
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
 }
@@ -55,7 +55,7 @@
 
 .legal-updated {
   color: var(--fg-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   letter-spacing: 0.02em;
 }
 
@@ -64,8 +64,8 @@
   padding: 14px 18px 8px;
   border: 1px solid var(--edge-soft);
   border-radius: 12px;
-  background: rgba(12, 19, 32, 0.6);
-  font-size: 0.92rem;
+  background: rgb(var(--surface-rgb) / 0.6);
+  font-size: var(--text-sm);
 }
 .legal-toc ol { list-style: none; padding: 0; margin: 0; columns: 2 16rem; column-gap: 24px; }
 .legal-toc li { margin: 0 0 6px; break-inside: avoid; }
@@ -77,13 +77,13 @@
   padding-top: 16px;
   border-top: 1px solid var(--edge-soft);
   color: var(--fg-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 640px) {
   .legal-page.page { padding-left: 16px; padding-right: 16px; }
   .legal-page .shell-inner { margin-top: 110px; }
-  .legal-doc { padding: 20px 18px 24px; font-size: 0.97rem; }
+  .legal-doc { padding: 20px 18px 24px; font-size: var(--text-base); }
 }
 
 /* Small print links used on Home, /signin and Settings. */
@@ -92,7 +92,7 @@
   justify-content: center;
   gap: 18px;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.02em;
 }
 .legal-links a {
@@ -104,7 +104,7 @@
 
 .auth-legal {
   margin: 4px 0 0;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--fg-faint);
   line-height: 1.5;
 }

@@ -1,77 +1,4 @@
-/**
- * Aria — luminous blue on near-black.
- *
- * One ground colour (almost black, with a blue cast), one light source
- * (blue-white), and nothing else. Every accent in the product is a step on the
- * blue ramp; anything that used to be gold, hot pink, cyan or spectrum now
- * pulls from here. Dark only: there is no light theme.
- */
-
-:root {
-  color-scheme: dark;
-
-  /* Ground */
-  --ink: #04060c;
-  --ink-2: #070b14;
-  --surface: #090e18;
-  --surface-2: #0c1320;
-  --edge: rgba(150, 190, 255, 0.14);
-  --edge-soft: rgba(150, 190, 255, 0.07);
-
-  /* Type */
-  --fg: #ffffff;
-  --fg-dim: rgba(206, 224, 255, 0.58);
-  --fg-faint: rgba(206, 224, 255, 0.3);
-
-  /* The light source */
-  --blue-050: #f2f8ff;
-  --blue-100: #d3e7ff;
-  --blue-200: #a8d0ff;
-  --blue-300: #79b4ff;
-  --blue-400: #4f97f5;
-  --blue-500: #2f74d8;
-  --blue-600: #1b4fa3;
-  --blue-800: #0d2551;
-
-  --accent: var(--blue-300);
-  --positive: var(--blue-200);
-  --warning: #f0c674;
-  --danger: #ff8a8a;
-  --score-good: #3ee08a;
-
-  /* The pitch meter's canvas fill. Alpha is what lets the voice wave through. */
-  --meter-bg: rgba(9, 14, 24, 0.55);
-
-  --glow-soft: 0 0 60px rgba(79, 151, 245, 0.18);
-  --glow-hard: 0 0 28px rgba(121, 180, 255, 0.55);
-
-  font-family: Outfit, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  line-height: 1.45;
-  color: var(--fg);
-  background: var(--ink);
-}
-
-/*
- * Legacy aliases. index.css and styles.css were written against two different
- * palettes (black/gold, and navy/pink/cyan); both resolve here so the app is
- * themed from one place rather than rule by rule.
- */
-:root {
-  --stage: var(--ink);
-  --cream: var(--fg);
-  --mute: var(--fg-dim);
-  --gold: var(--accent);
-  --line: var(--edge-soft);
-  --bg: var(--ink);
-  --panel: var(--surface-2);
-  --text: var(--fg);
-  --dim: var(--fg-dim);
-  --hot: var(--blue-400);
-  --cool: var(--blue-300);
-  --ok: var(--blue-200);
-}
-
-body { background: var(--ink); }
+/* Component and page styles. Tokens live in tokens.css. */
 
 /* ---------------------------------------------------------------- bloom --
  * The light field behind a page. A wide core band plus two enormous ring
@@ -84,6 +11,8 @@ body { background: var(--ink); }
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  /* Optional bar-atmosphere backdrop (see --backdrop-image in tokens.css). */
+  background: var(--backdrop-image) center / cover no-repeat;
 }
 /*
  * Layer pairs. The .bloom-drift wrapper owns the slow ambient wander; the
@@ -95,6 +24,7 @@ body { background: var(--ink); }
   inset: 0;
   will-change: transform;
 }
+.bloom-arc { display: none; }
 .bloom-drift-a { animation: bloom-wander-a 31s ease-in-out infinite; }
 .bloom-drift-b { animation: bloom-wander-b 41s ease-in-out infinite; }
 .bloom-drift-c { animation: bloom-wander-c 24s ease-in-out infinite; }
@@ -111,10 +41,10 @@ body { background: var(--ink); }
   background: radial-gradient(
     circle,
     transparent 58%,
-    rgba(47, 116, 216, 0.10) 65%,
-    rgba(168, 208, 255, 0.72) 70%,
-    rgba(242, 248, 255, 0.95) 72%,
-    rgba(121, 180, 255, 0.16) 77%,
+    rgb(var(--amber-rgb) / 0.08) 65%,
+    rgb(var(--amber-rgb) / 0.32) 70%,
+    rgb(var(--amber-hot-rgb) / 0.5) 72%,
+    rgb(var(--amber-rgb) / 0.1) 77%,
     transparent 84%
   );
   filter: blur(30px);
@@ -141,21 +71,21 @@ body { background: var(--ink); }
 .bloom-core {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 104vw;
-  height: 20vh;
+  top: 46%;
+  width: 78vw;
+  height: 78vh;
   transform: translate(-50%, -50%) translate(
-    calc(var(--bx, 0) * 58px),
-    calc(var(--by, 0) * 30px)
+    calc(var(--bx, 0) * 36px),
+    calc(var(--by, 0) * 22px)
   );
+  /* One bulb: a single warm source, falling off to the ink ground. */
   background: radial-gradient(
     ellipse 50% 50% at 50% 50%,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(216, 235, 255, 0.62) 24%,
-    rgba(79, 151, 245, 0.22) 50%,
-    transparent 78%
+    rgb(var(--amber-hot-rgb) / 0.3) 0%,
+    rgb(var(--amber-rgb) / 0.14) 38%,
+    transparent 72%
   );
-  filter: blur(40px);
+  filter: blur(24px);
 }
 
 /* Long, prime-ish periods so the three layers never settle into a visible loop. */
@@ -183,409 +113,20 @@ body { background: var(--ink); }
 .bloom-page { position: relative; }
 .bloom-page > *:not(.bloom) { position: relative; z-index: 1; }
 
-/* ----------------------------------------------------------------- chrome -- */
-
-/* `·—( label )—·` rule, the badge above a section heading. */
-.eyebrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 0 0 18px;
-  color: var(--fg-dim);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-.eyebrow::before,
-.eyebrow::after {
-  content: "";
-  height: 1px;
-  width: clamp(40px, 9vw, 110px);
-  background: linear-gradient(90deg, transparent, var(--edge));
-}
-.eyebrow::after { background: linear-gradient(90deg, var(--edge), transparent); }
-.eyebrow .eyebrow-pill {
-  border: 1px solid var(--edge);
-  border-radius: 999px;
-  padding: 5px 14px;
-  background: rgba(12, 19, 32, 0.7);
-  white-space: nowrap;
-}
-
-/* Glass card. */
-.card {
-  background: linear-gradient(180deg, rgba(18, 28, 46, 0.72), rgba(9, 14, 24, 0.72));
-  border: 1px solid var(--edge-soft);
-  border-radius: 18px;
-  padding: 18px;
-  backdrop-filter: blur(12px);
-}
-
-/* Small white pill, the one loud control on a dark page. */
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--blue-050);
-  color: #06101f;
-  border: 0;
-  border-radius: 999px;
-  padding: 9px 18px;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  cursor: pointer;
-  text-decoration: none;
-  line-height: 1;
-  transition: box-shadow 160ms ease, transform 160ms ease;
-}
-.pill-btn:hover,
-.pill-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--glow-hard);
-  transform: translateY(-1px);
-}
-
-/* Emphasis underlines: a lit edge rather than a flat rule. */
-.modes button:hover,
-.modes button:focus-visible,
-.text-btn:hover,
-.text-btn:focus-visible,
-.btn:hover,
-.btn:focus-visible,
-.btn.gold:hover,
-.tabs button.on,
-.demo-code:hover,
-.demo-code:focus-visible {
-  border-bottom-color: var(--blue-200);
-  outline: none;
-}
-.modes button:hover,
-.modes button:focus-visible {
-  text-shadow: 0 0 34px rgba(121, 180, 255, 0.55);
-}
-
-input:focus,
-select:focus {
-  border-bottom-color: var(--blue-300);
-  box-shadow: 0 1px 0 0 rgba(121, 180, 255, 0.45);
-}
-
-/* ------------------------------------------------------------------ home -- */
-
-/* A title screen, not a header: the wordmark is the hero. */
-.wordmark {
-  margin: 0 0 4px;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(3.5rem, 11vw, 9rem);
-  font-weight: 400;
-  letter-spacing: 0.26em;
-  /* Tracking hangs off the last letter; pull it back so the word sits centred. */
-  text-indent: 0.26em;
-  line-height: 0.95;
-  color: var(--fg);
-  text-shadow:
-    0 0 18px rgba(255, 255, 255, 0.35),
-    0 0 60px rgba(168, 208, 255, 0.55),
-    0 0 130px rgba(79, 151, 245, 0.45);
-}
-
-.bloom-page > .home-nav,
-.home-nav {
-  position: absolute;
-  top: 26px;
-  right: 40px;
-  z-index: 2;
-  display: flex;
-  gap: 22px;
-  align-items: center;
-}
-.home-nav a {
-  color: var(--fg-dim);
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-.home-nav a:hover { color: var(--fg); }
-
-.home-hero {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  min-height: 0;
-  text-align: center;
-}
-.home-hero .eyebrow { margin: 14px 0 22px; }
-.home-hero::before {
-  content: "";
-  position: absolute;
-  inset: -12% -18%;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 40% 56% at 50% 50%,
-    rgba(4, 6, 12, 0.78) 0%,
-    rgba(4, 6, 12, 0.44) 44%,
-    transparent 76%
-  );
-}
-
-/* Centred over the bloom, not left-aligned as in the old editorial layout. */
-.home-hero .modes {
-  flex: none;
-  align-items: center;
-  gap: 0;
-}
-.home-hero .modes button {
-  text-align: center;
-  font-size: clamp(2.4rem, 5.4vw, 4rem);
-  line-height: 1.02;
-  transition: text-shadow 200ms ease, border-color 200ms ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 10px;
-}
-/*
- * Sits off the right edge of the word and only on hover. Underneath the label
- * it read as a permanent subtitle and competed with the mode names; beside it,
- * it is an answer to "what is this one" asked by pointing at it.
- */
-.mode-sub {
-  display: block;
-  margin-top: 2px;
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.88rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: lowercase;
-  line-height: 1.2;
-  color: var(--fg-dim);
-  text-shadow: none;
-}
-
-.mode-hint {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  margin-left: 64px;
-  white-space: nowrap;
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: lowercase;
-  line-height: 1.2;
-  color: var(--blue-200);
-  text-shadow: 0 0 18px rgba(79, 151, 245, 0.6);
-  opacity: 0;
-  /* Slides in from the word rather than appearing in place. */
-  transform: translate(-20px, -50%);
-  transition: opacity 220ms ease, transform 220ms ease;
-  pointer-events: none;
-}
-.modes button.mode:hover .mode-hint,
-.modes button.mode:focus-visible .mode-hint {
-  opacity: 1;
-  transform: translate(0, -50%);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mode-hint { transition: opacity 220ms ease; transform: translate(0, -50%); }
-}
-
-/* Narrow windows have no room beside the word, and a nowrap absolute box
-   there would push horizontal scroll. */
-@media (max-width: 900px) {
-  .mode-hint { display: none; }
-}
-
-/*
- * Inner pages get the same light, but only as a hero glow above the content.
- * Left full-height it runs straight through leaderboard rows and form labels.
- */
-.page.bloom-page .bloom {
-  opacity: 0.5;
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
-}
-.page.bloom-page .bloom-arc-top { bottom: 80%; }
-.page.bloom-page .bloom-arc-bottom { top: 26%; }
-.page.bloom-page .bloom-core { top: 24%; height: 15vh; }
-
-@media (max-width: 720px) {
-  .home-hero .modes button { font-size: clamp(2.5rem, 11vw, 3.5rem); }
-}
-
-/* At nav size the blurred corona disappears, so the mark is drawn crisply. */
-.aria-orb.mark .aria-halo,
-.aria-orb.mark .aria-crescent { display: none; }
-.aria-orb.mark .aria-corona {
-  inset: 0;
-  background: none;
-  filter: none;
-  box-shadow:
-    0 0 0 1.5px var(--blue-200),
-    0 0 10px rgba(121, 180, 255, 0.75);
-}
-.aria-orb.mark .aria-body {
-  inset: 3px;
-  background: radial-gradient(circle at 50% 120%, rgba(121, 180, 255, 0.5) 0%, #03060d 62%);
-  box-shadow: none;
-}
-.aria-orb.mark .aria-rim { box-shadow: none; }
-.aria-orb.mark.is-idle { opacity: 1; }
-
-/* ---------------------------------------------------------------- sparks --
- * Hovering a mode throws light off its left and right edges. The spans are
- * rendered once and animated by CSS; spawning nodes per hover churns the DOM
- * for no gain.
- */
-.modes button.mode { position: relative; }
-
-.sparks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.sparks i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 10px rgba(168, 208, 255, 1), 0 0 22px rgba(79, 151, 245, 0.6);
-  opacity: 0;
-}
-.modes button.mode:hover .sparks i,
-.modes button.mode:focus-visible .sparks i {
-  animation: mode-spark 2.6s ease-out var(--pd, 0s) infinite;
-}
-
-/* Lit almost immediately, then held bright most of the way out — fading early
-   is what left the edge looking empty between beats. */
-@keyframes mode-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  6%   { opacity: 1; transform: translate(calc(var(--dx) * 0.06), calc(var(--dy) * 0.06)) scale(1); }
-  62%  { opacity: 0.92; transform: translate(calc(var(--dx) * 0.66), calc(var(--dy) * 0.66)) scale(0.8); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .modes button.mode:hover .sparks i,
-  .modes button.mode:focus-visible .sparks i { animation: none; }
-}
-
-/* ---------------------------------------------------------------- lyrics --
- * The live line is the thing the singer is actually reading, so it gets the
- * only lit treatment on the screen: a pool of light behind it and sparks
- * lifting off it. Everything around it stays dim so the eye lands here.
- */
-.lyrics {
-  position: relative;
-  isolation: isolate;
-}
-
-/* Pool of light behind the live line. */
-.lyrics::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  width: min(92%, 46rem);
-  height: 5.5rem;
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 50%,
-    rgba(121, 180, 255, 0.22) 0%,
-    rgba(47, 116, 216, 0.10) 45%,
-    transparent 76%
-  );
-  filter: blur(18px);
-  /* Off unless a line is actually live: during an instrumental gap the overlay
-     shows a rest glyph or a dim preview, and lighting those means nothing. */
-  opacity: 0;
-  transition: opacity 260ms ease;
-}
-.lyrics:has(.lyrics-now:not(.lyrics-soon))::before { opacity: 1; }
-.lyrics-duet::before { top: 50%; }
-
-.lyrics-now {
-  color: var(--fg);
-  text-shadow:
-    0 0 14px rgba(255, 255, 255, 0.3),
-    0 0 44px rgba(121, 180, 255, 0.55),
-    0 2px 20px rgba(0, 0, 0, 0.6);
-}
-/* A line that has not arrived yet is a preview, not the cue — keep it dim. */
-.lyrics-now.lyrics-soon {
-  color: var(--fg-dim);
-  text-shadow: none;
-}
-.lyrics-next { color: var(--fg-faint); }
-
-/* Hugs the words, so "the sides" means the sides of the text and not of the
-   column. The line is centred and rarely fills the width. */
-.lyric-line {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-}
-
-.lyric-sparks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.lyric-sparks i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 9px rgba(168, 208, 255, 0.95), 0 0 20px rgba(79, 151, 245, 0.55);
-  opacity: 0;
-  animation: lyric-spark 2.2s ease-out var(--pd, 0s) infinite;
-}
-
-@keyframes lyric-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  10%  { opacity: 0.95; transform: translate(calc(var(--dx) * 0.1), calc(var(--dy) * 0.1)) scale(1); }
-  65%  { opacity: 0.7; transform: translate(calc(var(--dx) * 0.68), calc(var(--dy) * 0.68)) scale(0.75); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
-}
-
-/* Count-in dots pick up the accent rather than the old gold. */
-.lyrics-count .dot { background: var(--blue-200); box-shadow: 0 0 8px rgba(121, 180, 255, 0.7); }
-.lyrics-count .dot.spent { background: var(--fg-faint); box-shadow: none; }
-.lyrics-count .count-num { color: var(--blue-100); }
-
 /* ---- Hit callouts (stage and training) ---- */
 .hit-perfect {
-  color: var(--blue-050);
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.85), 0 0 52px rgba(121, 180, 255, 0.9);
+  color: var(--amber-050);
+  text-shadow: none;
 }
 .hit-great {
-  color: var(--blue-100);
-  text-shadow: 0 0 14px rgba(168, 208, 255, 0.75), 0 0 40px rgba(79, 151, 245, 0.6);
+  color: var(--amber-100);
+  text-shadow: none;
 }
 .hit-good {
-  color: var(--blue-300);
-  text-shadow: 0 0 12px rgba(79, 151, 245, 0.5);
+  color: var(--amber-300);
+  text-shadow: none;
 }
 .hit-okay { color: var(--fg-dim); text-shadow: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .lyric-sparks i { animation: none; }
-}
 
 /* ------------------------------------------------------------ page heads --
  * Title in the upper left, the way back underneath it. The old .row-head put
@@ -602,12 +143,12 @@ select:focus {
 .page-head h1 {
   margin: 0;
   line-height: 0.95;
-  text-shadow: 0 0 42px rgba(121, 180, 255, 0.4);
+  text-shadow: none;
 }
 .page-head .back {
   color: var(--fg-dim);
   text-decoration: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.02em;
 }
 .page-head .back:hover { color: var(--fg); }
@@ -623,7 +164,6 @@ select:focus {
   border: 1px solid var(--edge-soft);
   border-radius: 14px;
   overflow: hidden;
-  backdrop-filter: blur(3px);
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
@@ -689,75 +229,6 @@ select:focus {
   text-align: center;
 }
 
-/* Prominent actions — filled pills, not leftover underlined text. */
-.cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: 14px 28px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--blue-050);
-  color: #06101f;
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1;
-  cursor: pointer;
-  text-decoration: none;
-  width: 100%;
-  max-width: 22rem;
-  transition: box-shadow 160ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
-}
-.cta:hover,
-.cta:focus-visible {
-  outline: none;
-  box-shadow: var(--glow-hard);
-  transform: translateY(-1px);
-  background: #ffffff;
-  color: #06101f;
-}
-.cta-ghost {
-  background: rgba(12, 19, 32, 0.72);
-  color: var(--fg);
-  border-color: var(--edge);
-}
-.cta-ghost:hover,
-.cta-ghost:focus-visible {
-  background: rgba(18, 28, 46, 0.95);
-  color: var(--fg);
-  border-color: var(--blue-300);
-}
-.cta:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-.cta-lg {
-  min-height: 64px;
-  font-size: 1.15rem;
-  max-width: 26rem;
-}
-.cta.is-on {
-  background: var(--blue-400);
-  color: #fff;
-  box-shadow: var(--glow-hard);
-  cursor: default;
-}
-.cta.is-on:disabled {
-  opacity: 1;
-}
-.cta.is-on:hover,
-.cta.is-on:focus-visible {
-  background: var(--blue-400);
-  color: #fff;
-  transform: none;
-}
-
 .code-form {
   display: flex;
   flex-direction: column;
@@ -771,13 +242,13 @@ select:focus {
   width: 100%;
   min-width: 0;
   text-align: center;
-  font-size: 1.35rem;
+  font-size: var(--text-lg);
   letter-spacing: 0.28em;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   padding: 10px 12px;
   border: 1px solid var(--edge);
   border-radius: 14px;
-  background: rgba(4, 6, 12, 0.45);
+  background: rgb(var(--ink-rgb) / 0.45);
 }
 .code-form .cta {
   width: 100%;
@@ -803,8 +274,8 @@ select:focus {
   min-height: 280px;
 }
 .play-choice h2 {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 2rem;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   letter-spacing: 0.04em;
   font-weight: 400;
   margin: 0;
@@ -837,7 +308,7 @@ select:focus {
   padding: 5px;
   border: 1px solid var(--edge);
   border-radius: 999px;
-  background: rgba(4, 6, 12, 0.45);
+  background: rgb(var(--ink-rgb) / 0.45);
 }
 .mode-pick button {
   min-width: 0;
@@ -856,14 +327,14 @@ select:focus {
   color: var(--fg);
 }
 .mode-pick button.on {
-  background: var(--blue-400);
-  color: #fff;
+  background: var(--amber-400);
+  color: var(--fg);
   box-shadow: var(--glow-hard);
 }
 .mode-pick-blurb {
   margin: 10px auto 0;
   color: var(--fg-dim);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -886,8 +357,8 @@ select:focus {
   padding: 16px 18px 14px;
   gap: 8px;
 }
-.play-page .play-choice h2 { font-size: 1.7rem; }
-.play-page .play-choice p { font-size: 0.92rem; }
+.play-page .play-choice h2 { font-size: var(--text-xl); }
+.play-page .play-choice p { font-size: var(--text-sm); }
 .play-page .play-waiting { min-height: 0; padding: 20px 18px; }
 .play-hint {
   margin-top: 8px;
@@ -897,7 +368,7 @@ select:focus {
   color: var(--fg-dim);
   cursor: pointer;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   text-decoration: underline;
   text-underline-offset: 3px;
   align-self: center;
@@ -909,7 +380,7 @@ select:focus {
 .shell-inner .dim,
 .shell-inner .status,
 .shell-inner .err {
-  text-shadow: 0 1px 10px #04060c, 0 0 18px #04060c;
+  text-shadow: 0 1px 10px var(--ink), 0 0 18px var(--ink);
 }
 .settings-form {
   width: min(22rem, 100%);
@@ -940,7 +411,7 @@ select:focus {
   padding: 4px;
   border: 1px solid var(--edge);
   border-radius: 999px;
-  background: rgba(9, 14, 24, 0.7);
+  background: rgb(var(--surface-rgb) / 0.7);
 }
 .tabs button {
   background: none;
@@ -950,12 +421,12 @@ select:focus {
   padding: 10px 22px;
   cursor: pointer;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .tabs button.on {
-  color: #06101f;
-  background: var(--blue-050);
+  color: var(--on-accent);
+  background: var(--amber-050);
   border-bottom-color: transparent;
 }
 
@@ -963,7 +434,7 @@ select:focus {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  background: rgba(4, 6, 12, 0.88);
+  background: rgb(var(--ink-rgb) / 0.88);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -975,7 +446,7 @@ select:focus {
   margin: 8px 0 20px;
 }
 .stat-tile {
-  background: rgba(4, 6, 12, 0.88);
+  background: rgb(var(--ink-rgb) / 0.88);
   border: 1px solid var(--edge);
   border-radius: 16px;
   padding: 18px 16px;
@@ -983,7 +454,7 @@ select:focus {
 }
 .stat-tile strong {
   display: block;
-  font-size: 2rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -992,11 +463,11 @@ select:focus {
   display: block;
   margin-top: 6px;
   color: var(--fg-dim);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 .stat-songs-title {
   margin: 28px 0 12px;
-  font-size: 1.05rem;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -1035,7 +506,7 @@ select:focus {
 .ready-meta p {
   margin: 0;
   color: var(--fg-dim);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
 }
 .ready-chips {
   display: flex;
@@ -1049,14 +520,14 @@ select:focus {
   padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--edge);
-  background: rgba(9, 14, 24, 0.7);
-  font-size: 0.82rem;
+  background: rgb(var(--surface-rgb) / 0.7);
+  font-size: var(--text-sm);
   color: var(--fg-dim);
 }
 .ready-chip.on {
   color: var(--fg);
-  border-color: var(--blue-300);
-  box-shadow: 0 0 16px rgba(79, 151, 245, 0.35);
+  border-color: var(--amber-300);
+  box-shadow: none;
 }
 .ready-chip i {
   width: 7px;
@@ -1065,8 +536,8 @@ select:focus {
   background: var(--fg-faint);
 }
 .ready-chip.on i {
-  background: var(--blue-200);
-  box-shadow: 0 0 8px rgba(168, 208, 255, 0.9);
+  background: var(--amber-200);
+  box-shadow: none;
 }
 
 .room-code-bar {
@@ -1090,7 +561,7 @@ select:focus {
   border: 1px solid var(--edge);
   border-radius: 14px;
   padding: 10px 14px;
-  background: rgba(9, 14, 24, 0.7);
+  background: rgb(var(--surface-rgb) / 0.7);
 }
 .training .lyrics,
 .training .pitch-guide { width: 100%; }
@@ -1100,7 +571,7 @@ select:focus {
 .score-break .who {
   margin: 0 0 2px;
   color: var(--fg-dim);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1118,7 +589,7 @@ select:focus {
 .score-meter-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1139,7 +610,7 @@ select:focus {
   height: 100%;
   border-radius: inherit;
   background: var(--score-fill, var(--accent));
-  box-shadow: 0 0 12px color-mix(in srgb, var(--score-fill, var(--accent)) 55%, transparent);
+  box-shadow: none;
   transition: width 180ms ease;
 }
 .score-meter.band-good { --score-fill: var(--score-good); }
@@ -1153,7 +624,7 @@ select:focus {
   margin-top: 6px;
   width: 100%;
 }
-.live-scores .score-break .overall { font-size: 1.65rem; margin-bottom: 4px; }
+.live-scores .score-break .overall { font-size: var(--text-xl); margin-bottom: 4px; }
 .live-scores .score-meter-track { height: 6px; }
 
 .live-scores-slim {
@@ -1169,14 +640,14 @@ select:focus {
 }
 .slim-score .who {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--fg-dim);
 }
 .slim-score .overall {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -1188,7 +659,7 @@ select:focus {
 .slim-score.band-good .score-meter-track span { background: var(--score-good); }
 .slim-score.band-mid .score-meter-track span { background: var(--warning); }
 .slim-score.band-bad .score-meter-track span { background: var(--danger); }
-.slim-score.singing .who { color: var(--score-good); }
+.slim-score.singing .who { color: var(--neon); }
 .slim-subs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1197,7 +668,7 @@ select:focus {
 }
 .slim-sub span {
   display: block;
-  font-size: 0.62rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1227,13 +698,13 @@ select:focus {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--blue-300);
-  box-shadow: 0 0 16px rgba(121, 180, 255, 0.55);
+  background: var(--amber-300);
+  box-shadow: none;
   transition: width 80ms linear;
 }
 
 .results { max-width: 560px; }
-.results .score-break .overall { font-size: 2.8rem; }
+.results .score-break .overall { font-size: var(--text-3xl); }
 .results .score-row { margin-bottom: 8px; }
 .results .score-meter { margin-top: 6px; }
 .modal-scrim .results {
@@ -1307,8 +778,8 @@ select:focus {
 .training .stage-self { flex: none; flex-direction: row; align-items: center; gap: 10px; }
 .training .stage-self video,
 .training .avatar-tile { width: 108px; height: 66px; border-radius: 10px; }
-.training .stage-self p { margin: 0; font-size: 0.85rem; }
-.training .status { flex: none; margin: 0; font-size: 0.85rem; }
+.training .stage-self p { margin: 0; font-size: var(--text-sm); }
+.training .status { flex: none; margin: 0; font-size: var(--text-sm); }
 .training .ctas { flex: none; margin: 2px 0 0; }
 
 /* The ribbon draws down the middle of its canvas, which on this page is the
@@ -1321,7 +792,7 @@ select:focus {
   .training .shell-inner { margin-top: 84px; height: calc(100dvh - 96px); gap: 4px; }
   .training .lyrics { min-height: 3.4rem; margin: 0; }
   .training .lyrics-now { font-size: clamp(1.5rem, 3.4vw, 2.4rem); }
-  .training .lyrics-next { font-size: 0.95rem; }
+  .training .lyrics-next { font-size: var(--text-sm); }
   .training .stage-self video,
   .training .avatar-tile { width: 84px; height: 52px; }
   .training .tag { display: none; }
@@ -1334,41 +805,10 @@ select:focus {
   .training .lyrics { min-height: 2.8rem; }
 }
 
-/* ---------------------------------------------------------- hero rule --
- * Replaces the "Sing head to head" pill under the wordmark: a lit line with a
- * bead at its centre. The pill was a second piece of copy competing with the
- * mode names directly under it.
- */
-.hero-rule {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin: 16px 0 26px;
-  width: min(30rem, 62vw);
-}
-.hero-rule-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(168, 208, 255, 0.55));
-  box-shadow: 0 0 10px rgba(79, 151, 245, 0.4);
-}
-/* Second line mirrors the first so the fade runs outward from the bead. */
-.hero-rule-line + .hero-rule-dot + .hero-rule-line {
-  background: linear-gradient(90deg, rgba(168, 208, 255, 0.55), transparent);
-}
-.hero-rule-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 10px rgba(168, 208, 255, 0.95), 0 0 22px rgba(79, 151, 245, 0.7);
-}
-
 .home-pitch {
   margin: -4px 0 22px;
   color: var(--fg-dim);
-  font-size: 1.05rem;
+  font-size: var(--text-base);
   letter-spacing: 0.02em;
   max-width: 26rem;
   line-height: 1.4;
@@ -1388,18 +828,18 @@ select:focus {
   gap: 6px;
   width: 100%;
   color: var(--fg-dim);
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.02em;
 }
 .home-name input {
   width: 100%;
   text-align: center;
-  font-size: 1.15rem;
+  font-size: var(--text-md);
   letter-spacing: 0.04em;
 }
 .home-name-err {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
 }
 .home-play { margin-top: 10px; }
 
@@ -1423,7 +863,7 @@ select:focus {
   padding: 10px 12px;
   border: 1px solid var(--edge);
   border-radius: 14px;
-  background: rgba(12, 19, 32, 0.55);
+  background: rgb(var(--surface-rgb) / 0.55);
   color: var(--fg);
   text-decoration: none;
   text-align: center;
@@ -1434,13 +874,13 @@ select:focus {
 .home-mode:focus-visible {
   outline: none;
   color: var(--fg);
-  border-color: var(--blue-300);
-  background: rgba(18, 28, 46, 0.9);
+  border-color: var(--amber-300);
+  background: rgb(var(--raised-rgb) / 0.9);
   box-shadow: var(--glow-soft);
 }
 
 .home-mode-label {
-  font-size: 1.02rem;
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.2;
@@ -1448,7 +888,7 @@ select:focus {
 
 .home-mode-hint {
   color: var(--fg-dim);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
@@ -1463,7 +903,7 @@ select:focus {
 .home-more a {
   color: var(--fg-dim);
   text-decoration: none;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.02em;
 }
 .home-more a:hover,
@@ -1472,34 +912,6 @@ select:focus {
   outline: none;
 }
 
-/*
- * Home: the ribbon runs straight through the mode names, and no amount of
- * dimming fixes light sitting directly behind type. Mask out the centre column
- * so it enters from the left, disappears behind the text, and re-emerges on
- * the right. The soft shoulders keep it from reading as a hard cut.
- *
- * Not applied on Training, where the wave behind the staff is deliberate.
- */
-.home-simple .voice-wave {
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    #000 24%,
-    transparent 39%,
-    transparent 61%,
-    #000 76%,
-    #000 100%
-  );
-  mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    #000 24%,
-    transparent 39%,
-    transparent 61%,
-    #000 76%,
-    #000 100%
-  );
-}
 
 /* -------------------------------------------------------------- phone --
  * Desktop stays a title-screen / one-viewport karaoke booth. On a phone the
@@ -1526,7 +938,7 @@ select:focus {
     padding: 0 8px;
     display: inline-flex;
     align-items: center;
-    font-size: 14px;
+    font-size: var(--text-sm);
   }
 
   .wordmark {
@@ -1541,18 +953,18 @@ select:focus {
   }
   .home-pitch {
     margin: 0 0 16px;
-    font-size: 0.95rem;
+    font-size: var(--text-sm);
   }
   .home-modes { margin-top: 18px; padding-top: 16px; gap: 8px; }
   .home-mode { min-height: 48px; }
-  .home-mode-label { font-size: 0.95rem; }
+  .home-mode-label { font-size: var(--text-sm); }
   .home-more { margin-top: 24px; }
   .home-hero .eyebrow { margin: 8px 0 14px; }
   .home-hero .modes button {
     font-size: clamp(2.1rem, 10vw, 2.8rem);
     padding-bottom: 6px;
   }
-  .mode-hint { font-size: 0.78rem; }
+  .mode-hint { font-size: var(--text-xs); }
 
   /* Title sits in the column so content isn't shoved under a 150px spacer. */
   .shell > .page-head {
@@ -1593,14 +1005,14 @@ select:focus {
     padding: 18px 16px 16px;
     gap: 8px;
   }
-  .play-choice h2 { font-size: 1.65rem; }
+  .play-choice h2 { font-size: var(--text-xl); }
   .play-waiting { min-height: 0; }
 
   .cta,
   .cta-lg {
     max-width: none;
     min-height: 48px;
-    font-size: 1rem;
+    font-size: var(--text-base);
   }
   .ctas .cta,
   .result-actions .cta {
@@ -1608,7 +1020,7 @@ select:focus {
     min-width: 0;
   }
 
-  input, select, textarea { font-size: 16px; }
+  input, select, textarea { font-size: var(--text-base); }
 
   .settings-form {
     width: 100%;
@@ -1623,7 +1035,7 @@ select:focus {
   .tabs button {
     flex: 1 1 auto;
     padding: 10px 12px;
-    font-size: 0.88rem;
+    font-size: var(--text-sm);
   }
   .board {
     display: block;
@@ -1635,7 +1047,7 @@ select:focus {
   }
   .board th, .board td {
     padding: 10px 8px;
-    font-size: 0.88rem;
+    font-size: var(--text-sm);
   }
 
   .modal-scrim {
@@ -1654,8 +1066,8 @@ select:focus {
     border-radius: 18px;
     background: var(--ink);
   }
-  .results h2 { font-size: 1.85rem; }
-  .results .score-break .overall { font-size: 2.4rem; }
+  .results h2 { font-size: var(--text-xl); }
+  .results .score-break .overall { font-size: var(--text-2xl); }
   .score-row.split { gap: 12px; }
 
   .lyrics-now { font-size: clamp(1.45rem, 7.2vw, 2.3rem); }
@@ -1684,7 +1096,7 @@ select:focus {
   .training .stage-self { display: none; }
   .training .lyrics { min-height: 3.2rem; margin: 0; }
   .training .pitch-stage { min-height: 140px; }
-  .training .status { font-size: 0.8rem; }
+  .training .status { font-size: var(--text-sm); }
   .training .ctas {
     position: static;
     margin: 4px 0 0;
@@ -1701,7 +1113,7 @@ select:focus {
     max-width: none;
     min-height: 46px;
     padding: 10px 8px;
-    font-size: 0.88rem;
+    font-size: var(--text-sm);
   }
 
   /* Stage: one phone viewport. Cams stay a short strip; lyrics + staff
@@ -1731,8 +1143,8 @@ select:focus {
     display: inline-flex;
     align-items: center;
   }
-  .stage-top strong { font-size: 0.88rem; }
-  .stage-song { font-size: 0.75rem; flex-basis: 100%; }
+  .stage-top strong { font-size: var(--text-sm); }
+  .stage-song { font-size: var(--text-xs); flex-basis: 100%; }
   .stage-arena {
     flex: 1 1 auto;
     min-height: 0;
@@ -1777,7 +1189,7 @@ select:focus {
     text-align: center;
     gap: 8px;
   }
-  .stage-fit .room-code-digits { font-size: 1.3rem; }
+  .stage-fit .room-code-digits { font-size: var(--text-lg); }
   .stage-chaos {
     flex: 1 1 auto;
     min-height: 0;
@@ -1785,7 +1197,7 @@ select:focus {
   .grid {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
   }
-  .tile .name { font-size: 0.82rem; left: 0.45rem; bottom: 0.45rem; padding: 0.25rem 0.55rem; }
+  .tile .name { font-size: var(--text-sm); left: 0.45rem; bottom: 0.45rem; padding: 0.25rem 0.55rem; }
   .cam-cue { font-size: clamp(1.1rem, 4vw, 1.6rem); top: 0.4rem; left: 0.45rem; }
   .hit-callout { font-size: clamp(1.8rem, 10vw, 3rem); }
 }
@@ -1793,7 +1205,7 @@ select:focus {
 @media (max-width: 760px) and (max-height: 720px) {
   .play-choices { margin-top: 8px; gap: 10px; }
   .play-choice { padding: 14px 14px 12px; }
-  .play-choice h2 { font-size: 1.5rem; }
+  .play-choice h2 { font-size: var(--text-lg); }
   .page-head h1,
   .shell-inner h1 { font-size: clamp(1.85rem, 10vw, 2.4rem); }
   html:has(.play-page),
@@ -1830,20 +1242,20 @@ select:focus {
     text-indent: 0.16em;
   }
   .hero-rule { width: min(22rem, 50vw); margin: 6px 0 10px; }
-  .home-pitch { margin: 0 0 10px; font-size: 0.88rem; }
+  .home-pitch { margin: 0 0 10px; font-size: var(--text-sm); }
   .home-go { gap: 4px; }
   .home-play { margin-top: 2px; }
   .home-modes { margin-top: 10px; padding-top: 10px; gap: 6px; }
   .home-mode { min-height: 40px; padding: 6px 8px; border-radius: 10px; }
-  .home-mode-label { font-size: 0.88rem; }
-  .home-mode-hint { font-size: 0.7rem; }
+  .home-mode-label { font-size: var(--text-sm); }
+  .home-mode-hint { font-size: var(--text-xs); }
   .home-more { margin-top: 12px; gap: 6px 14px; }
   .home-hero .eyebrow { margin: 4px 0 8px; }
   .home-hero .modes button {
     font-size: clamp(1.45rem, 8vh, 2.2rem);
     padding-bottom: 2px;
   }
-  .mode-hint { font-size: 0.7rem; }
+  .mode-hint { font-size: var(--text-xs); }
 
   .shell { align-items: stretch; }
   .shell > .page-head {
@@ -1887,7 +1299,7 @@ select:focus {
   .training .lyrics-now { font-size: clamp(1.05rem, 4.5vh, 1.45rem); }
   .training .lyrics-next { display: none; }
   .training .pitch-stage { min-height: 0; }
-  .training .status { font-size: 0.75rem; }
+  .training .status { font-size: var(--text-xs); }
   .training .ctas {
     position: static;
     flex: none;
@@ -1902,7 +1314,7 @@ select:focus {
     width: auto;
     max-width: none;
     min-height: 40px;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     padding: 8px 8px;
   }
 
@@ -1974,7 +1386,7 @@ select:focus {
   padding: 18px 16px;
   border: 1px solid var(--edge);
   border-radius: 18px;
-  background: rgba(12, 19, 32, 0.55);
+  background: rgb(var(--surface-rgb) / 0.55);
   color: var(--fg);
   text-align: center;
   text-decoration: none;
@@ -1984,33 +1396,33 @@ select:focus {
 .mode-card:focus-visible {
   outline: none;
   color: var(--fg);
-  border-color: var(--blue-300);
-  background: rgba(18, 28, 46, 0.9);
+  border-color: var(--amber-300);
+  background: rgb(var(--raised-rgb) / 0.9);
   box-shadow: var(--glow-soft);
   transform: translateY(-2px);
 }
 .mode-card-label {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 2.3rem;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
   letter-spacing: 0.04em;
   line-height: 1;
 }
 .mode-card-hint {
   color: var(--fg-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   line-height: 1.3;
 }
 .mode-private {
   margin: 22px auto 0;
   color: var(--fg-dim);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   text-align: center;
 }
 @media (max-width: 560px) {
   .mode-grid { gap: 10px; margin-top: 18px; }
   .mode-card { min-height: 104px; padding: 14px 10px; }
-  .mode-card-label { font-size: 1.9rem; }
-  .mode-card-hint { font-size: 0.78rem; }
+  .mode-card-label { font-size: var(--text-xl); }
+  .mode-card-hint { font-size: var(--text-xs); }
 }
 @media (prefers-reduced-motion: reduce) {
   .mode-card:hover,
@@ -2035,11 +1447,10 @@ select:focus {
   place-items: center;
   border-radius: 999px;
   border: 1px solid var(--edge);
-  background: rgb(0 0 0 / 0.62);
+  background: rgb(var(--ink-rgb) / 0.62);
   color: var(--fg);
-  font-size: 1.3rem;
+  font-size: var(--text-lg);
   line-height: 1;
-  backdrop-filter: blur(6px);
 }
 .stage .tile-menu-btn span { transform: translateY(-0.22em); }
 .stage .tile-menu-btn:hover:not(:disabled),
@@ -2063,7 +1474,6 @@ select:focus {
   place-items: center;
   padding: 20px;
   background: color-mix(in srgb, var(--ink) 78%, transparent);
-  backdrop-filter: blur(10px);
 }
 .safety-sheet {
   width: min(440px, 100%);
@@ -2075,26 +1485,26 @@ select:focus {
   background: var(--surface);
   box-shadow: var(--glow-soft);
   color: var(--fg);
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 .safety-kicker {
   margin: 0 0 2px;
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .safety-title {
   margin: 0 0 14px;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 2rem;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: 400;
   letter-spacing: 0.03em;
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
 .safety-body { margin: 0 0 4px; color: var(--fg-dim); }
-.safety-fine { margin: 12px 0 0; color: var(--fg-dim); font-size: 0.82rem; }
+.safety-fine { margin: 12px 0 0; color: var(--fg-dim); font-size: var(--text-sm); }
 .safety-actions { display: grid; gap: 8px; }
 .safety-row {
   display: grid;
@@ -2110,7 +1520,7 @@ select:focus {
   cursor: pointer;
 }
 .safety-row strong { font-weight: 600; }
-.safety-row span { color: var(--fg-dim); font-size: 0.82rem; }
+.safety-row span { color: var(--fg-dim); font-size: var(--text-sm); }
 .safety-row.danger strong { color: var(--danger); }
 .safety-row:hover:not(:disabled),
 .safety-row:focus-visible { border-color: var(--accent); outline: none; }
@@ -2124,17 +1534,17 @@ select:focus {
   background: transparent;
   color: var(--fg-dim);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 .safety-chip:hover,
 .safety-chip:focus-visible { color: var(--fg); border-color: var(--accent); outline: none; }
 .safety-chip.on {
-  border-color: var(--blue-200);
-  background: var(--blue-200);
+  border-color: var(--amber-200);
+  background: var(--amber-200);
   color: var(--ink);
 }
-.safety-note { display: grid; gap: 6px; margin-bottom: 12px; color: var(--fg-dim); font-size: 0.88rem; }
+.safety-note { display: grid; gap: 6px; margin-bottom: 12px; color: var(--fg-dim); font-size: var(--text-sm); }
 .safety-note em { color: var(--fg-faint); font-style: normal; }
 .safety-note textarea {
   min-height: 64px;
@@ -2144,14 +1554,14 @@ select:focus {
   background: var(--ink-2);
   color: var(--fg);
   font: inherit;
-  font-size: 16px;
+  font-size: var(--text-base);
   resize: vertical;
 }
 .safety-note textarea:focus { border-color: var(--accent); outline: none; }
-.safety-note small { justify-self: end; color: var(--fg-faint); font-size: 0.72rem; }
-.safety-check { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; cursor: pointer; }
-.safety-check input { width: 18px; height: 18px; accent-color: var(--blue-300); }
-.safety-error { margin: 10px 0 0; color: var(--danger); font-size: 0.88rem; }
+.safety-note small { justify-self: end; color: var(--fg-faint); font-size: var(--text-xs); }
+.safety-check { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); cursor: pointer; }
+.safety-check input { width: 18px; height: 18px; accent-color: var(--amber-300); }
+.safety-error { margin: 10px 0 0; color: var(--danger); font-size: var(--text-sm); }
 .safety-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .safety-primary,
 .safety-ghost {
@@ -2165,7 +1575,7 @@ select:focus {
   text-decoration: none;
   cursor: pointer;
 }
-.safety-primary { border: 1px solid var(--blue-300); background: var(--blue-300); color: var(--ink); }
+.safety-primary { border: 1px solid var(--amber-300); background: var(--amber-300); color: var(--ink); }
 .safety-primary.danger { border-color: var(--danger); background: var(--danger); }
 .safety-primary:hover:not(:disabled),
 .safety-primary:focus-visible { box-shadow: var(--glow-hard); outline: none; }

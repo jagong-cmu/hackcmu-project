@@ -140,38 +140,38 @@ export async function seedPreviewMoment(): Promise<MatchMoment> {
   const ctx = canvas.getContext("2d")!;
 
   const panes = [
-    { x: 0, glow: "#4f97f5", name: "Alex" },
-    { x: width / 2 + 3, glow: "#79b4ff", name: "You" },
+    { x: 0, glow: "#f5a21f", name: "Alex" },
+    { x: width / 2 + 3, glow: "#9fc6e4", name: "You" },
   ];
-  ctx.fillStyle = "#04060c";
+  ctx.fillStyle = "#0f0b08";
   ctx.fillRect(0, 0, width, height);
   for (const pane of panes) {
     const w = width / 2 - 3;
     const g = ctx.createRadialGradient(pane.x + w * 0.5, height * 0.42, 20, pane.x + w * 0.5, height * 0.4, 280);
     g.addColorStop(0, pane.glow);
-    g.addColorStop(0.45, "#1b4fa3");
-    g.addColorStop(1, "#070b14");
+    g.addColorStop(0.45, "#a2600a");
+    g.addColorStop(1, "#1a1410");
     ctx.fillStyle = g;
     ctx.fillRect(pane.x, 0, w, height);
-    ctx.fillStyle = "rgba(242, 248, 255, 0.16)";
+    ctx.fillStyle = "rgba(246, 239, 228, 0.16)";
     ctx.beginPath();
     ctx.ellipse(pane.x + w * 0.5, height * 0.38, 92, 118, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "rgba(4, 6, 12, 0.5)";
+    ctx.fillStyle = "rgba(15, 11, 8, 0.5)";
     ctx.fillRect(pane.x, height - 58, w, 58);
-    ctx.fillStyle = "#f2f8ff";
-    ctx.font = "500 22px Outfit, sans-serif";
+    ctx.fillStyle = "#f6efe4";
+    ctx.font = "500 22px Figtree, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(pane.name, pane.x + 22, height - 29);
   }
   const fade = ctx.createLinearGradient(0, height - 200, 0, height);
-  fade.addColorStop(0, "rgba(4, 6, 12, 0)");
-  fade.addColorStop(1, "rgba(4, 6, 12, 0.86)");
+  fade.addColorStop(0, "rgba(15, 11, 8, 0)");
+  fade.addColorStop(1, "rgba(15, 11, 8, 0.86)");
   ctx.fillStyle = fade;
   ctx.fillRect(0, height - 200, width, 200);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "600 34px Outfit, sans-serif";
+  ctx.fillStyle = "#f6efe4";
+  ctx.font = "600 34px Figtree, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("I used to rule the world", width / 2, height - 54);
 

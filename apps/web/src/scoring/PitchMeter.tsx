@@ -325,7 +325,7 @@ function paint(
   }
 
   ctx.fillStyle = pal.ink(0.5);
-  ctx.font = "12px Outfit, sans-serif";
+  ctx.font = "12px Figtree, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("high", 10, 8);

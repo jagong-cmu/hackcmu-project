@@ -13,3 +13,6 @@ server/dist/
 .vercel
 .vercel/.env*.local
 supabase/.temp/
+
+# Playwright MCP scratch output
+.playwright-mcp/

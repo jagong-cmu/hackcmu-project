@@ -130,7 +130,7 @@ export function PitchTest() {
     s?.crepeHz && s?.yinHz ? Math.abs(12 * Math.log2(s.crepeHz / s.yinHz)) : null;
 
   return (
-    <PageShell title="Pitch test" tag="Dev readout. Sing a slow glide." wide level={Math.min(1, (s?.rms ?? 0) / 0.07)}>
+    <PageShell title="Pitch test" tag="Dev readout. Sing a slow glide." wide>
 
       <p className="status">{status}</p>
 

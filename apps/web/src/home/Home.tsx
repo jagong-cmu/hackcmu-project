@@ -1,7 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Bloom } from "../theme/Bloom.tsx";
-import { VoiceWave } from "../theme/VoiceWave.tsx";
-import { ModeButton } from "./ModeButton.tsx";
 import { capture } from "../analytics/posthog.ts";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { LegalLinks } from "../legal/LegalLinks.tsx";
@@ -29,7 +27,6 @@ export function Home() {
   return (
     <main className="home-simple bloom-page">
       <Bloom />
-      <VoiceWave />
 
       <nav className="home-nav">
         <Link to="/settings">Settings</Link>
@@ -39,27 +36,20 @@ export function Home() {
 
       <div className="home-hero">
         <h1 className="wordmark">Aria</h1>
-        <div className="hero-rule" aria-hidden="true">
-          <span className="hero-rule-line" />
-          <span className="hero-rule-dot" />
-          <span className="hero-rule-line" />
-        </div>
         <p className="home-pitch">1v1 karaoke. Same chorus. They watch you.</p>
 
         <div className="home-go">
-          <div className="modes home-play">
-            <ModeButton
-              label="Play"
-              hint={
-                signedOut
-                  ? "sign in with Google"
-                  : mode === "unconfigured"
-                    ? "accounts aren't configured"
-                    : "pick a mode"
-              }
-              onSelect={play}
-            />
-          </div>
+          <button type="button" className="btn btn-primary btn-lg" onClick={play}>
+            Play
+          </button>
+          {signedOut || mode === "unconfigured" ? (
+            <p className="home-go-hint">
+              {signedOut ? "Sign in with Google to sing" : "Accounts aren't configured"}
+            </p>
+          ) : null}
+          <Link className="home-code-link" to={signedOut ? "/signin?next=%2Fplay%2Franked" : "/play/ranked"}>
+            Have a room code?
+          </Link>
         </div>
       </div>
 

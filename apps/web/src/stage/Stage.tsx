@@ -27,7 +27,6 @@ import { serverNow } from "../rooms/timeSync.ts";
 import TurnBadge from "./TurnBadge.tsx";
 import ClipTimer from "./ClipTimer.tsx";
 import TurnOverlay from "./TurnOverlay.tsx";
-import { VoiceWave } from "../theme/VoiceWave.tsx";
 
 /** Pre-match countdown in whole seconds, for lobby copy. */
 const countdownSec = Math.round(MatchCountdownMs / 1000);
@@ -237,7 +236,6 @@ export default function Stage() {
   return (
     <StageContext.Provider value={stageValue}>
       <div className="stage stage-fit">
-        <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
           <Link to="/" onClick={() => roomLeave()}>
             ← leave

@@ -15,6 +15,7 @@ import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { authHeaders } from "../auth/supabase.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
+import { SongPicker } from "./SongPicker.tsx";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
@@ -446,31 +447,21 @@ export function Training() {
   return (
     <PageShell
       title="Training"
-      tag="Pick a song, then sing. The wave behind you is your mic."
+      tag="Pick a song, then sing. The staff shows your pitch against the melody."
       wide
       className="training"
-      level={Math.min(1, liveRms / 0.07)}
     >
-      <label className="song-pick">
-        Song
-        <select
-          value={songId}
-          disabled={running || countMs != null}
-          onChange={(e) => {
-            stopPreview();
-            setPlayhead(0);
-            setCard(null);
-            setSongId(e.target.value);
-          }}
-        >
-          {songs.map((s) => (
-            <option key={s.id} value={s.id} disabled={!s.ready}>
-              {s.title} — {s.artist}
-              {s.ready ? "" : " (incomplete)"}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SongPicker
+        songs={songs}
+        value={songId}
+        disabled={running || countMs != null}
+        onChange={(id) => {
+          stopPreview();
+          setPlayhead(0);
+          setCard(null);
+          setSongId(id);
+        }}
+      />
 
       {!nameOk ? <p className="err">Set a display name in Settings first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}

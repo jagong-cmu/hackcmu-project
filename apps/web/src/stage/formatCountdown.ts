@@ -18,6 +18,18 @@ export function showCountdownOverlay(msUntilStart: number): boolean {
   return msUntilStart > OverlayHideMs;
 }
 
+/** The versus card owns the first stretch of the countdown. Never longer than 2s. */
+export const MatchIntroMs = 2_000;
+
+/** True while the versus card should be up: the first MatchIntroMs of the countdown. */
+export function showMatchIntro(msUntilStart: number): boolean {
+  return (
+    Number.isFinite(msUntilStart) &&
+    msUntilStart > MatchCountdownMs - MatchIntroMs &&
+    msUntilStart <= MatchCountdownMs
+  );
+}
+
 /** Ranked swap is only 5s, so the veil stays up until GO. */
 export function showSwapOverlay(msUntilStart: number): boolean {
   return msUntilStart > 0;

@@ -10,7 +10,7 @@
 .auth-card .cta { max-width: none; }
 .auth-note {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 .auth-wait {
   margin: 30vh auto 0;
@@ -25,7 +25,7 @@
 }
 .google-btn svg {
   flex: none;
-  background: #fff;
+  background: var(--fg);
   border-radius: 50%;
   padding: 2px;
   box-sizing: content-box;
@@ -49,7 +49,7 @@
 
 .home-account {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 /* Google Identity Services button (preferred flow). Google draws it in an
@@ -75,7 +75,7 @@
   align-items: center;
   border: 1px solid var(--edge-soft);
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 .gis-busy { margin: 10px 0; }
 .gis-alt {
@@ -85,7 +85,7 @@
   padding: 2px 4px;
   color: var(--fg-faint);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;

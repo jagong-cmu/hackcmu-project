@@ -33,7 +33,7 @@ export function ModeSelect() {
         {MODES.map((m) => (
           <Link
             key={m.mode}
-            className="mode-card"
+            className={m.mode === "ranked" ? "mode-card is-primary" : "mode-card"}
             to={m.to}
             onClick={(e) => {
               e.preventDefault();

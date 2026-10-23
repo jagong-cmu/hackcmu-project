@@ -405,7 +405,6 @@ export function DeviceCheck() {
       tag="Make sure we can see and hear you before you sing."
       wide
       className="device-check-page"
-      stream={micStream}
       onHome={stopAll}
     >
       <div className="dc-grid">

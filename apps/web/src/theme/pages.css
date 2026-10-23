@@ -1,0 +1,113 @@
+/**
+ * Inner pages: menus, settings, leaderboards, checks. Quiet and fast.
+ * No ambient motion, no glow, instant hover states. Intensity belongs to the
+ * game screens; these pages just have to be clear.
+ */
+
+/* One quiet pool of warm light at the top edge, static. */
+.page.shell {
+  background: radial-gradient(ellipse 70% 30% at 50% -8%, rgb(var(--amber-rgb) / 0.07), transparent 70%), var(--ink);
+}
+
+.page-head h1,
+.shell-inner h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+  text-shadow: none;
+}
+.page-head { margin-bottom: var(--sp-5); }
+.page-head .back { font-size: var(--text-sm); }
+.shell-inner .tag { color: var(--fg-dim); font-size: var(--text-md); }
+.shell-inner .dim,
+.shell-inner .status,
+.shell-inner .err { text-shadow: none; }
+
+/* Surfaces: one level, solid. */
+.card {
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  backdrop-filter: none;
+}
+.stat-tile,
+.board {
+  background: var(--surface);
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-lg);
+}
+.stat-tile strong { font-family: var(--font-display); letter-spacing: -0.01em; }
+.board { overflow: hidden; }
+.board th { color: var(--fg-dim); font-weight: 600; font-size: var(--text-sm); }
+.board td, .board th { font-variant-numeric: tabular-nums; }
+
+/* Mode picker. */
+.mode-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.mode-card:hover,
+.mode-card:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--edge-strong);
+  box-shadow: none;
+  transform: none;
+}
+.mode-card:focus-visible { box-shadow: var(--focus-ring); }
+.mode-card-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  letter-spacing: -0.01em;
+}
+.mode-card-hint { font-size: var(--text-sm); }
+
+.play-choice h2,
+.play-page .play-choice h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  letter-spacing: -0.01em;
+}
+
+/* Segmented controls: tabs and the mode pick. The selected one is the amber one. */
+.tabs,
+.mode-pick {
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border-color: var(--edge);
+}
+.tabs button,
+.mode-pick button {
+  border-radius: var(--r-sm);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tabs button:hover,
+.mode-pick button:hover { color: var(--fg); }
+.tabs button.on,
+.mode-pick button.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
+/* Room codes read like booth numbers. */
+.code-form input,
+.room-code-digits {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.code-form input { border-radius: var(--r-md); background: var(--surface-2); letter-spacing: 0.3em; }
+
+a { color: inherit; text-underline-offset: 0.2em; }
+a:not([class]):hover { color: var(--accent-hi); }
+
+/* Ranked is the front door; the other modes sit beside it. */
+.mode-card.is-primary { border-color: var(--accent); }

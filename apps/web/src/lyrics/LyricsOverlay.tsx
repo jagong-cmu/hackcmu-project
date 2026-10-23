@@ -1,8 +1,8 @@
 import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
-import { LyricSparks } from "./LyricSparks.tsx";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
 import { formatCountdown } from "../stage/formatCountdown.ts";
 import { anchorLine, inLeadIn } from "./leadIn.ts";
+import { MAX_LINE_SEC, lineSpan, lineWipe } from "./wipe.ts";
 
 export type DuetView = {
   seat: DuetSeat | null;
@@ -22,10 +22,28 @@ type Props = {
   singFromSec?: number | null;
 };
 
-/** A line stays on screen for its own span, but never longer than this. */
-const MAX_LINE_SEC = 7;
 /** How early the count-in appears before the next line. */
 const COUNTDOWN_SEC = 4;
+/**
+ * The line being sung: each word is two copies, the sung one clipped to the
+ * fill that wipe.ts derives from the audio clock.
+ */
+function WipeLine({ line, next, t }: { line: LrcLine; next: LrcLine | null; t: number }) {
+  const { words } = lineWipe(line.text, line.timeSec, lineSpan(line, next), t);
+  return (
+    <span className="lyric-line">
+      {words.map((w, i) => (
+        <span key={i} className="lyric-word" style={{ "--fill": w.fill } as React.CSSProperties}>
+          {w.text}
+          <span className="lyric-sung" aria-hidden="true">
+            {w.text}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function LeadIn({
   line,
   wait,
@@ -69,7 +87,6 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
     const nextWho = upcoming
       ? cueLabel(upcoming.voice, duet.seat, duet.nameA, duet.nameB)
       : null;
-    const singing = !cue.waiting && now.kind !== "wait";
     return (
       <div className="lyrics lyrics-duet">
         <p className={`lyrics-cue ${now.kind}`}>{now.text}</p>
@@ -84,10 +101,11 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
             .filter(Boolean)
             .join(" ")}
         >
-          <span className="lyric-line">
-            {cue.waiting ? "·" : (cue.current?.text ?? "·")}
-            {singing && cue.current ? <LyricSparks key={cue.current.timeSec} /> : null}
-          </span>
+          {cue.waiting || !cue.current ? (
+            <span className="lyric-line">·</span>
+          ) : (
+            <WipeLine line={cue.current} next={upcoming ?? null} t={currentTime} />
+          )}
         </p>
         {upcoming ? (
           <p className={`lyrics-next ${nextWho?.kind ?? ""}`}>
@@ -129,7 +147,13 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
     }
     return (
       <div className="lyrics">
-        <p className="lyrics-rest">♪</p>
+        <p className="lyrics-rest" aria-label="Instrumental break">
+          <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true">
+            <path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" strokeWidth="2" />
+            <circle cx="6.5" cy="18" r="3" fill="currentColor" />
+            <circle cx="17.5" cy="16" r="3" fill="currentColor" />
+          </svg>
+        </p>
         <p className="lyrics-next">{next.text}</p>
       </div>
     );
@@ -138,10 +162,11 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
   return (
     <div className="lyrics">
       <p className="lyrics-now">
-        <span className="lyric-line">
-          {current?.text ?? "·"}
-          {current ? <LyricSparks key={current.timeSec} /> : null}
-        </span>
+        {current ? (
+          <WipeLine line={current} next={next} t={currentTime} />
+        ) : (
+          <span className="lyric-line">·</span>
+        )}
       </p>
       <p className="lyrics-next">{next?.text ?? ""}</p>
     </div>

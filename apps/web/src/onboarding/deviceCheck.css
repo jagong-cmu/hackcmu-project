@@ -17,8 +17,8 @@
   min-width: 0;
 }
 .dc-panel h2 {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 1.7rem;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   letter-spacing: 0.04em;
   font-weight: 400;
   margin: 0;
@@ -30,7 +30,7 @@
   width: 100%;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(4, 6, 12, 0.7);
+  background: rgb(var(--ink-rgb) / 0.7);
   border: 1px solid var(--edge-soft);
 }
 .dc-video video {
@@ -48,7 +48,7 @@
   display: grid;
   place-items: center;
   color: var(--fg-faint);
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 
 .dc-mic-state {
@@ -71,26 +71,26 @@
 }
 .dc-meter span {
   border-radius: 3px;
-  background: rgba(150, 190, 255, 0.1);
+  background: rgb(var(--cream-rgb) / 0.1);
   transition: background 60ms linear, box-shadow 60ms linear;
 }
 .dc-meter span.on {
-  background: var(--blue-300);
-  box-shadow: 0 0 10px rgba(121, 180, 255, 0.55);
+  background: var(--amber-300);
+  box-shadow: none;
 }
-.dc-meter span.on:nth-child(n + 17) { background: var(--blue-100); }
-.dc-meter span.on:nth-child(n + 22) { background: var(--blue-050); }
+.dc-meter span.on:nth-child(n + 17) { background: var(--amber-100); }
+.dc-meter span.on:nth-child(n + 22) { background: var(--amber-050); }
 
 .dc-notice {
-  border: 1px solid rgba(255, 138, 138, 0.35);
-  background: rgba(255, 138, 138, 0.06);
+  border: 1px solid rgb(var(--danger-rgb) / 0.35);
+  background: rgb(var(--danger-rgb) / 0.06);
   border-radius: 12px;
   padding: 12px 14px;
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
 }
 .dc-notice.is-soft {
-  border-color: rgba(240, 198, 116, 0.35);
-  background: rgba(240, 198, 116, 0.06);
+  border-color: rgb(var(--amber-hot-rgb) / 0.35);
+  background: rgb(var(--amber-hot-rgb) / 0.06);
 }
 .dc-notice p { margin: 0; color: var(--fg-dim); }
 .dc-notice .dc-notice-head { color: var(--danger); font-weight: 600; margin-bottom: 4px; }
@@ -101,7 +101,7 @@
   flex-direction: column;
   gap: 6px;
   color: var(--fg-dim);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 .dc-pick select {
   width: 100%;
@@ -109,7 +109,7 @@
   border: 1px solid var(--edge);
   border-radius: 12px;
   padding: 10px 14px;
-  background: rgba(9, 14, 24, 0.7);
+  background: rgb(var(--surface-rgb) / 0.7);
   color: var(--fg);
 }
 
@@ -117,10 +117,10 @@
   margin-top: auto;
   border-top: 1px solid var(--edge-soft);
   padding-top: 14px;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 .dc-tip p { margin: 0; color: var(--fg-dim); }
-.dc-tip .dc-tip-head { color: var(--blue-200); font-weight: 600; margin-bottom: 4px; }
+.dc-tip .dc-tip-head { color: var(--amber-200); font-weight: 600; margin-bottom: 4px; }
 
 .dc-actions { flex-direction: row; }
 .dc-skip {
@@ -128,7 +128,7 @@
   border: 0;
   color: var(--fg-dim);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -140,23 +140,23 @@
 .device-check-link {
   margin: 14px auto 0;
   color: var(--fg-dim);
-  font-size: 0.92rem;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
 /* Voice range step (/check/voice). Same cards and meter styling as the mic check. */
 
 .vc-grid { grid-template-columns: 1fr 1.1fr; align-items: start; }
-.vc-saved { margin: 10px 0 0; color: var(--fg-dim); font-size: 0.92rem; }
-.vc-saved strong, .vc-result strong { color: var(--blue-200); }
+.vc-saved { margin: 10px 0 0; color: var(--fg-dim); font-size: var(--text-sm); }
+.vc-saved strong, .vc-result strong { color: var(--amber-200); }
 
 .vc-note {
   margin: 0;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 4.2rem;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
   line-height: 1;
   letter-spacing: 0.04em;
-  color: var(--blue-100);
+  color: var(--amber-100);
   min-height: 1em;
 }
 
@@ -172,9 +172,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(121, 180, 255, 0.16);
-  border-left: 2px solid var(--blue-300);
-  border-right: 2px solid var(--blue-300);
+  background: rgb(var(--amber-hot-rgb) / 0.16);
+  border-left: 2px solid var(--amber-300);
+  border-right: 2px solid var(--amber-300);
 }
 .vc-marker {
   position: absolute;
@@ -183,22 +183,22 @@
   width: 6px;
   margin-left: -3px;
   border-radius: 3px;
-  background: var(--blue-050);
-  box-shadow: 0 0 12px rgba(121, 180, 255, 0.8);
+  background: var(--amber-050);
+  box-shadow: none;
   transition: left 50ms linear;
 }
 .vc-bar-scale {
   display: flex;
   justify-content: space-between;
   color: var(--fg-faint);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   margin-top: -8px;
 }
 
 .vc-progress {
   height: 6px;
   border-radius: 3px;
-  background: rgba(150, 190, 255, 0.1);
+  background: rgb(var(--cream-rgb) / 0.1);
   overflow: hidden;
 }
 .vc-progress span {
@@ -216,15 +216,15 @@
   border-radius: 12px;
   border: 1px solid var(--edge-soft);
 }
-.vc-step.is-next, .vc-step.is-active { border-color: var(--blue-300); background: rgba(121, 180, 255, 0.06); }
-.vc-step.is-bad { border-color: rgba(240, 198, 116, 0.45); }
+.vc-step.is-next, .vc-step.is-active { border-color: var(--amber-300); background: rgb(var(--amber-hot-rgb) / 0.06); }
+.vc-step.is-bad { border-color: rgb(var(--amber-hot-rgb) / 0.45); }
 .vc-step-text { flex: 1; min-width: 0; }
 .vc-step-text p { margin: 0; }
 .vc-step-title { font-weight: 600; display: flex; gap: 10px; align-items: baseline; }
 .vc-step-value { color: var(--score-good); font-weight: 700; }
-.vc-step-prompt { color: var(--fg-dim); font-size: 0.9rem; }
+.vc-step-prompt { color: var(--fg-dim); font-size: var(--text-sm); }
 .vc-step.is-bad .vc-step-prompt { color: var(--warning); }
-.vc-step .vc-step-btn { flex: 0 0 auto; width: auto; max-width: none; min-width: 7rem; min-height: 40px; padding: 8px 18px; font-size: 0.95rem; }
+.vc-step .vc-step-btn { flex: 0 0 auto; width: auto; max-width: none; min-width: 7rem; min-height: 40px; padding: 8px 18px; font-size: var(--text-sm); }
 .vc-result { margin: 0; color: var(--fg-dim); }
 
 .device-check-link a + a { margin-left: 1.2em; }

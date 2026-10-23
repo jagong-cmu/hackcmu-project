@@ -1,13 +1,15 @@
 /**
  * Thin router only. Do not put logic here (TECHNICAL_PRD §4).
  */
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Home } from "./home/Home.tsx";
 import { Play } from "./home/Play.tsx";
 import { ModeSelect } from "./home/ModeSelect.tsx";
 import { Settings } from "./home/Settings.tsx";
 import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
 import { ArenaStats } from "./leaderboard/ArenaStats.tsx";
+import { DesignSystem } from "./theme/DesignSystem.tsx";
+import { NotFound } from "./theme/NotFound.tsx";
 import { PitchTest } from "./training/PitchTest.tsx";
 import { SyncLyrics } from "./training/SyncLyrics.tsx";
 import { ResultsPreview } from "./results/ResultsPreview.tsx";
@@ -41,6 +43,7 @@ export default function App() {
           {/* Debug tools: dev server only, never in the production bundle's routes. */}
           {import.meta.env.DEV ? (
             <>
+              <Route path="/system" element={<DesignSystem />} />
               <Route path="/results-preview" element={<ResultsPreview />} />
               <Route path="/sync" element={<SyncLyrics />} />
               <Route path="/pitchtest" element={<PitchTest />} />
@@ -49,7 +52,7 @@ export default function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/stats" element={<ArenaStats />} />
           <Route path="/room/:code" element={<RequireAuth><DeviceCheckGate><Stage /></DeviceCheckGate></RequireAuth>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider></RoomProvider>
     </BrowserRouter>

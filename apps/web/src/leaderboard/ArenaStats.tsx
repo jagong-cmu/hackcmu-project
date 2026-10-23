@@ -55,7 +55,7 @@ export function ArenaStats() {
   const songs = stats?.songs ?? [];
 
   return (
-    <PageShell title="Arena" tag="How busy the room has been." wide quietWave>
+    <PageShell title="Arena" tag="How busy the room has been." wide>
       {error ? <p className="dim">Stats are unavailable right now.</p> : null}
       {!error && !stats ? <p className="dim">Counting…</p> : null}
       {totals ? (

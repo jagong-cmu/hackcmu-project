@@ -7,6 +7,7 @@ import type { RoomState } from "@karaoke/shared";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
 import CountdownOverlay from "./CountdownOverlay.tsx";
+import { songById } from "@karaoke/shared";
 import { showCountdownOverlay, showSwapOverlay } from "./formatCountdown.ts";
 
 type Beat =
@@ -153,6 +154,15 @@ export default function TurnOverlay({
           remainingMs={msUntil}
           singing={isSingingTurn(room, myPlayerId)}
           phase={swapping ? "swap" : "countdown"}
+          versus={
+            (room.mode === "ranked" || room.mode === "duet") && room.players.length >= 2
+              ? {
+                  left: themName,
+                  right: room.players.find((p) => p.id === myPlayerId)?.displayName ?? "You",
+                  song: room.songId ? songById(room.songId)?.title : undefined,
+                }
+              : null
+          }
         />
       ) : null}
 

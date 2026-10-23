@@ -2,31 +2,31 @@
 
 * { box-sizing: border-box; }
 
-.stage button,
-.landing button {
+.stage button:not(.btn):not(.cta),
+.landing button:not(.btn):not(.cta) {
   font: inherit;
   padding: 0.6rem 1rem;
   border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--text);
+  border: 1px solid var(--edge-soft);
+  background: var(--surface);
+  color: var(--fg);
   cursor: pointer;
 }
-.stage button:hover:not(:disabled),
-.landing button:hover:not(:disabled) { border-color: var(--cool); }
-.stage button:disabled,
-.landing button:disabled { opacity: 0.45; cursor: not-allowed; }
-.stage button.primary,
-.landing button.primary { background: var(--hot); border-color: var(--hot); font-weight: 600; }
+.stage button:not(.btn):not(.cta):hover:not(:disabled),
+.landing button:not(.btn):not(.cta):hover:not(:disabled) { border-color: var(--player-b); }
+.stage button:not(.btn):not(.cta):disabled,
+.landing button:not(.btn):not(.cta):disabled { opacity: 0.45; cursor: not-allowed; }
+.stage button:not(.btn):not(.cta).primary,
+.landing button:not(.btn):not(.cta).primary { background: var(--neon); border-color: var(--neon); font-weight: 600; }
 
 .stage input,
 .landing input {
   font: inherit;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge-soft);
   background: var(--surface);
-  color: var(--text);
+  color: var(--fg);
 }
 
 .landing {
@@ -36,12 +36,12 @@
   display: grid;
   gap: 1.25rem;
 }
-.landing h1 { margin: 0; font-size: 1.9rem; letter-spacing: -0.02em; }
+.landing h1 { margin: 0; font-size: var(--text-xl); letter-spacing: -0.02em; }
 .landing .note {
-  color: var(--dim);
-  font-size: 0.85rem;
+  color: var(--fg-dim);
+  font-size: var(--text-sm);
   line-height: 1.5;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--edge-soft);
   padding-left: 0.75rem;
 }
 .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
@@ -89,27 +89,27 @@
   min-height: 1.8rem;
 }
 .stage-top a {
-  color: var(--mute, #8a8278);
+  color: var(--fg-dim, var(--fg-dim));
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
-.stage-top strong { white-space: nowrap; font-size: 0.95rem; }
+.stage-top strong { white-space: nowrap; font-size: var(--text-sm); }
 .stage-song {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--mute, #8a8278);
-  font-size: 0.82rem;
+  color: var(--fg-dim, var(--fg-dim));
+  font-size: var(--text-sm);
 }
-.stage-song em { font-style: normal; color: var(--cream, #f4efe6); }
+.stage-song em { font-style: normal; color: var(--fg, var(--fg)); }
 .stage-friendly {
   flex-shrink: 0;
   white-space: nowrap;
-  font-size: 0.72rem;
-  color: var(--mute, #8a8278);
+  font-size: var(--text-xs);
+  color: var(--fg-dim, var(--fg-dim));
   border: 1px solid currentColor;
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
@@ -185,29 +185,29 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-wrap: balance;
-  color: var(--cream, #f4efe6);
+  color: var(--fg, var(--fg));
 }
 .lyrics-cue {
   margin: 0 0 2px;
   min-height: 1.15em;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.35rem, 2.4vw, 1.9rem);
   letter-spacing: 0.06em;
   line-height: 1;
-  color: var(--mute, #8a8278);
+  color: var(--fg-dim, var(--fg-dim));
 }
 .lyrics-cue.you,
-.lyrics-cue.together { color: var(--gold, #c9a227); }
-.lyrics-cue.them { color: var(--cream, #f4efe6); }
+.lyrics-cue.together { color: var(--accent, var(--accent)); }
+.lyrics-cue.them { color: var(--fg, var(--fg)); }
 /* Clip lead-in: music first, then the anchor line (first lyric or chorus). */
-.lyrics-cue.leadin { color: var(--gold, #c9a227); }
+.lyrics-cue.leadin { color: var(--accent, var(--accent)); }
 .lyrics-leadin .lyrics-now { opacity: 0.72; }
-.lyrics-leadin .leadin-who { color: var(--mute, #8a8278); font-size: 0.6em; letter-spacing: 0.04em; }
+.lyrics-leadin .leadin-who { color: var(--fg-dim, var(--fg-dim)); font-size: 0.6em; letter-spacing: 0.04em; }
 .lyrics-leadin .leadin-who.you,
-.lyrics-leadin .leadin-who.together { color: var(--gold, #c9a227); }
-.lyrics-now.duet-you { color: var(--cream, #f4efe6); }
-.lyrics-now.duet-them { color: var(--mute, #8a8278); }
-.lyrics-now.duet-together { color: var(--gold, #c9a227); }
+.lyrics-leadin .leadin-who.together { color: var(--accent, var(--accent)); }
+.lyrics-now.duet-you { color: var(--fg, var(--fg)); }
+.lyrics-now.duet-them { color: var(--fg-dim, var(--fg-dim)); }
+.lyrics-now.duet-together { color: var(--accent, var(--accent)); }
 .lyrics-next {
   display: flex;
   justify-content: center;
@@ -216,12 +216,12 @@
   flex-wrap: wrap;
 }
 .lyrics-next .who {
-  color: var(--gold, #c9a227);
+  color: var(--accent, var(--accent));
   font-size: 0.78em;
   letter-spacing: 0.04em;
 }
 .lyrics-next.them .who,
-.lyrics-next.wait .who { color: var(--mute, #8a8278); }
+.lyrics-next.wait .who { color: var(--fg-dim, var(--fg-dim)); }
 .lyrics-next .next-line { min-width: 0; }
 .stage-fit .lyrics-next {
   margin: 8px 0 0;
@@ -247,18 +247,18 @@
   margin: 0;
   transform: translateX(-50%);
   pointer-events: none;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 0.9;
   font-size: clamp(2.6rem, 7vw, 4.6rem);
-  text-shadow: 0 4px 18px rgb(0 0 0 / 0.65);
+  text-shadow: 0 4px 18px rgb(var(--ink-rgb) / 0.65);
   animation: hit-pop 0.72s ease forwards;
 }
-.hit-perfect { color: var(--gold, #c9a227); }
-.hit-great { color: var(--cream, #f4efe6); }
-.hit-good { color: var(--blue-300); }
-.hit-okay { color: var(--mute, #8a8278); }
+.hit-perfect { color: var(--accent, var(--accent)); }
+.hit-great { color: var(--fg, var(--fg)); }
+.hit-good { color: var(--amber-300); }
+.hit-okay { color: var(--fg-dim, var(--fg-dim)); }
 @keyframes hit-pop {
   0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
   18% { opacity: 1; transform: translateX(-50%) scale(1.12); }
@@ -269,15 +269,15 @@
   .hit-callout { animation: none; opacity: 1; }
 }
 .timer-compact {
-  font-size: 1.05rem;
+  font-size: var(--text-base);
   font-weight: 600;
   line-height: 1.2;
   flex-shrink: 0;
   text-align: center;
 }
-.timer-compact.ghost { color: var(--mute, #8a8278); font-weight: 500; font-size: 0.85rem; }
+.timer-compact.ghost { color: var(--fg-dim, var(--fg-dim)); font-weight: 500; font-size: var(--text-sm); }
 .timer-compact.timer-count {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(2.6rem, 8vw, 4.2rem);
   font-weight: 400;
   letter-spacing: 0.04em;
@@ -302,7 +302,7 @@
 .stage-chaos .tile .placeholder {
   place-items: end center;
   padding-bottom: 2.8rem;
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   opacity: 0.55;
 }
@@ -315,8 +315,8 @@
   gap: 0.55rem 1rem;
   flex-shrink: 0;
   margin: 0;
-  font-size: 0.92rem;
-  color: var(--mute, #8a8278);
+  font-size: var(--text-sm);
+  color: var(--fg-dim, var(--fg-dim));
 }
 .stage-fit .pitch-hold {
   position: absolute;
@@ -335,7 +335,7 @@
   flex-shrink: 0;
   align-items: center;
 }
-.stage-fit .room-code-digits { font-size: 1.55rem; }
+.stage-fit .room-code-digits { font-size: var(--text-lg); }
 
 .grid {
   display: grid;
@@ -350,12 +350,12 @@
   position: relative;
   aspect-ratio: 4 / 3;
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge-soft);
   border-radius: 14px;
   overflow: hidden;
 }
 .tile.singing {
-  border-color: var(--gold, #c9a227);
+  border-color: var(--accent, var(--accent));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .tile.waiting::after {
@@ -363,7 +363,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: rgb(0 0 0 / 0.42);
+  background: rgb(var(--ink-rgb) / 0.42);
   pointer-events: none;
 }
 .tile video {
@@ -377,14 +377,14 @@
   top: 0.65rem;
   left: 0.7rem;
   z-index: 2;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.7rem, 3.2vw, 2.6rem);
   letter-spacing: 0.03em;
   line-height: 1;
-  color: var(--mute, #8a8278);
-  text-shadow: 0 2px 14px rgb(0 0 0 / 0.8);
+  color: var(--fg-dim, var(--fg-dim));
+  text-shadow: 0 2px 14px rgb(var(--ink-rgb) / 0.8);
 }
-.cam-cue.on { color: var(--gold, #c9a227); }
+.cam-cue.on { color: var(--accent, var(--accent)); }
 .tile .name {
   position: absolute;
   left: 0.7rem;
@@ -392,16 +392,16 @@
   z-index: 2;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: rgb(0 0 0 / 0.7);
-  font-size: 1rem;
+  background: rgb(var(--ink-rgb) / 0.7);
+  font-size: var(--text-base);
 }
 .tile .placeholder {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--dim);
-  font-size: 0.85rem;
+  color: var(--fg-dim);
+  font-size: var(--text-sm);
 }
 
 .callout {
@@ -428,27 +428,27 @@
 }
 .callout-kicker {
   margin: 0;
-  color: var(--gold, #c9a227);
+  color: var(--accent, var(--accent));
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 .callout-count,
 .callout-title {
   margin: 0;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.04em;
   line-height: 0.9;
-  color: var(--cream, #f4efe6);
+  color: var(--fg, var(--fg));
 }
 .callout-count { font-size: clamp(5.5rem, 18vw, 9rem); font-variant-numeric: tabular-nums; }
-.callout-count.go { color: var(--gold, #c9a227); }
+.callout-count.go { color: var(--accent, var(--accent)); }
 .callout-title { font-size: clamp(3.2rem, 10vw, 6.5rem); }
 .callout-sub {
   margin: 0;
-  color: var(--mute, #8a8278);
-  font-size: 1rem;
+  color: var(--fg-dim, var(--fg-dim));
+  font-size: var(--text-base);
   max-width: 28rem;
   padding: 0 1.2rem;
 }
@@ -473,15 +473,15 @@
 .turn-guide.wait { border-color: var(--warning); }
 .turn-guide.go { border-color: var(--score-good); }
 .turn-guide strong {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.08em;
-  font-size: 1.15rem;
+  font-size: var(--text-md);
   line-height: 1;
 }
 .turn-guide span {
-  font-size: 0.8rem;
-  color: var(--mute, #8a8278);
+  font-size: var(--text-sm);
+  color: var(--fg-dim, var(--fg-dim));
 }
 .countdown-veil {
   position: fixed;
@@ -503,34 +503,34 @@
 }
 .countdown-kicker {
   margin: 0 0 4px;
-  color: var(--gold, #c9a227);
+  color: var(--accent, var(--accent));
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-size: 0.82rem;
-  text-shadow: 0 2px 18px rgb(0 0 0 / 0.55);
+  font-size: var(--text-sm);
+  text-shadow: 0 2px 18px rgb(var(--ink-rgb) / 0.55);
 }
 .countdown-headline {
   margin: 0;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(3.2rem, 9vw, 7.2rem);
   letter-spacing: 0.03em;
   line-height: 0.92;
-  color: var(--cream, #f4efe6);
-  text-shadow: 0 2px 28px rgb(0 0 0 / 0.55);
+  color: var(--fg, var(--fg));
+  text-shadow: 0 2px 28px rgb(var(--ink-rgb) / 0.55);
 }
 .countdown-go { color: var(--score-good); }
-.countdown-wait { color: #ff3b3b; }
+.countdown-wait { color: var(--danger); }
 .countdown-num {
   margin: 0;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(5.5rem, 16vw, 9.5rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   line-height: 0.9;
-  color: var(--cream, #f4efe6);
-  text-shadow: 0 2px 28px rgb(0 0 0 / 0.55);
+  color: var(--fg, var(--fg));
+  text-shadow: 0 2px 28px rgb(var(--ink-rgb) / 0.55);
 }
 @keyframes callout-flash {
   0% { opacity: 1; }
@@ -547,45 +547,26 @@
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 0.9rem;
-  border: 1px solid var(--line);
+  font-size: var(--text-sm);
+  border: 1px solid var(--edge-soft);
 }
-.badge.you { background: var(--hot); border-color: var(--hot); color: var(--ink); }
+.badge.you { background: var(--neon); border-color: var(--neon); color: var(--ink); }
 .badge.together { background: var(--accent); border-color: var(--accent); color: var(--ink); }
-.badge.them { background: var(--panel); color: var(--dim); }
+.badge.them { background: var(--surface); color: var(--fg-dim); }
 
-.timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }
-.timer .bar { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.timer .bar span { display: block; height: 100%; background: var(--cool); }
+.timer { font-variant-numeric: tabular-nums; font-size: var(--text-2xl); font-weight: 700; }
+.timer .bar { height: 4px; background: var(--edge-soft); border-radius: 999px; overflow: hidden; }
+.timer .bar span { display: block; height: 100%; background: var(--player-b); }
 .timer.timer-compact {
-  font-size: 1.05rem;
+  font-size: var(--text-base);
   font-weight: 600;
   line-height: 1.2;
 }
-.stage.stage-fit button.cta {
-  padding: 14px 28px;
-  font-size: 1.05rem;
-  border-radius: 999px;
-  background: var(--blue-050);
-  color: #06101f;
-  border: 0;
-  font-weight: 600;
-}
-.stage.stage-fit button.cta-lg { padding: 10px 24px; font-size: 1.05rem; }
-.stage.stage-fit button.cta.is-on {
-  background: var(--blue-400);
-  color: #fff;
-}
-.stage.stage-fit button.cta-ghost {
-  background: rgba(12, 19, 32, 0.72);
-  color: var(--fg);
-  border: 1px solid var(--edge);
-}
-.stage.stage-fit .badge { font-size: 0.75rem; padding: 0.2rem 0.65rem; white-space: nowrap; }
+.stage.stage-fit .badge { font-size: var(--text-xs); padding: 0.2rem 0.65rem; white-space: nowrap; }
 
-.slot-empty { color: var(--dim); font-size: 0.8rem; }
-.warn { color: var(--warning); font-size: 0.85rem; }
-.err { color: var(--danger); font-size: 0.85rem; }
+.slot-empty { color: var(--fg-dim); font-size: var(--text-sm); }
+.warn { color: var(--warning); font-size: var(--text-sm); }
+.err { color: var(--danger); font-size: var(--text-sm); }
 
 /* Retry affordance on the half-open capture notice (mic or camera missing). */
 .stage-alerts button.link {
