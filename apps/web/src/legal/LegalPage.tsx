@@ -33,7 +33,7 @@ function LegalPage({ doc }: { doc: LegalDoc }) {
   }
 
   return (
-    <PageShell title={doc.title} wide className="legal-page">
+    <PageShell title={doc.title} wide bare className="legal-page">
       <article
         className="legal-doc"
         onClick={onClick}

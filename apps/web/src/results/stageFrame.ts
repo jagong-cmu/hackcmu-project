@@ -122,7 +122,7 @@ export function drawStageFrame(
   height: number,
   opts: { hud?: boolean } = {},
 ): { lyric: string } {
-  ctx.fillStyle = "#1a1410";
+  ctx.fillStyle = "#1f0d10";
   ctx.fillRect(0, 0, width, height);
 
   const videos = collectVideos();
@@ -132,7 +132,7 @@ export function drawStageFrame(
   const names = tileNames();
 
   if (!videos.length) {
-    ctx.fillStyle = "rgba(246, 239, 228, 0.45)";
+    ctx.fillStyle = "rgba(244, 234, 223, 0.45)";
     ctx.font = "500 28px Figtree, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -142,15 +142,15 @@ export function drawStageFrame(
       const x = i * (paneW + gap);
       drawCover(ctx, video, x, 0, paneW, height, isMirrored(video));
       if (isSinging(video)) {
-        ctx.strokeStyle = "rgba(255, 187, 69, 0.85)";
+        ctx.strokeStyle = "rgba(232, 181, 80, 0.85)";
         ctx.lineWidth = 6;
         ctx.strokeRect(x + 3, 3, paneW - 6, height - 6);
       }
       const name = names[i];
       if (!name) return;
-      ctx.fillStyle = "rgba(15, 11, 8, 0.52)";
+      ctx.fillStyle = "rgba(17, 7, 9, 0.52)";
       ctx.fillRect(x, height - 58, paneW, 58);
-      ctx.fillStyle = "#f6efe4";
+      ctx.fillStyle = "#f4eadf";
       ctx.font = "500 22px Figtree, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -162,20 +162,20 @@ export function drawStageFrame(
   const upcoming = nextLyric();
   if (lyric || upcoming) {
     const fade = ctx.createLinearGradient(0, height - 220, 0, height);
-    fade.addColorStop(0, "rgba(15, 11, 8, 0)");
-    fade.addColorStop(0.4, "rgba(15, 11, 8, 0.5)");
-    fade.addColorStop(1, "rgba(15, 11, 8, 0.9)");
+    fade.addColorStop(0, "rgba(17, 7, 9, 0)");
+    fade.addColorStop(0.4, "rgba(17, 7, 9, 0.5)");
+    fade.addColorStop(1, "rgba(17, 7, 9, 0.9)");
     ctx.fillStyle = fade;
     ctx.fillRect(0, height - 220, width, 220);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     if (lyric) {
-      ctx.fillStyle = "#f6efe4";
+      ctx.fillStyle = "#f4eadf";
       ctx.font = "600 34px Figtree, sans-serif";
       wrapLine(ctx, lyric, width / 2, upcoming ? height - 78 : height - 54, width - 96, 40, 2);
     }
     if (upcoming) {
-      ctx.fillStyle = "rgba(246, 239, 228, 0.62)";
+      ctx.fillStyle = "rgba(244, 234, 223, 0.62)";
       ctx.font = "500 20px Figtree, sans-serif";
       ctx.fillText(upcoming, width / 2, height - 32, width - 120);
     }
@@ -183,20 +183,20 @@ export function drawStageFrame(
 
   if (opts.hud) {
     const top = ctx.createLinearGradient(0, 0, 0, 88);
-    top.addColorStop(0, "rgba(15, 11, 8, 0.78)");
-    top.addColorStop(1, "rgba(15, 11, 8, 0)");
+    top.addColorStop(0, "rgba(17, 7, 9, 0.78)");
+    top.addColorStop(1, "rgba(17, 7, 9, 0)");
     ctx.fillStyle = top;
     ctx.fillRect(0, 0, width, 88);
 
-    ctx.fillStyle = "#f6efe4";
-    ctx.font = "400 28px 'Familjen Grotesk', sans-serif";
+    ctx.fillStyle = "#f4eadf";
+    ctx.font = "700 28px 'Barlow Condensed', sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText("ARIA", 28, 32);
 
     const song = hudSong();
     if (song) {
-      ctx.fillStyle = "rgba(246, 239, 228, 0.86)";
+      ctx.fillStyle = "rgba(244, 234, 223, 0.86)";
       ctx.font = "500 20px Figtree, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(song, width / 2, 32, width - 360);
@@ -205,7 +205,7 @@ export function drawStageFrame(
     const badge = hudBadge();
     const timer = hudTimer();
     ctx.textAlign = "right";
-    ctx.fillStyle = "#f5a21f";
+    ctx.fillStyle = "#f0484b";
     ctx.font = "600 18px Figtree, sans-serif";
     const right = [badge, timer].filter(Boolean).join("   ");
     if (right) ctx.fillText(right, width - 28, 32);

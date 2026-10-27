@@ -314,7 +314,7 @@ export function VoiceCheck() {
             <span>C5</span>
             <span>C6</span>
           </div>
-          <div className="vc-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(live.progress * 100)}>
+          <div className="vc-progress" role="progressbar" aria-label="Hold progress for this hum" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(live.progress * 100)}>
             <span style={{ width: `${live.progress * 100}%` }} />
           </div>
           {micError ? (

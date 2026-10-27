@@ -375,7 +375,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (mode === "unconfigured") return <AccountsUnavailable />;
   if (!ready) {
     return (
-      <main className="page bloom-page shell">
+      <main className="page shell">
         <p className="dim auth-wait">Checking your session…</p>
       </main>
     );

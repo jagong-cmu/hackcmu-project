@@ -13,7 +13,7 @@ body:has(.play-page) {
   height: 100%;
   overflow: hidden;
 }
-body { background: var(--ink); }
+body { background: transparent; }
 
 a { color: var(--fg); }
 button, input, select { font: inherit; }
@@ -24,35 +24,6 @@ button, input, select { font: inherit; }
   padding: 28px 40px 64px;
 }
 
-.home-simple {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding: 28px 40px 48px;
-}
-.home-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-}
-.wordmark {
-  margin: 0;
-  font-size: var(--text-sm);
-  letter-spacing: 0.08em;
-  color: var(--fg-dim);
-}
-.home-top nav,
-.row-head { display: flex; gap: 22px; align-items: baseline; }
-.home-top a,
-.back {
-  color: var(--fg-dim);
-  text-decoration: none;
-  font-size: var(--text-sm);
-}
-.home-top a:hover,
-.back:hover { color: var(--fg); }
 
 .modes {
   flex: 1;

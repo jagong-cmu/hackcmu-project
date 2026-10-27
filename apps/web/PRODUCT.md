@@ -41,12 +41,16 @@ Two people sing the same 15-second chorus clip while watching each other live, j
 
 ## Brand Commitments
 - Name: the product is "Aria" in the UI; "Karaoke Arena" is the project and repo name.
-- The Aria blue brand in `docs/brand.md` is **replaced** by this redesign (owner decision, 2026-10-23); brand assets, `docs/brand.md` and the favicon get updated with it.
-- Copy voice: dive-bar playful but restrained. Warm, a little cheeky, never themed to death.
+- Visual world (SPEC2, 2026-10-23, supersedes the earlier warm-bar direction): Korean noraebang rooms. Each mode has its own full-screen room backdrop (Ranked booth, Duet, Training, Party/Chaos) and the room reacts live to how well you sing. A minimal game-menu-style text UI sits on top. The old Aria blue brand and the interim warm-bar palette are both retired.
+- Not to reproduce any real karaoke brand (TJ Media etc.): no names, logos or screen layouts. No machine-styled controls, no clickable scene objects.
+- Rank-based rooms are v2.
+- English only in the UI (owner decision); the rooms carry the setting.
+- Copy voice: warm and a little cheesy, like a night out with friends; the UI itself stays quiet.
 
 ## Evidence on Hand
 - Existing app in `apps/web/src`, token layer in `src/theme/theme.css`, logo files in `public/brand/`, 7 songs with melody data.
-- Absent, must not be fabricated: visual references, a Figma file, song cover images and bar-atmosphere backdrops (the owner generates these separately). Every image slot needs a token-based fallback so the UI is complete without them.
+- Absent, must not be fabricated: the 4 room images and 7 song covers (the owner generates these with Nano Banana and adds them under apps/web/public/). Every image slot needs a solid fallback so the UI is complete without them.
+- References shared by the owner: krillion.io (backdrop expresses the score), A Quiet Place main menu (structure), a photo of a noraebang room (scene), TJ Media screens (mood only).
 
 ## Product Principles
 - The lyric wipe is the most important visual in the app; everything on the play screen serves lyrics, camera feeds and scoring, in that priority.

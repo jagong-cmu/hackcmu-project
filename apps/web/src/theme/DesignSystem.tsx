@@ -4,12 +4,15 @@
  */
 const SWATCHES = [
   "ink", "surface", "surface-2", "surface-3",
-  "amber-800", "amber-600", "amber-400", "amber-300", "amber-200", "amber-100",
-  "neon", "player-a", "player-b", "positive", "warning", "danger",
+  "red-800", "red-600", "red-400", "red-300",
+  "gold-800", "gold-600", "gold-300", "gold-200", "gold-100",
+  "spot-1", "spot-2", "spot-3", "spot-4", "spot-5",
+  "danger",
 ];
 
 const SCALE: [string, string][] = [
   ["--text-display", "Aria"],
+  ["--text-menu", "Ranked"],
   ["--text-3xl", "Tonight's booth"],
   ["--text-2xl", "Pick your chorus"],
   ["--text-xl", "Room 0000"],
@@ -27,7 +30,7 @@ export function DesignSystem() {
 
       <section aria-labelledby="ds-color">
         <h2 id="ds-color" className="display" style={{ fontSize: "var(--text-xl)" }}>Colour</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: "var(--sp-3)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: "var(--sp-3)" }}>
           {SWATCHES.map((n) => (
             <div key={n}>
               <div style={{ height: "3.5rem", background: `var(--${n})`, border: "1px solid var(--edge)", borderRadius: "var(--r-md)" }} />

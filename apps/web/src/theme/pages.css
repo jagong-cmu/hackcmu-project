@@ -1,21 +1,26 @@
 /**
- * Inner pages: menus, settings, leaderboards, checks. Quiet and fast.
- * No ambient motion, no glow, instant hover states. Intensity belongs to the
- * game screens; these pages just have to be clear.
+ * Inner pages: menus, settings, leaderboards, checks. Plain left-aligned text
+ * over the room; content that needs a surface sits in ONE dark translucent
+ * panel (no card grids, no nested panels, no blur). Quiet and fast: no ambient
+ * motion, instant hover states.
  */
 
-/* One quiet pool of warm light at the top edge, static. */
+/* The room behind every page is the Backdrop (scene/); pages are transparent. */
 .page.shell {
-  background: radial-gradient(ellipse 70% 30% at 50% -8%, rgb(var(--amber-rgb) / 0.07), transparent 70%), var(--ink);
+  background: none;
+  align-items: flex-start;
+  padding: var(--sp-6) clamp(var(--sp-5), 6vw, 6rem) var(--sp-9);
 }
+.page.shell > .page-head { position: static; margin-bottom: var(--sp-5); }
 
 .page-head h1,
 .shell-inner h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-2xl);
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  font-size: var(--text-3xl);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   line-height: var(--leading-tight);
   text-shadow: none;
 }
@@ -92,7 +97,7 @@
 .mode-pick button:hover { color: var(--fg); }
 .tabs button.on,
 .mode-pick button.on {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   box-shadow: none;
 }
@@ -111,3 +116,39 @@ a:not([class]):hover { color: var(--accent-hi); }
 
 /* Ranked is the front door; the other modes sit beside it. */
 .mode-card.is-primary { border-color: var(--accent); }
+
+
+/* ---- One panel, left-aligned ---------------------------------------------- */
+.page.shell .shell-inner {
+  align-items: flex-start;
+  width: min(100%, 40rem);
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--panel);
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-lg);
+  text-align: left;
+}
+.page.shell .shell-inner.wide { width: min(100%, 60rem); }
+.page.shell .shell-inner.bare {
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.shell-inner .tag { margin: 0 0 var(--sp-4); text-align: left; max-width: none; }
+.shell-inner > * { max-width: 100%; }
+
+/* No cards inside the panel: they are plain groups, separated by space. */
+.shell-inner .card {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+.stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-4); }
+.stat-tile { padding: 0; background: none; border: 0; border-radius: 0; }
+.board { background: none; border: 0; border-radius: 0; }
+.board th { border-bottom: 1px solid var(--edge); }
+.play-choices { gap: var(--sp-6); margin-top: var(--sp-4); }

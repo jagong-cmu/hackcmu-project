@@ -13,7 +13,6 @@ import "./theme/theme.css";
 import "./theme/components.css";
 import "./lyrics/lyrics.css";
 import "./stage/stage.css";
-import "./home/home.css";
 import "./theme/pages.css";
 import "./results/results.css";
 

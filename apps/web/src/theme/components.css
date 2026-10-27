@@ -60,16 +60,16 @@
 .btn-primary,
 .btn.gold,
 .cta:not(.cta-ghost) {
-  --btn-bg: var(--accent);
+  --btn-bg: var(--accent-fill);
   --btn-fg: var(--on-accent);
-  --btn-edge: var(--accent);
+  --btn-edge: var(--accent-fill);
   font-weight: 700;
 }
 .btn-primary:hover,
 .btn.gold:hover,
 .cta:not(.cta-ghost):hover {
-  --btn-bg: var(--accent-hi);
-  --btn-edge: var(--accent-hi);
+  --btn-bg: var(--accent-fill-hi);
+  --btn-edge: var(--accent-fill-hi);
   color: var(--on-accent);
 }
 .btn-ghost,
@@ -100,8 +100,8 @@
 /* A selected toggle button (e.g. the chosen option in a group). */
 .cta.is-on,
 .btn.is-on {
-  --btn-bg: rgb(var(--amber-rgb) / 0.16);
-  --btn-fg: var(--accent-hi);
+  --btn-bg: rgb(var(--red-rgb) / 0.18);
+  --btn-fg: var(--fg);
   --btn-edge: var(--accent);
   cursor: default;
 }
@@ -179,7 +179,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 
 .feed[data-state="live"] { border-color: var(--edge-strong); }
 /* Neon marks whose turn it is. "You" is the tag in the label, not a glow. */
-.feed.singing { box-shadow: var(--glow-neon); border-color: var(--neon); }
+.feed.singing { box-shadow: var(--glow-live); border-color: var(--accent); }
 .feed.waiting > video { opacity: 0.55; }
 
 .feed-label {
@@ -209,16 +209,16 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: var(--neon);
+  background: var(--accent);
 }
 .feed[data-you] .feed-label::after {
   content: "YOU";
   padding-inline: var(--sp-2);
-  border: 1px solid var(--neon);
+  border: 1px solid var(--accent);
   border-radius: var(--r-sm);
   font-size: var(--text-xs);
   letter-spacing: var(--track-caps);
-  color: var(--neon);
+  color: var(--accent);
 }
 
 /* Not live: say so in words, over a quiet ground. */
@@ -248,13 +248,13 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   font-family: var(--font-display);
   font-weight: 700;
   line-height: var(--leading-tight);
-  color: var(--amber-200);
+  color: var(--gold-200);
   font-variant-numeric: tabular-nums;
 }
 .score-display .num { font-size: var(--text-display); letter-spacing: -0.02em; }
 .score-display .score-unit { font-size: var(--text-lg); color: var(--fg-faint); font-weight: 500; }
 .score-display.is-pending .num { color: var(--fg-faint); }
-.score-display.is-winner .num { color: var(--amber-100); }
+.score-display.is-winner .num { color: var(--gold-100); }
 
 /* Signed deltas (Elo). The sign is a character, so colour is never alone. */
 .delta { font-weight: 700; font-variant-numeric: tabular-nums; }

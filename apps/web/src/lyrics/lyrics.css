@@ -1,46 +1,66 @@
 /**
- * Lyrics: the largest text on the play screen, readable from a step back.
+ * Lyrics: the classic noraebang screen. Two rows, alternating: the top row sits
+ * left, the bottom row sits right. White text with a dark outline, and each
+ * word fills with colour, left to right, as it is sung. The largest text on the
+ * play screen, readable from a step back.
  *
- * The wipe is two stacked copies of each word. The base copy is off-white; the
- * sung copy is amber and revealed left to right by clip-path, driven by the
- * word's --fill (0..1) which lyrics/wipe.ts computes from the audio clock.
- * No transition on the reveal: --fill changes every frame and easing it would
- * make it lag the music.
+ * The wipe is two stacked copies of each word. The base copy is white; the sung
+ * copy is gold and revealed by clip-path, driven by the word's --fill (0..1),
+ * which lyrics/wipe.ts computes from the audio clock. No transition on the
+ * reveal: --fill changes every frame and easing it would lag the music.
  */
 
 .lyrics {
   text-align: center;
-  min-height: 7rem;
-  margin: var(--sp-2) 0 var(--sp-5);
+  min-height: 0;
+  margin: var(--sp-2) 0 var(--sp-4);
 }
 
+/* Messages ("Loading lyrics", "Next song starting") share the lyric face. */
 .lyrics-now {
-  --unsung: var(--fg);
-  --sung: var(--accent);
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-lyric);
+  font-weight: 800;
   font-size: var(--text-lyric);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.12;
+  color: var(--fg);
+}
+
+.lyric-rows {
+  --outline:
+    -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink), 2px 2px 0 var(--ink),
+    0 -3px 0 var(--ink), 0 3px 0 var(--ink), -3px 0 0 var(--ink), 3px 0 0 var(--ink),
+    0 5px 14px rgb(var(--ink-rgb) / 0.7);
+  display: grid;
+  gap: var(--sp-2);
+  width: min(100%, 84rem);
+  margin-inline: auto;
+}
+.lyric-row {
+  --unsung: var(--fg);
+  --sung: var(--gold-200);
+  max-width: 96%;
+  min-height: 1.12em;
+  margin: 0;
+  font-family: var(--font-lyric);
+  font-weight: 800;
+  font-size: var(--text-lyric);
+  line-height: 1.12;
+  letter-spacing: -0.005em;
   color: var(--unsung);
-  text-wrap: balance;
-  text-shadow: none;
+  text-shadow: var(--outline);
 }
-/* A line that has not arrived yet is a preview, not the cue. */
-.lyrics-now.lyrics-soon { --unsung: var(--fg-dim); }
+.row-0 { justify-self: start; text-align: left; }
+.row-1 { justify-self: end; text-align: right; }
+/* A row waiting its turn is a preview; the active row carries the fill. */
+.lyric-row:not(.is-active) { opacity: 0.88; }
 
-.lyric-line {
-  display: inline-block;
-  max-width: 100%;
-}
-
+.lyric-line { display: inline-block; max-width: 100%; }
 .lyric-word {
   position: relative;
   display: inline-block;
   white-space: nowrap;
-  margin-inline: 0.14em;
-  color: var(--unsung);
+  margin-inline: 0.13em;
 }
 .lyric-sung {
   position: absolute;
@@ -51,52 +71,28 @@
 }
 
 /* Duet: whose line it is, said in words and in colour. */
+.lyric-row.is-active.duet-them { --sung: var(--fg-dim); }
+.lyric-row.is-active.duet-together { --sung: var(--gold-100); }
+
 .lyrics-cue {
-  margin: 0 0 var(--sp-1);
+  margin: 0 0 var(--sp-2);
   min-height: 1.2em;
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: var(--text-md);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   line-height: 1;
   color: var(--fg-dim);
+  text-shadow: 0 1px 8px rgb(var(--ink-rgb) / 0.8);
 }
 .lyrics-cue.you,
 .lyrics-cue.together,
-.lyrics-cue.leadin { color: var(--accent); }
+.lyrics-cue.leadin { color: var(--gold-200); }
 .lyrics-cue.them { color: var(--fg); }
-.lyrics-now.duet-you { --unsung: var(--fg); }
-.lyrics-now.duet-them { --unsung: var(--fg-dim); --sung: var(--fg); }
-.lyrics-now.duet-together { --unsung: var(--fg); --sung: var(--accent); }
-.lyrics-leadin .lyrics-now { opacity: 0.8; }
-.lyrics-leadin .leadin-who { font-size: 0.5em; letter-spacing: 0.04em; color: var(--fg-dim); }
-.lyrics-leadin .leadin-who.you,
-.lyrics-leadin .leadin-who.together { color: var(--accent); }
+.lyrics-leadin .leadin-who { color: var(--fg-dim); }
 
-.lyrics-next {
-  margin: var(--sp-3) 0 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-snug);
-  color: var(--fg-faint);
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: var(--sp-2);
-  flex-wrap: wrap;
-}
-.lyrics-next .who { font-size: 0.78em; letter-spacing: 0.04em; color: var(--accent); }
-.lyrics-next.them .who,
-.lyrics-next.wait .who { color: var(--fg-dim); }
-.lyrics-next .next-line { min-width: 0; }
-
-/* Instrumental gap: a rest, then a count back in. */
-.lyrics-rest {
-  margin: 0;
-  font-size: var(--text-lyric);
-  line-height: 1.1;
-  color: var(--fg-faint);
-}
+/* A count back in before the next line. */
 .lyrics-count {
   display: flex;
   align-items: center;
@@ -118,5 +114,6 @@
   font-size: var(--text-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--fg);
+  text-shadow: 0 1px 8px rgb(var(--ink-rgb) / 0.8);
 }

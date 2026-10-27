@@ -10,6 +10,7 @@ import { inLeadIn, melodyFrom, singFromOf } from "../lyrics/leadIn.ts";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
+import { melodyHzAt } from "../scoring/scoreClip.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
 import { loadSongPack } from "../scoring/catalog.ts";
@@ -25,6 +26,9 @@ import { useRoom, type ClockPlay } from "../rooms/RoomProvider.tsx";
 import { playheadFromClock } from "./useSharedClock.ts";
 import { useRematchView } from "./useRematchView.ts";
 import { registerScoreRetry, setScoreStatus } from "../results/scoreStatus.ts";
+import { melodyEnergy } from "../scene/energy.ts";
+import { accuracyOf } from "../scene/intensity.ts";
+import { publishAccuracy, publishEnergy, publishFinal, publishGrade, publishIdle } from "../scene/signal.ts";
 import { isScoringClip, shouldStartTake, takeKey } from "./takeKey.ts";
 import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
@@ -563,6 +567,32 @@ export function StagePitch() {
   );
   const calloutGrade = gradeLive(guideMelody, playhead, shownHz);
 
+  // Reactive room (read-only: it consumes the grade above and never touches scoring).
+  // In Ranked only MY OWN take drives it: during the opponent's turn shownHz is their
+  // relayed pitch, which the game hides until the match ends, so the room idles.
+  const themGrade = gradeLive(guideMelody, playhead, themLive?.hz ?? null);
+  // The lead-in and rests in the melody are not the singer's fault: the room holds neutral there.
+  // (guideMelody already silences notes before the anchor, so the lead-in has no target either.)
+  const gradable = guideMelody != null && melodyHzAt(guideMelody, playhead) != null;
+  useEffect(() => {
+    if (!room || room.status === "results") return; // results keeps the settled level
+    if (room.mode === "chaos") {
+      if (melody && room.status === "live") publishEnergy(melodyEnergy(melody, playhead));
+      else publishIdle();
+    } else if (room.mode === "duet") {
+      const parts: number[] = [];
+      if (youSinging && gradable) parts.push(accuracyOf(mine ? calloutGrade : null));
+      if (themSinging && gradable) parts.push(accuracyOf(themGrade));
+      if (parts.length) publishAccuracy(parts.reduce((a, b) => a + b, 0) / parts.length);
+      else publishIdle();
+    } else if (youSinging && gradable) {
+      publishGrade(calloutGrade);
+    } else {
+      publishIdle();
+    }
+  });
+  useEffect(() => () => publishIdle(), []);
+
   return (
     <div className="pitch-stage">
       <PitchMeter
@@ -589,6 +619,12 @@ export function StageResults() {
   const { room, myPlayerId } = useStage();
   const { matchOver, scores, roomLeave, rematchRequest, rematchCancel } = useRoom();
   const rematch = useRematchView(room, myPlayerId);
+  // The room settles at the level matching my final score (read-only).
+  const myFinal = myPlayerId ? (scores[myPlayerId] ?? matchOver?.scores[myPlayerId]) : undefined;
+  const finalOverall = myFinal ? (myFinal.silence ? 0 : myFinal.overall) : null;
+  useEffect(() => {
+    if (finalOverall != null && matchOver) publishFinal(finalOverall);
+  }, [finalOverall, matchOver]);
   // Keep the opponent's name for the results card/video after they leave.
   const lastOpponentRef = useRef<string | undefined>(undefined);
   const seatedOpponent = room?.players.find((p) => p.id !== myPlayerId)?.displayName;

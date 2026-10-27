@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { MaxLeftLuminance } from "../scene/assetBrief.ts";
 
 const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
 const raw = (name: string): string => {
@@ -54,11 +55,10 @@ for (const [text, min] of [
   ["fg", 4.5],
   ["fg-dim", 4.5],
   ["accent", 4.5],
-  ["amber-200", 4.5],
+  ["gold-200", 4.5],
   ["positive", 4.5],
   ["warning", 4.5],
   ["danger", 4.5],
-  ["neon", 4.5],
 ] as const) {
   test(`--${text} on every ground`, () => {
     for (const [name, g] of grounds) {
@@ -78,8 +78,49 @@ test("--fg-faint on ink, surface and surface-2", () => {
 });
 
 test("button text on the amber fills", () => {
-  for (const fill of ["accent", "accent-hi"]) {
+  for (const fill of ["accent-fill", "accent-fill-hi"]) {
     const r = ratio(colour("on-accent"), colour(fill));
     assert.ok(r >= 4.5, `--on-accent on --${fill} is ${r.toFixed(2)}:1`);
   }
+});
+
+/**
+ * Menu text over the room. The scrim darkens the left side, but what is under it
+ * is the owner's image, so the asset brief carries a requirement: the left 45%
+ * of every room image must be no brighter than MaxLeftLuminance. This proves the
+ * scrim plus that requirement meets AA at every x the menu text can reach; the
+ * /scene-check dev page measures the real images against the same number.
+ */
+
+function scrimAlpha(x: number): number {
+  // Mirrors --scrim-left: 0.94 at 0%, 0.78 at 24%, 0.28 at 58%, 0 at 100%.
+  const stops: [number, number][] = [[0, 0.94], [0.24, 0.78], [0.58, 0.28], [1, 0]];
+  for (let i = 1; i < stops.length; i++) {
+    if (x <= stops[i][0]) {
+      const [x0, a0] = stops[i - 1];
+      const [x1, a1] = stops[i];
+      return a0 + ((a1 - a0) * (x - x0)) / (x1 - x0);
+    }
+  }
+  return 0;
+}
+const grayForLuminance = (l: number): RGB => {
+  const c = l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055;
+  return [c * 255, c * 255, c * 255];
+};
+
+test("menu text over the brightest allowed room pixel, across the scrim", () => {
+  const ink = channels("ink-rgb");
+  const worst = grayForLuminance(MaxLeftLuminance);
+  const check = (name: string, upTo: number) => {
+    for (let x = 0.04; x <= upTo; x += 0.02) {
+      const a = scrimAlpha(x);
+      const bg = ink.map((c, i) => c * a + worst[i] * (1 - a)) as RGB;
+      const r = ratio(colour(name, bg), bg);
+      assert.ok(r >= 4.5, `--${name} at ${(x * 100).toFixed(0)}% is ${r.toFixed(2)}:1`);
+    }
+  };
+  check("fg", 0.5);
+  check("fg-dim", 0.5); // menu items and their description line reach about 45%
+  check("fg-faint", 0.3); // legal links sit bottom-left
 });

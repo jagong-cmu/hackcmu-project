@@ -58,11 +58,11 @@
   position: absolute;
   inset: 18%;
   border-radius: 50%;
-  border: 1.5px solid rgb(var(--amber-rgb) / 0.4);
+  border: 1.5px solid rgb(var(--gold-rgb) / 0.4);
   animation: booth-pulse 2.2s var(--ease-out) infinite;
 }
-.booth-ring:nth-child(3) { inset: 8%; animation-delay: 0.35s; border-color: rgb(var(--amber-rgb) / 0.25); }
-.booth-ring:nth-child(4) { inset: 0; animation-delay: 0.7s; border-color: rgb(var(--amber-rgb) / 0.14); }
+.booth-ring:nth-child(3) { inset: 8%; animation-delay: 0.35s; border-color: rgb(var(--gold-rgb) / 0.25); }
+.booth-ring:nth-child(4) { inset: 0; animation-delay: 0.7s; border-color: rgb(var(--gold-rgb) / 0.14); }
 @keyframes booth-pulse {
   0% { transform: scale(0.85); opacity: 0.9; }
   100% { transform: scale(1.12); opacity: 0; }
@@ -140,7 +140,7 @@
   letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--amber-200);
+  color: var(--gold-200);
 }
 @supports (mask-image: linear-gradient(#000, #000)) {
   .results-hero-score {
@@ -148,7 +148,7 @@
     mask-image: repeating-linear-gradient(0deg, var(--mask-on) 0 4px, transparent 4px 5px);
   }
 }
-.results.is-win .results-hero-score { color: var(--amber-100); }
+.results.is-win .results-hero-score { color: var(--gold-100); }
 .results.is-loss .results-hero-score { color: var(--fg-dim); }
 
 .results-blurb {
@@ -338,3 +338,12 @@
 
 /* The verdict is a quiet line, clearly secondary to the score. */
 .results-blurb.is-verdict { font-size: var(--text-sm); font-style: italic; color: var(--fg-dim); max-width: 28rem; }
+
+/* The score lands with one short beat, the way a noraebang machine announces it. */
+.results-show.is-landed .results-hero-score { animation: score-beat 420ms var(--ease-out) both; }
+@keyframes score-beat {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .results-show.is-landed .results-hero-score { animation: none; } }

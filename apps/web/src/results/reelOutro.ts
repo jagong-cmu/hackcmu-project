@@ -54,8 +54,8 @@ function paintBackdrop(
   ctx.globalAlpha = mix;
   paintBloom(ctx, w / 2, h * 0.36, h * 0.82, h, w, 1);
   const vignette = ctx.createLinearGradient(0, h * 0.55, 0, h);
-  vignette.addColorStop(0, "rgba(15, 11, 8, 0)");
-  vignette.addColorStop(1, "rgba(15, 11, 8, 0.7)");
+  vignette.addColorStop(0, "rgba(17, 7, 9, 0)");
+  vignette.addColorStop(1, "rgba(17, 7, 9, 0.7)");
   ctx.fillStyle = vignette;
   ctx.fillRect(0, h * 0.55, w, h * 0.45);
   ctx.globalAlpha = 1;
@@ -118,8 +118,8 @@ function paintPlayer(
     ctx.save();
     ctx.globalAlpha = base * lift;
     const glow = ctx.createRadialGradient(cx, scoreTop + big * 0.45, 4, cx, scoreTop + big * 0.45, big);
-    glow.addColorStop(0, "rgba(127, 220, 151, 0.28)");
-    glow.addColorStop(1, "rgba(127, 220, 151, 0)");
+    glow.addColorStop(0, "rgba(246, 204, 110, 0.28)");
+    glow.addColorStop(1, "rgba(246, 204, 110, 0)");
     ctx.fillStyle = glow;
     ctx.fillRect(cx - big * 1.2, scoreTop - big * 0.3, big * 2.4, big * 1.6);
     ctx.restore();
@@ -142,9 +142,9 @@ function paintPlayer(
     const tw = ctx.measureText(tag).width + 26;
     const ty = top - 34 + (1 - lift) * 8;
     roundRect(ctx, cx - tw / 2, ty, tw, 24, 12);
-    ctx.fillStyle = "rgba(127, 220, 151, 0.16)";
+    ctx.fillStyle = "rgba(246, 204, 110, 0.16)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(127, 220, 151, 0.7)";
+    ctx.strokeStyle = "rgba(246, 204, 110, 0.7)";
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = GOOD;
@@ -230,7 +230,7 @@ export function drawReelOutro(
     paintPlayer(ctx, results.players[1], rightX, colTop, colW, 132, beat, hasWinner);
 
     const midY = colTop + 112;
-    ctx.strokeStyle = "rgba(255, 187, 69, 0.25)";
+    ctx.strokeStyle = "rgba(232, 181, 80, 0.25)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(w / 2, midY - 70);
@@ -271,7 +271,7 @@ export function drawReelOutro(
   if (results.caption) {
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillStyle = "rgba(246, 239, 228, 0.78)";
+    ctx.fillStyle = "rgba(244, 234, 223, 0.78)";
     ctx.font = `400 21px ${BODY}`;
     wrapText(ctx, results.caption, w / 2, y, w - 280, 28, results.shared != null ? 1 : 2);
   }

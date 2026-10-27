@@ -54,7 +54,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   const frameW = W - 96;
   const frameH = 560;
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
-  ctx.fillStyle = "#1a1410";
+  ctx.fillStyle = "#1f0d10";
   ctx.fill();
   ctx.save();
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
@@ -68,7 +68,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
     ctx.drawImage(bitmap, frameX + (frameW - dw) / 2, frameY + (frameH - dh) / 2, dw, dh);
     bitmap.close();
   } else {
-    ctx.fillStyle = "#1a1410";
+    ctx.fillStyle = "#1f0d10";
     ctx.fillRect(frameX, frameY, frameW, frameH);
     ctx.fillStyle = DIM;
     ctx.font = "500 28px Figtree, sans-serif";
@@ -77,7 +77,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
   }
   ctx.restore();
 
-  ctx.strokeStyle = "rgba(255, 231, 176, 0.28)";
+  ctx.strokeStyle = "rgba(255, 227, 160, 0.28)";
   ctx.lineWidth = 1.5;
   roundRect(ctx, frameX, frameY, frameW, frameH, 28);
   ctx.stroke();
@@ -104,14 +104,14 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
     ctx.fillText(input.youName, leftX, y);
     ctx.fillText(input.opponentName ?? "Them", rightX, y);
     y += 46;
-    ctx.font = "400 140px 'Familjen Grotesk', sans-serif";
+    ctx.font = "700 140px 'Barlow Condensed', sans-serif";
     ctx.textBaseline = "top";
     ctx.fillStyle = input.youWon ? GOOD : FG;
     ctx.fillText(String(Math.round(input.youScore)), leftX, y);
     ctx.fillStyle = input.theyWon ? GOOD : FG;
     ctx.fillText(String(Math.round(input.opponentScore ?? 0)), rightX, y);
 
-    ctx.strokeStyle = "rgba(255, 187, 69, 0.25)";
+    ctx.strokeStyle = "rgba(232, 181, 80, 0.25)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(W / 2, y + 28);
@@ -124,7 +124,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
     y += 156;
   } else {
     ctx.fillStyle = FG;
-    ctx.font = "400 180px 'Familjen Grotesk', sans-serif";
+    ctx.font = "700 180px 'Barlow Condensed', sans-serif";
     ctx.textBaseline = "top";
     ctx.fillText(String(Math.round(input.youScore)), W / 2, y - 12);
     y += 168;
@@ -150,7 +150,7 @@ export async function composeShareImage(input: ShareCardInput): Promise<Blob> {
 
   const verdict = input.verdict?.trim();
   if (verdict) {
-    ctx.fillStyle = "rgba(246, 239, 228, 0.78)";
+    ctx.fillStyle = "rgba(244, 234, 223, 0.78)";
     ctx.font = "400 26px Figtree, sans-serif";
     wrapText(ctx, verdict, W / 2, y, frameW - 24, 34, 3);
     y += 90;

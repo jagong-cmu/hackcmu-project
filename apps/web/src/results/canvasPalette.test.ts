@@ -18,13 +18,22 @@ const token = (name: string): string => {
 const hex = (rgb: string): string =>
   "#" + rgb.split(/\s+/).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
 
+/** A token's final colour as #rrggbb, following var() aliases. */
+const hexOf = (name: string): string => {
+  const v = token(name);
+  const alias = v.match(/^var\(--([\w-]+)\)$/);
+  if (alias) return hexOf(alias[1]);
+  assert.ok(v.startsWith("#"), `--${name} is a #hex`);
+  return v.toLowerCase();
+};
+
 test("canvas colours mirror the design tokens", () => {
   assert.equal(INK, hex(token("ink-rgb")));
   assert.equal(PANEL, hex(token("surface-rgb")));
   assert.equal(FG, hex(token("fg-rgb")));
-  assert.equal(ACCENT, token("amber-400"));
-  assert.equal(ACCENT_DEEP, token("amber-600"));
-  assert.equal(GOOD, token("positive"));
-  assert.equal(WARN, token("warning"));
-  assert.equal(DANGER, token("danger"));
+  assert.equal(ACCENT, hexOf("accent"));
+  assert.equal(ACCENT_DEEP, hexOf("red-600"));
+  assert.equal(GOOD, hexOf("positive"));
+  assert.equal(WARN, hexOf("warning"));
+  assert.equal(DANGER, hexOf("danger"));
 });

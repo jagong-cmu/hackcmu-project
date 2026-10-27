@@ -17,7 +17,7 @@
 .stage button:not(.btn):not(.cta):disabled,
 .landing button:not(.btn):not(.cta):disabled { opacity: 0.45; cursor: not-allowed; }
 .stage button:not(.btn):not(.cta).primary,
-.landing button:not(.btn):not(.cta).primary { background: var(--neon); border-color: var(--neon); font-weight: 600; }
+.landing button:not(.btn):not(.cta).primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
 
 .stage input,
 .landing input {
@@ -257,7 +257,7 @@
 }
 .hit-perfect { color: var(--accent, var(--accent)); }
 .hit-great { color: var(--fg, var(--fg)); }
-.hit-good { color: var(--amber-300); }
+.hit-good { color: var(--gold-300); }
 .hit-okay { color: var(--fg-dim, var(--fg-dim)); }
 @keyframes hit-pop {
   0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
@@ -550,7 +550,7 @@
   font-size: var(--text-sm);
   border: 1px solid var(--edge-soft);
 }
-.badge.you { background: var(--neon); border-color: var(--neon); color: var(--ink); }
+.badge.you { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 .badge.together { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 .badge.them { background: var(--surface); color: var(--fg-dim); }
 

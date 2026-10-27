@@ -1,85 +1,109 @@
 /**
- * Aria design tokens: a late-night karaoke bar, with restraint.
+ * Aria design tokens: a noraebang room at night.
  *
- * A warm brown-black room, lit by one tungsten bulb (amber). A single neon
- * (hot pink) exists for what is live, active, or "you", and never decorates.
+ * The room is the identity: a deep maroon-black ground, warm off-white text,
+ * ONE warm red (selection, primary actions, "live"), and a soft gold for
+ * secondary highlights (scores, ranks). Multicolour exists only in the room's
+ * light layer (--spot-*) and in song covers, never in UI chrome.
  * Dark only. Every colour, size, space, radius and motion value in the app
  * comes from this file; component CSS references tokens and never raw values.
  *
- * Colour channels (`--*-rgb`) exist so alpha variants stay on-palette:
- *   background: rgb(var(--amber-rgb) / 0.4);
+ * Colour channels (`--*-rgb`) keep alpha variants on-palette:
+ *   background: rgb(var(--gold-rgb) / 0.4);
  */
 
 :root {
   color-scheme: dark;
 
   /* ------------------------------------------------------------ ground -- */
-  --ink-rgb: 15 11 8;
-  --surface-rgb: 26 20 16;
-  --raised-rgb: 38 29 22;
-  --cream-rgb: 255 232 205;
+  --ink-rgb: 17 7 9;
+  --surface-rgb: 31 13 16;
+  --raised-rgb: 46 20 24;
+  --cream-rgb: 255 226 214;
 
-  --ink: rgb(var(--ink-rgb));            /* the room */
-  --ink-2: #140f0b;
-  --surface: rgb(var(--surface-rgb));    /* booth, panel */
-  --surface-2: rgb(var(--raised-rgb));   /* raised: inputs, menus */
-  --surface-3: #30251b;
-  --scrim: rgb(var(--ink-rgb) / 0.82);
-  --shade: rgb(var(--ink-rgb) / 0.55);   /* lyrics-over-feed plate, tile chrome */
+  --ink: rgb(var(--ink-rgb));            /* the room's fallback colour: maroon-black */
+  --ink-2: #1a0b0e;
+  --surface: rgb(var(--surface-rgb));    /* panels */
+  --surface-2: rgb(var(--raised-rgb));   /* raised: inputs, hover */
+  --surface-3: #3d1a1f;
+  --scrim: rgb(var(--ink-rgb) / 0.86);
+  --shade: rgb(var(--ink-rgb) / 0.6);    /* tile chrome, lyrics-over-feed plate */
+  --panel: rgb(var(--ink-rgb) / 0.8);    /* the one dark translucent panel over a room */
 
-  --edge: rgb(var(--cream-rgb) / 0.16);
-  --edge-soft: rgb(var(--cream-rgb) / 0.08);
-  --edge-strong: rgb(var(--cream-rgb) / 0.32);
+  --edge: rgb(var(--cream-rgb) / 0.18);
+  --edge-soft: rgb(var(--cream-rgb) / 0.09);
+  --edge-strong: rgb(var(--cream-rgb) / 0.34);
 
   /* -------------------------------------------------------------- type -- */
-  --fg-rgb: 246 239 228;
-  --fg: rgb(var(--fg-rgb));                       /* unsung lyrics, headings */
-  --fg-dim: rgb(var(--fg-rgb) / 0.68);            /* secondary text, 7.9:1 on ink */
-  --fg-faint: rgb(var(--fg-rgb) / 0.5);           /* hints, 4.9:1 on ink: text floor */
-  --on-accent: #1b1006;                           /* text on amber, 9.6:1 */
+  --fg-rgb: 244 234 223;
+  --fg: rgb(var(--fg-rgb));                       /* menu text, lyrics, headings */
+  --fg-dim: rgb(var(--fg-rgb) / 0.72);            /* secondary text */
+  --fg-faint: rgb(var(--fg-rgb) / 0.56);          /* hints: the text floor */
+  --on-accent: #fff6ee;                           /* text on the red fill */
 
-  /* ------------------------------------------------- tungsten (primary) -- */
-  --amber-050: #fff6e0;
-  --amber-100: #ffe7b0;
-  --amber-200: #ffd27a;
-  --amber-300: #ffbb45;
-  --amber-400: #f5a21f;
-  --amber-500: #d9840b;
-  --amber-600: #a2600a;
-  --amber-800: #4a2c0a;
-  --amber-rgb: 245 162 31;
-  --amber-hot-rgb: 255 187 69;
-  --amber-pale-rgb: 255 231 176;
+  /* ---------------------------------------------- warm red (the one accent) -- */
+  --red-300: #ff8a80;
+  --red-400: #f45a5d;
+  --red-500: #d6313a;
+  --red-600: #b3202a;
+  --red-800: #5a1118;
+  --red-rgb: 244 90 93;
+  --accent: var(--red-400);        /* indicator, selected, "live": text/shape colour */
+  --accent-hi: var(--red-300);
+  --accent-fill: #c4252c;          /* primary button fill, under --on-accent */
+  --accent-fill-hi: #d63038;
 
-  --accent: var(--amber-400);
-  --accent-hi: var(--amber-300);
-  --accent-lo: var(--amber-600);
-
-  /* ------------------------------------------- neon (live / active / you) -- */
-  --neon: #ff4f9a;
-  --neon-rgb: 255 79 154;
+  /* ---------------------------------------------- soft gold (secondary) -- */
+  --gold-050: #fff4d6;
+  --gold-100: #ffe3a0;
+  --gold-200: #f6cc6e;
+  --gold-300: #e8b550;
+  --gold-400: #d29a35;
+  --gold-600: #9a6a1c;
+  --gold-800: #4a3210;
+  --gold-rgb: 246 204 110;
+  --gold-hot-rgb: 232 181 80;
+  --gold-pale-rgb: 255 227 160;
 
   /* ------------------------------------------------- players, by place too -- */
-  --player-a: var(--amber-300);   /* left / "you" is also marked with --neon */
-  --player-b: #9fc6e4;            /* right; a cool steel so A and B differ in lightness-hue, plus label and place */
+  --player-a: var(--gold-200);    /* left; "you" is also a label, not just a colour */
+  --player-b: var(--fg);          /* right */
 
   /* ------------------------------------------------------------- status -- */
-  --positive: #7fdc97;
-  --positive-rgb: 127 220 151;
-  --score-good: #7fdc97;
-  --warning: #ffd27a;
-  --danger: #ff7b6b;
-  --danger-rgb: 255 123 107;
+  --positive: var(--gold-200);
+  --positive-rgb: 246 204 110;
+  --score-good: var(--gold-200);
+  --warning: var(--gold-300);
+  --danger: #ff7d74;
+  --danger-rgb: 255 125 116;
 
-  /* Pitch meter canvas fill. Alpha lets the room show through. */
-  /* Optional generated backdrop for home. e.g. url(/backdrops/bar.jpg). The bloom is the fallback. */
-  --backdrop-image: none;
+  /* ----------------------------------- the room: scrim and light layer -- */
+  /* Darkens the left third and the edges so menu text always reads over the image. */
+  --scrim-left: linear-gradient(
+    90deg,
+    rgb(var(--ink-rgb) / 0.94) 0%,
+    rgb(var(--ink-rgb) / 0.78) 24%,
+    rgb(var(--ink-rgb) / 0.28) 58%,
+    transparent 100%
+  );
+  --vignette: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 55%, rgb(var(--ink-rgb) / 0.62) 100%);
+  --room-dim-page: 0.5;            /* extra darkening on non-game pages (sign-in, settings, errors) */
+  --room-fade: 360ms;              /* menu crossfade between rooms (300-400ms) */
+
+  /* The only multicolour in the app: disco-ball light spots. */
+  --spot-1: #ff4f9a;
+  --spot-2: #4fd1ff;
+  --spot-3: #ffd24f;
+  --spot-4: #8f6bff;
+  --spot-5: #5bff9a;
+
   --mask-on: #000; /* alpha mask, not a palette colour */
   --meter-bg: rgb(var(--surface-rgb) / 0.6);
 
   /* ------------------------------------------------- scale: type, space -- */
-  --font-display: "Familjen Grotesk", ui-rounded, "Avenir Next", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-ui: Figtree, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-lyric: Figtree, ui-sans-serif, system-ui, sans-serif;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -90,7 +114,8 @@
   --text-2xl: 2.25rem;
   --text-3xl: 3rem;
   --text-display: 4.5rem;
-  --text-lyric: clamp(2rem, 4.4vw, 4rem);   /* the largest text on the play screen */
+  --text-menu: clamp(2rem, 3.6vw, 3.25rem);   /* main-menu items */
+  --text-lyric: clamp(1.5rem, 3vw, 2.75rem);  /* the largest text on the play screen */
 
   --leading-tight: 1.05;
   --leading-snug: 1.25;
@@ -110,7 +135,7 @@
 
   --r-sm: 4px;
   --r-md: 8px;
-  --r-lg: 14px;
+  --r-lg: 12px;
   --r-pill: 999px;
 
   /* ------------------------------------------------- depth, light, focus -- */
@@ -118,9 +143,9 @@
   --shadow-2: 0 2px 4px rgb(var(--ink-rgb) / 0.5), 0 14px 36px rgb(var(--ink-rgb) / 0.55);
   --glow-soft: none;
   --glow-hard: 0 0 0 1px var(--accent);
-  --glow-neon: 0 0 0 1px var(--neon), 0 0 18px rgb(var(--neon-rgb) / 0.4);
+  --glow-live: 0 0 0 1px var(--accent);
 
-  --focus-ring: 0 0 0 2px var(--ink), 0 0 0 4px var(--amber-200);
+  --focus-ring: 0 0 0 2px var(--ink), 0 0 0 4px var(--gold-200);
 
   /* ------------------------------------------------------------- motion -- */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -137,12 +162,13 @@
   background: var(--ink);
 }
 
-body { background: var(--ink); }
+/* The room (scene/) is the page background; the root colour is the fallback beneath it. */
+body { background: transparent; }
 
 /* ----------------------------------------------------- browser surfaces --
  * The parts nobody draws: selection, caret, scrollbars, focus.
  */
-::selection { background: rgb(var(--amber-rgb) / 0.4); color: var(--fg); }
+::selection { background: rgb(var(--red-rgb) / 0.45); color: var(--fg); }
 input, textarea, select { caret-color: var(--accent); }
 * { scrollbar-color: var(--surface-3) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -158,7 +184,7 @@ input, textarea, select { caret-color: var(--accent); }
 .num, .overall, .score-meter-row, time { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; }
+  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; --room-fade: 600ms; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;

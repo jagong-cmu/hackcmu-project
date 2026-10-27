@@ -41,13 +41,13 @@
 .legal-doc ul,
 .legal-doc ol { padding-left: 1.3em; }
 .legal-doc li { margin: 0 0 6px; }
-.legal-doc li::marker { color: var(--amber-300); }
+.legal-doc li::marker { color: var(--gold-300); }
 .legal-doc strong { color: var(--fg); font-weight: 600; }
 
 .legal-doc a {
-  color: var(--amber-200);
+  color: var(--gold-200);
   text-decoration: underline;
-  text-decoration-color: rgb(var(--amber-pale-rgb) / 0.4);
+  text-decoration-color: rgb(var(--gold-pale-rgb) / 0.4);
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
 }

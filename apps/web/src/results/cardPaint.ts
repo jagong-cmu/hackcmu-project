@@ -1,19 +1,19 @@
 /**
  * Shared canvas look for the share card and the match-video outro: palette,
- * fonts, the spaced ARIA wordmark, the amber bloom, and the chip copy.
+ * fonts, the spaced ARIA wordmark, the red bloom, and the chip copy.
  */
 
-export const INK = "#0f0b08";
-export const PANEL = "#1a1410";
-export const FG = "#f6efe4";
-export const DIM = "rgba(246, 239, 228, 0.62)";
-export const ACCENT = "#f5a21f";
-export const ACCENT_DEEP = "#a2600a";
-export const GOOD = "#7fdc97";
-export const WARN = "#ffd27a";
-export const DANGER = "#ff7b6b";
+export const INK = "#110709";
+export const PANEL = "#1f0d10";
+export const FG = "#f4eadf";
+export const DIM = "rgba(244, 234, 223, 0.62)";
+export const ACCENT = "#f45a5d";
+export const ACCENT_DEEP = "#b3202a";
+export const GOOD = "#f6cc6e";
+export const WARN = "#e8b550";
+export const DANGER = "#ff7d74";
 
-export const DISPLAY = "'Familjen Grotesk', sans-serif";
+export const DISPLAY = "'Barlow Condensed', sans-serif";
 export const BODY = "Figtree, sans-serif";
 
 export async function loadCardFonts() {
@@ -82,9 +82,9 @@ export function paintBloom(
   strength = 1,
 ) {
   const bloom = ctx.createRadialGradient(cx, cy - radius * 0.11, 20, cx, cy, radius);
-  bloom.addColorStop(0, `rgba(245, 162, 31, ${0.38 * strength})`);
-  bloom.addColorStop(0.45, `rgba(162, 96, 10, ${0.16 * strength})`);
-  bloom.addColorStop(1, "rgba(15, 11, 8, 0)");
+  bloom.addColorStop(0, `rgba(240, 72, 75, ${0.38 * strength})`);
+  bloom.addColorStop(0.45, `rgba(179, 32, 42, ${0.16 * strength})`);
+  bloom.addColorStop(1, "rgba(17, 7, 9, 0)");
   ctx.fillStyle = bloom;
   ctx.fillRect(0, 0, width, height);
 }
@@ -113,7 +113,7 @@ export function paintWordmark(
 
   const ruleY = top + size * 1.16;
   const half = size * 2.8;
-  ctx.strokeStyle = "rgba(255, 187, 69, 0.35)";
+  ctx.strokeStyle = "rgba(232, 181, 80, 0.35)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx - half, ruleY);

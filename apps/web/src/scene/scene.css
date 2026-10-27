@@ -1,0 +1,108 @@
+/**
+ * The room: a full-bleed backdrop behind every page. Layers, bottom to top:
+ * solid ground, blurred placeholder, full image, reactive light (edges only),
+ * scrim (keeps text readable), page dimming (non-game pages).
+ */
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--ink);          /* the fallback if no image ever loads */
+  pointer-events: none;
+}
+.room-layer { position: absolute; inset: 0; }
+.room-layer.is-crossfading { animation: room-in var(--room-fade) var(--ease-in-out) both; }
+@keyframes room-in { from { opacity: 0; } to { opacity: 1; } }
+
+.room-blur {
+  position: absolute;
+  inset: -4%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px);
+}
+.room-layer picture, .room-img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.room-img {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--room-fade) var(--ease-in-out);
+}
+.room-img.is-loaded { opacity: 1; }
+
+/* Reactive light: masked so the middle of the screen (lyrics, faces) never changes. */
+.scene-light {
+  position: absolute;
+  inset: 0;
+  --lb: 0.5;
+  --ltv: 0.3;
+  -webkit-mask-image: radial-gradient(ellipse 58% 52% at 50% 48%, transparent 58%, var(--mask-on) 100%);
+  mask-image: radial-gradient(ellipse 58% 52% at 50% 48%, transparent 58%, var(--mask-on) 100%);
+}
+/* The hole: nothing is lit inside the measured rectangle behind lyrics and faces. Lit where
+   outside the x-range OR outside the y-range (mask layers are added together). */
+.scene-light { --hx0: -9999px; --hx1: -9999px; --hy0: -9999px; --hy1: -9999px; }
+.scene-light-hole {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image:
+    linear-gradient(90deg, var(--mask-on) calc(var(--hx0) - 28px), transparent var(--hx0), transparent var(--hx1), var(--mask-on) calc(var(--hx1) + 28px)),
+    linear-gradient(180deg, var(--mask-on) calc(var(--hy0) - 28px), transparent var(--hy0), transparent var(--hy1), var(--mask-on) calc(var(--hy1) + 28px));
+  -webkit-mask-composite: source-over;
+  mask-image:
+    linear-gradient(90deg, var(--mask-on) calc(var(--hx0) - 28px), transparent var(--hx0), transparent var(--hx1), var(--mask-on) calc(var(--hx1) + 28px)),
+    linear-gradient(180deg, var(--mask-on) calc(var(--hy0) - 28px), transparent var(--hy0), transparent var(--hy1), var(--mask-on) calc(var(--hy1) + 28px));
+  mask-composite: add;
+}
+.scene-warmth {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 62% at 50% 48%, transparent 45%, rgb(var(--gold-hot-rgb) / 0.55) 100%);
+  opacity: calc(0.08 + var(--lb) * 0.5);
+}
+.scene-tv {
+  position: absolute;
+  left: var(--tvx);
+  top: var(--tvy);
+  width: var(--tvs);
+  height: var(--tvs);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgb(var(--gold-pale-rgb) / 0.75) 0%, transparent 68%);
+  opacity: calc(var(--ltv) * 0.9);
+}
+.scene-spot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30vmin;
+  height: 30vmin;
+  margin: -15vmin 0 0 -15vmin;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 700ms var(--ease-in-out);
+  will-change: transform, opacity;
+}
+.spot-1 { background: radial-gradient(circle, color-mix(in srgb, var(--spot-1) 75%, transparent) 0%, transparent 68%); }
+.spot-2 { background: radial-gradient(circle, color-mix(in srgb, var(--spot-2) 75%, transparent) 0%, transparent 68%); }
+.spot-3 { background: radial-gradient(circle, color-mix(in srgb, var(--spot-3) 75%, transparent) 0%, transparent 68%); }
+.spot-4 { background: radial-gradient(circle, color-mix(in srgb, var(--spot-4) 75%, transparent) 0%, transparent 68%); }
+.spot-5 { background: radial-gradient(circle, color-mix(in srgb, var(--spot-5) 75%, transparent) 0%, transparent 68%); }
+
+/* Menu view: the left third and the edges go dark so text always reads. */
+.scene-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim-left), var(--vignette);
+}
+/* Play view: the room stays visible at the edges; only the vignette. */
+.scene[data-view="play"] .scene-scrim { background: var(--vignette); }
+
+/* Non-game pages (sign-in, settings, errors) use the default room, darkened. */
+.scene-dim {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--ink-rgb) / var(--room-dim-page));
+  opacity: 0;
+  transition: opacity var(--room-fade) var(--ease-in-out);
+}
+.scene[data-dim="true"] .scene-dim { opacity: 1; }

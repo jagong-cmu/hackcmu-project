@@ -1,129 +1,16 @@
 /* Component and page styles. Tokens live in tokens.css. */
 
-/* ---------------------------------------------------------------- bloom --
- * The light field behind a page. A wide core band plus two enormous ring
- * arcs whose left and right run off-screen, so what shows is the curve of
- * something vast lit from behind.
- */
-.bloom {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  /* Optional bar-atmosphere backdrop (see --backdrop-image in tokens.css). */
-  background: var(--backdrop-image) center / cover no-repeat;
-}
-/*
- * Layer pairs. The .bloom-drift wrapper owns the slow ambient wander; the
- * inner element owns the pointer parallax. One transform cannot carry both a
- * keyframe animation and a live value, hence the pair.
- */
-.bloom-drift {
-  position: absolute;
-  inset: 0;
-  will-change: transform;
-}
-.bloom-arc { display: none; }
-.bloom-drift-a { animation: bloom-wander-a 31s ease-in-out infinite; }
-.bloom-drift-b { animation: bloom-wander-b 41s ease-in-out infinite; }
-.bloom-drift-c { animation: bloom-wander-c 24s ease-in-out infinite; }
-
-.bloom-arc {
-  position: absolute;
-  left: 50%;
-  width: 190vw;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  /* A bright, narrow edge over dark mid-tones. Raising the shoulder stops
-     (0.10 / 0.16 here) is what washes the whole frame out — keep them low and
-     let only the 70-72% band carry the light. */
-  background: radial-gradient(
-    circle,
-    transparent 58%,
-    rgb(var(--amber-rgb) / 0.08) 65%,
-    rgb(var(--amber-rgb) / 0.32) 70%,
-    rgb(var(--amber-hot-rgb) / 0.5) 72%,
-    rgb(var(--amber-rgb) / 0.1) 77%,
-    transparent 84%
-  );
-  filter: blur(30px);
-}
-
-/* Upper arc, curving down into frame. */
-.bloom-arc-top {
-  bottom: 53%;
-  transform: translateX(-50%) translate(
-    calc(var(--bx, 0) * 42px),
-    calc(var(--by, 0) * 26px)
-  );
-}
-/* Lower arc, curving up. Counter-drifts against the upper one. */
-.bloom-arc-bottom {
-  top: 53%;
-  transform: translateX(-50%) translate(
-    calc(var(--bx, 0) * -38px),
-    calc(var(--by, 0) * -22px)
-  );
-}
-
-/* The hot band where the two arcs meet. */
-.bloom-core {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  width: 78vw;
-  height: 78vh;
-  transform: translate(-50%, -50%) translate(
-    calc(var(--bx, 0) * 36px),
-    calc(var(--by, 0) * 22px)
-  );
-  /* One bulb: a single warm source, falling off to the ink ground. */
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 50%,
-    rgb(var(--amber-hot-rgb) / 0.3) 0%,
-    rgb(var(--amber-rgb) / 0.14) 38%,
-    transparent 72%
-  );
-  filter: blur(24px);
-}
-
-/* Long, prime-ish periods so the three layers never settle into a visible loop. */
-@keyframes bloom-wander-a {
-  0%, 100% { transform: translate3d(-7%, -5%, 0) rotate(-1.4deg) scale(1.06); }
-  33%      { transform: translate3d(6%, 4.5%, 0) rotate(0.8deg) scale(1); }
-  66%      { transform: translate3d(8.5%, -3%, 0) rotate(1.6deg) scale(1.12); }
-}
-@keyframes bloom-wander-b {
-  0%, 100% { transform: translate3d(8%, 4%, 0) rotate(1.2deg) scale(1.1); }
-  40%      { transform: translate3d(-7%, -5.5%, 0) rotate(-1.5deg) scale(1); }
-  72%      { transform: translate3d(-4%, 6.5%, 0) rotate(-0.6deg) scale(1.14); }
-}
-@keyframes bloom-wander-c {
-  0%, 100% { transform: translate3d(-6%, 3%, 0) scale(1); }
-  45%      { transform: translate3d(7.5%, -4.5%, 0) scale(1.18); }
-  75%      { transform: translate3d(2.5%, 5.5%, 0) scale(0.9); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bloom-drift { animation: none; }
-}
-
-/* Anything on a bloom page needs to sit above it. */
-.bloom-page { position: relative; }
-.bloom-page > *:not(.bloom) { position: relative; z-index: 1; }
-
 /* ---- Hit callouts (stage and training) ---- */
 .hit-perfect {
-  color: var(--amber-050);
+  color: var(--gold-050);
   text-shadow: none;
 }
 .hit-great {
-  color: var(--amber-100);
+  color: var(--gold-100);
   text-shadow: none;
 }
 .hit-good {
-  color: var(--amber-300);
+  color: var(--gold-300);
   text-shadow: none;
 }
 .hit-okay { color: var(--fg-dim); text-shadow: none; }
@@ -170,27 +57,6 @@
   touch-action: none;
 }
 
-
-/* ---------------------------------------------------------- voice wave -- */
-
-.voice-wave {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.bloom-page > .voice-wave {
-  position: fixed;
-  z-index: 0;
-}
-.voice-wave.quiet { opacity: 0.32; }
-.stage .voice-wave {
-  position: absolute;
-  z-index: 0;
-}
 
 /* ---------------------------------------------------------- page shell -- */
 
@@ -327,7 +193,7 @@
   color: var(--fg);
 }
 .mode-pick button.on {
-  background: var(--amber-400);
+  background: var(--gold-400);
   color: var(--fg);
   box-shadow: var(--glow-hard);
 }
@@ -426,7 +292,7 @@
 }
 .tabs button.on {
   color: var(--on-accent);
-  background: var(--amber-050);
+  background: var(--gold-050);
   border-bottom-color: transparent;
 }
 
@@ -526,7 +392,7 @@
 }
 .ready-chip.on {
   color: var(--fg);
-  border-color: var(--amber-300);
+  border-color: var(--gold-300);
   box-shadow: none;
 }
 .ready-chip i {
@@ -536,7 +402,7 @@
   background: var(--fg-faint);
 }
 .ready-chip.on i {
-  background: var(--amber-200);
+  background: var(--gold-200);
   box-shadow: none;
 }
 
@@ -659,7 +525,7 @@
 .slim-score.band-good .score-meter-track span { background: var(--score-good); }
 .slim-score.band-mid .score-meter-track span { background: var(--warning); }
 .slim-score.band-bad .score-meter-track span { background: var(--danger); }
-.slim-score.singing .who { color: var(--neon); }
+.slim-score.singing .who { color: var(--accent); }
 .slim-subs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -698,7 +564,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--amber-300);
+  background: var(--gold-300);
   box-shadow: none;
   transition: width 80ms linear;
 }
@@ -782,10 +648,6 @@
 .training .status { flex: none; margin: 0; font-size: var(--text-sm); }
 .training .ctas { flex: none; margin: 2px 0 0; }
 
-/* The ribbon draws down the middle of its canvas, which on this page is the
-   top edge of the staff. Drop it so it runs behind the staff instead. */
-.training .voice-wave { transform: translateY(13%); }
-
 /* Shorter windows: give the staff a floor and let the rest compress. */
 /* Shorter windows: trim the fixed rows, never the staff. */
 @media (max-height: 820px) {
@@ -796,7 +658,6 @@
   .training .stage-self video,
   .training .avatar-tile { width: 84px; height: 52px; }
   .training .tag { display: none; }
-  .training .voice-wave { transform: translateY(11%); }
 }
 
 /* Very short: the camera tile is the least load-bearing thing on the page. */
@@ -805,112 +666,13 @@
   .training .lyrics { min-height: 2.8rem; }
 }
 
-.home-pitch {
-  margin: -4px 0 22px;
-  color: var(--fg-dim);
-  font-size: var(--text-base);
-  letter-spacing: 0.02em;
-  max-width: 26rem;
-  line-height: 1.4;
-}
 
-.home-go {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(20rem, 100%);
-}
-.home-name {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  color: var(--fg-dim);
-  font-size: var(--text-sm);
-  letter-spacing: 0.02em;
-}
-.home-name input {
-  width: 100%;
-  text-align: center;
-  font-size: var(--text-md);
-  letter-spacing: 0.04em;
-}
-.home-name-err {
-  margin: 0;
-  font-size: var(--text-sm);
-}
-.home-play { margin-top: 10px; }
 
-.home-modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  width: min(22rem, 100%);
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid color-mix(in srgb, var(--edge) 80%, transparent);
-}
 
-.home-mode {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-height: 52px;
-  padding: 10px 12px;
-  border: 1px solid var(--edge);
-  border-radius: 14px;
-  background: rgb(var(--surface-rgb) / 0.55);
-  color: var(--fg);
-  text-decoration: none;
-  text-align: center;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
 
-.home-mode:hover,
-.home-mode:focus-visible {
-  outline: none;
-  color: var(--fg);
-  border-color: var(--amber-300);
-  background: rgb(var(--raised-rgb) / 0.9);
-  box-shadow: var(--glow-soft);
-}
 
-.home-mode-label {
-  font-size: var(--text-base);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
 
-.home-mode-hint {
-  color: var(--fg-dim);
-  font-size: var(--text-xs);
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-}
 
-.home-more {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 22px;
-  margin-top: 40px;
-}
-.home-more a {
-  color: var(--fg-dim);
-  text-decoration: none;
-  font-size: var(--text-sm);
-  letter-spacing: 0.02em;
-}
-.home-more a:hover,
-.home-more a:focus-visible {
-  color: var(--fg);
-  outline: none;
-}
 
 
 /* -------------------------------------------------------------- phone --
@@ -920,26 +682,7 @@
  */
 @media (max-width: 760px) {
   .page,
-  .home-simple {
-    padding:
-      calc(14px + env(safe-area-inset-top, 0px))
-      calc(16px + env(safe-area-inset-right, 0px))
-      calc(24px + env(safe-area-inset-bottom, 0px))
-      calc(16px + env(safe-area-inset-left, 0px));
-  }
 
-  .home-nav {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-    gap: 8px;
-  }
-  .home-nav a {
-    min-height: 44px;
-    padding: 0 8px;
-    display: inline-flex;
-    align-items: center;
-    font-size: var(--text-sm);
-  }
 
   .wordmark {
     font-size: clamp(2.8rem, 14vw, 4.2rem);
@@ -950,19 +693,6 @@
     width: min(18rem, 78vw);
     margin: 10px 0 16px;
     gap: 10px;
-  }
-  .home-pitch {
-    margin: 0 0 16px;
-    font-size: var(--text-sm);
-  }
-  .home-modes { margin-top: 18px; padding-top: 16px; gap: 8px; }
-  .home-mode { min-height: 48px; }
-  .home-mode-label { font-size: var(--text-sm); }
-  .home-more { margin-top: 24px; }
-  .home-hero .eyebrow { margin: 8px 0 14px; }
-  .home-hero .modes button {
-    font-size: clamp(2.1rem, 10vw, 2.8rem);
-    padding-bottom: 6px;
   }
   .mode-hint { font-size: var(--text-xs); }
 
@@ -1224,37 +954,12 @@
 /* Short windows: landscape phones (often >760px wide) and squat desktops. */
 @media (max-height: 540px) {
   .page,
-  .home-simple {
-    overflow-y: auto;
-    padding:
-      calc(8px + env(safe-area-inset-top, 0px))
-      calc(20px + env(safe-area-inset-right, 0px))
-      calc(8px + env(safe-area-inset-bottom, 0px))
-      calc(16px + env(safe-area-inset-left, 0px));
-  }
-  .home-nav {
-    top: calc(6px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-  }
   .wordmark {
     font-size: clamp(2rem, 9vh, 3.2rem);
     letter-spacing: 0.16em;
     text-indent: 0.16em;
   }
   .hero-rule { width: min(22rem, 50vw); margin: 6px 0 10px; }
-  .home-pitch { margin: 0 0 10px; font-size: var(--text-sm); }
-  .home-go { gap: 4px; }
-  .home-play { margin-top: 2px; }
-  .home-modes { margin-top: 10px; padding-top: 10px; gap: 6px; }
-  .home-mode { min-height: 40px; padding: 6px 8px; border-radius: 10px; }
-  .home-mode-label { font-size: var(--text-sm); }
-  .home-mode-hint { font-size: var(--text-xs); }
-  .home-more { margin-top: 12px; gap: 6px 14px; }
-  .home-hero .eyebrow { margin: 4px 0 8px; }
-  .home-hero .modes button {
-    font-size: clamp(1.45rem, 8vh, 2.2rem);
-    padding-bottom: 2px;
-  }
   .mode-hint { font-size: var(--text-xs); }
 
   .shell { align-items: stretch; }
@@ -1396,7 +1101,7 @@
 .mode-card:focus-visible {
   outline: none;
   color: var(--fg);
-  border-color: var(--amber-300);
+  border-color: var(--gold-300);
   background: rgb(var(--raised-rgb) / 0.9);
   box-shadow: var(--glow-soft);
   transform: translateY(-2px);
@@ -1540,8 +1245,8 @@
 .safety-chip:hover,
 .safety-chip:focus-visible { color: var(--fg); border-color: var(--accent); outline: none; }
 .safety-chip.on {
-  border-color: var(--amber-200);
-  background: var(--amber-200);
+  border-color: var(--gold-200);
+  background: var(--gold-200);
   color: var(--ink);
 }
 .safety-note { display: grid; gap: 6px; margin-bottom: 12px; color: var(--fg-dim); font-size: var(--text-sm); }
@@ -1560,7 +1265,7 @@
 .safety-note textarea:focus { border-color: var(--accent); outline: none; }
 .safety-note small { justify-self: end; color: var(--fg-faint); font-size: var(--text-xs); }
 .safety-check { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); cursor: pointer; }
-.safety-check input { width: 18px; height: 18px; accent-color: var(--amber-300); }
+.safety-check input { width: 18px; height: 18px; accent-color: var(--gold-300); }
 .safety-error { margin: 10px 0 0; color: var(--danger); font-size: var(--text-sm); }
 .safety-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .safety-primary,
@@ -1575,7 +1280,7 @@
   text-decoration: none;
   cursor: pointer;
 }
-.safety-primary { border: 1px solid var(--amber-300); background: var(--amber-300); color: var(--ink); }
+.safety-primary { border: 1px solid var(--gold-300); background: var(--gold-300); color: var(--ink); }
 .safety-primary.danger { border-color: var(--danger); background: var(--danger); }
 .safety-primary:hover:not(:disabled),
 .safety-primary:focus-visible { box-shadow: var(--glow-hard); outline: none; }

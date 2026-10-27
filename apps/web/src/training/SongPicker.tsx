@@ -4,7 +4,7 @@ import "./songPicker.css";
 export type PickerSong = { id: string; title: string; artist: string; ready: boolean };
 
 /**
- * Cover art is optional: /songs/<id>/cover.jpg when it exists, otherwise a
+ * Each song has a display number (001, 002, ...), noraebang-songbook style. Cover art is optional: /songs/<id>/cover.jpg when it exists, otherwise a
  * token-coloured tile with the title's first letter. The UI is complete
  * without any image.
  */
@@ -35,7 +35,7 @@ export function SongPicker({
   return (
     <fieldset className="song-picker" disabled={disabled}>
       <legend>Song</legend>
-      {songs.map((s) => (
+      {songs.map((s, i) => (
         <label key={s.id} className={`song-entry${s.id === value ? " is-picked" : ""}${s.ready ? "" : " is-off"}`}>
           <input
             type="radio"
@@ -45,6 +45,7 @@ export function SongPicker({
             disabled={!s.ready}
             onChange={() => onChange(s.id)}
           />
+          <span className="song-no">{String(i + 1).padStart(3, "0")}</span>
           <Cover id={s.id} title={s.title} />
           <span className="song-entry-text">
             <span className="song-entry-title">{s.title}</span>

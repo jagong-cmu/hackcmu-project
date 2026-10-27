@@ -2,14 +2,16 @@
  * Thin router only. Do not put logic here (TECHNICAL_PRD §4).
  */
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Home } from "./home/Home.tsx";
+import { MainMenu } from "./home/MainMenu.tsx";
 import { Play } from "./home/Play.tsx";
-import { ModeSelect } from "./home/ModeSelect.tsx";
 import { Settings } from "./home/Settings.tsx";
 import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
 import { ArenaStats } from "./leaderboard/ArenaStats.tsx";
 import { DesignSystem } from "./theme/DesignSystem.tsx";
 import { NotFound } from "./theme/NotFound.tsx";
+import { SceneCheck } from "./scene/SceneCheck.tsx";
+import { Backdrop } from "./scene/Backdrop.tsx";
+import { SceneProvider } from "./scene/SceneProvider.tsx";
 import { PitchTest } from "./training/PitchTest.tsx";
 import { SyncLyrics } from "./training/SyncLyrics.tsx";
 import { ResultsPreview } from "./results/ResultsPreview.tsx";
@@ -28,14 +30,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnalyticsRoot />
+      <SceneProvider>
+      <Backdrop />
       <RoomProvider><AuthProvider>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<MainMenu />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/play" element={<RequireAuth><ModeSelect /></RequireAuth>} />
+          <Route path="/play" element={<RequireAuth><MainMenu /></RequireAuth>} />
           <Route path="/play/:mode" element={<RequireAuth><DeviceCheckGate><Play /></DeviceCheckGate></RequireAuth>} />
           <Route path="/check" element={<RequireAuth><DeviceCheck /></RequireAuth>} />
           <Route path="/check/voice" element={<RequireAuth><VoiceCheck /></RequireAuth>} />
@@ -44,6 +48,7 @@ export default function App() {
           {import.meta.env.DEV ? (
             <>
               <Route path="/system" element={<DesignSystem />} />
+              <Route path="/scene-check" element={<SceneCheck />} />
               <Route path="/results-preview" element={<ResultsPreview />} />
               <Route path="/sync" element={<SyncLyrics />} />
               <Route path="/pitchtest" element={<PitchTest />} />
@@ -55,6 +60,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider></RoomProvider>
+      </SceneProvider>
     </BrowserRouter>
   );
 }

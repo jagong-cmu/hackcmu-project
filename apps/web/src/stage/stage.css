@@ -57,7 +57,7 @@
   border: 1px solid var(--edge-strong);
   border-radius: var(--r-pill);
 }
-.turn-guide.go { border-color: var(--neon); }
+.turn-guide.go { border-color: var(--accent); }
 .turn-guide.wait { border-color: var(--edge-strong); }
 .turn-guide strong {
   font-family: var(--font-display);
@@ -83,13 +83,13 @@
 .landing button:not(.btn):not(.cta):hover:not(:disabled) { border-color: var(--edge-strong); background: var(--surface-3); }
 .stage button:not(.btn):not(.cta).primary,
 .landing button:not(.btn):not(.cta).primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
   color: var(--on-accent);
   font-weight: 700;
 }
 .stage button:not(.btn):not(.cta).primary:hover:not(:disabled),
-.landing button:not(.btn):not(.cta).primary:hover:not(:disabled) { background: var(--accent-hi); border-color: var(--accent-hi); }
+.landing button:not(.btn):not(.cta).primary:hover:not(:disabled) { background: var(--accent-fill-hi); border-color: var(--accent-fill-hi); }
 .timer .bar span { background: var(--accent); }
 
 /* Match intro: the versus card that opens the countdown. Left is the opponent,
@@ -159,7 +159,7 @@
 .callout-count.go { color: var(--accent); }
 
 /* Use the height: lyrics scale up on big screens, the board centres under the feeds. */
-.stage.stage-fit { --text-lyric: clamp(1.75rem, 3.6vw, 4.25rem); }
+.stage.stage-fit { --text-lyric: clamp(1.75rem, 3.3vw, 4rem); }
 .stage-board { justify-content: center; gap: var(--sp-4); }
 
 /* The live score HUD sits under the staff, not over it, so it never covers the axis labels. */
@@ -171,3 +171,23 @@
 /* The clip timer is the second thing the singer glances at: give it size. */
 .stage .timer { font-family: var(--font-display); font-weight: 700; font-size: var(--text-xl); font-variant-numeric: tabular-nums; }
 .stage .timer.timer-compact { font-size: var(--text-lg); }
+
+/* Staff on top, score HUD under it. (Training's .pitch-stage is a flex row.) */
+.pitch-stage { display: flex; flex-direction: column; }
+
+
+/* ---- The room around the play screen ------------------------------------
+ * The stage column is capped so, on a wide screen, the room stays visible at
+ * both edges (that is where the reactive light lives); feeds and lyrics sit
+ * in the plain middle of the image. */
+.stage.stage-fit { background: none; }
+.stage.stage-fit > header.stage-top,
+.stage.stage-fit > .stage-alerts,
+.stage.stage-fit > .stage-arena,
+.stage.stage-fit > .stage-chaos,
+.stage.stage-fit > .stage-dock {
+  width: min(100%, 80rem);
+  margin-inline: auto;
+}
+.tile.feed { background: var(--panel); border-color: var(--edge); }
+.stage header .badge { text-transform: uppercase; letter-spacing: var(--track-caps); }

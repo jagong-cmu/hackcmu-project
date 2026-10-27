@@ -16,6 +16,8 @@ import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { authHeaders } from "../auth/supabase.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
 import { SongPicker } from "./SongPicker.tsx";
+import { melodyHzAt } from "../scoring/scoreClip.ts";
+import { publishFinal, publishGrade, publishIdle } from "../scene/signal.ts";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
@@ -441,6 +443,18 @@ export function Training() {
     setStatus("Done.");
   }
 
+  // Reactive room (read-only): the singer's own accuracy, the most direct feedback.
+  const trainGrade = running ? gradeLive(guideMelody, playhead, liveHz) : null;
+  // Lead-in and melody rests are not the singer's fault: the room holds neutral there.
+  // (guideMelody already silences notes before the anchor, so the lead-in has no target either.)
+  const gradable = running && guideMelody != null && melodyHzAt(guideMelody, playhead) != null;
+  useEffect(() => {
+    if (card) publishFinal(card.silence ? 0 : card.overall);
+    else if (gradable) publishGrade(trainGrade);
+    else publishIdle();
+  });
+  useEffect(() => () => publishIdle(), []);
+
   const readySongs = songs.filter((s) => s.ready);
   const nameOk = validName(getDisplayName());
 
@@ -449,6 +463,7 @@ export function Training() {
       title="Training"
       tag="Pick a song, then sing. The staff shows your pitch against the melody."
       wide
+      bare
       className="training"
     >
       <SongPicker
