@@ -56,7 +56,7 @@ export default function CountdownOverlay({
       className="countdown-veil"
       role="status"
       aria-live="assertive"
-      style={{ background: `rgb(var(--ink-rgb) / ${veil})` }}
+      style={{ background: `rgb(var(--bg-rgb) / ${veil})` }}
     >
       {phase === "swap" ? <p className="countdown-kicker">Same chorus</p> : null}
       {introUp && versus ? (

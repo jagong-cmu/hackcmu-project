@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { songById } from "@karaoke/shared";
 import { PageShell } from "../theme/PageShell.tsx";
-import { useScene } from "../scene/SceneProvider.tsx";
 
 type RankedRow = { rank: number; displayName: string; elo: number; matchesPlayed: number };
 type DuetRow = { rank: number; songId: string; names: [string, string]; score: number };
@@ -36,8 +35,6 @@ export function Leaderboard() {
   }, []);
 
   // Each leaderboard is shown in its own mode's room.
-  const { setLeaderboardTab } = useScene();
-  useEffect(() => setLeaderboardTab(tab), [tab, setLeaderboardTab]);
 
   return (
     <PageShell title="Leaderboard" tag="Who’s been singing." wide>

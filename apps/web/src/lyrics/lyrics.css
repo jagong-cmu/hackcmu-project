@@ -1,13 +1,7 @@
 /**
- * Lyrics: the classic noraebang screen. Two rows, alternating: the top row sits
- * left, the bottom row sits right. White text with a dark outline, and each
- * word fills with colour, left to right, as it is sung. The largest text on the
- * play screen, readable from a step back.
- *
- * The wipe is two stacked copies of each word. The base copy is white; the sung
- * copy is gold and revealed by clip-path, driven by the word's --fill (0..1),
- * which lyrics/wipe.ts computes from the audio clock. No transition on the
- * reveal: --fill changes every frame and easing it would lag the music.
+ * Lyrics: two rows, alternating, the top row left and the bottom row right.
+ * Plain text, no per-word fill (the wipe timing is off; lyrics/wipe.ts is kept
+ * for when it is fixed). Owner: session C (see docs/ui-ownership.md).
  */
 
 .lyrics {
@@ -19,35 +13,33 @@
 /* Messages ("Loading lyrics", "Next song starting") share the lyric face. */
 .lyrics-now {
   margin: 0;
-  font-family: var(--font-lyric);
+  font-family: var(--font-body);
   font-weight: 800;
-  font-size: var(--text-lyric);
+  font-size: var(--size-lyric);
   line-height: 1.12;
-  color: var(--fg);
+  color: var(--text);
 }
 
 .lyric-rows {
   --outline:
-    -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink), 2px 2px 0 var(--ink),
-    0 -3px 0 var(--ink), 0 3px 0 var(--ink), -3px 0 0 var(--ink), 3px 0 0 var(--ink),
-    0 5px 14px rgb(var(--ink-rgb) / 0.7);
+    -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg),
+    0 -3px 0 var(--bg), 0 3px 0 var(--bg), -3px 0 0 var(--bg), 3px 0 0 var(--bg),
+    0 5px 14px rgb(var(--bg-rgb) / 0.7);
   display: grid;
   gap: var(--sp-2);
   width: min(100%, 84rem);
   margin-inline: auto;
 }
 .lyric-row {
-  --unsung: var(--fg);
-  --sung: var(--gold-200);
   max-width: 96%;
   min-height: 1.12em;
   margin: 0;
-  font-family: var(--font-lyric);
+  font-family: var(--font-body);
   font-weight: 800;
-  font-size: var(--text-lyric);
+  font-size: var(--size-lyric);
   line-height: 1.12;
   letter-spacing: -0.005em;
-  color: var(--unsung);
+  color: var(--text);
   text-shadow: var(--outline);
 }
 .row-0 { justify-self: start; text-align: left; }
@@ -62,35 +54,25 @@
   white-space: nowrap;
   margin-inline: 0.13em;
 }
-.lyric-sung {
-  position: absolute;
-  inset: 0;
-  color: var(--sung);
-  clip-path: inset(0 calc((1 - var(--fill, 0)) * 100%) 0 0);
-  pointer-events: none;
-}
 
-/* Duet: whose line it is, said in words and in colour. */
-.lyric-row.is-active.duet-them { --sung: var(--fg-dim); }
-.lyric-row.is-active.duet-together { --sung: var(--gold-100); }
 
 .lyrics-cue {
   margin: 0 0 var(--sp-2);
   min-height: 1.2em;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-md);
+  font-weight: 400;
+  font-size: var(--size-md);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   line-height: 1;
-  color: var(--fg-dim);
-  text-shadow: 0 1px 8px rgb(var(--ink-rgb) / 0.8);
+  color: var(--muted);
+  text-shadow: 0 1px 8px rgb(var(--bg-rgb) / 0.8);
 }
-.lyrics-cue.you,
+.lyrics-cue.you { color: var(--red-text); }
+.lyrics-cue.them { color: var(--blue-text); }
 .lyrics-cue.together,
-.lyrics-cue.leadin { color: var(--gold-200); }
-.lyrics-cue.them { color: var(--fg); }
-.lyrics-leadin .leadin-who { color: var(--fg-dim); }
+.lyrics-cue.leadin { color: var(--ice); }
+.lyrics-leadin .leadin-who { color: var(--muted); }
 
 /* A count back in before the next line. */
 .lyrics-count {
@@ -104,16 +86,16 @@
   width: 0.625rem;
   height: 0.625rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--red);
 }
-.lyrics-count .dot.spent { background: var(--fg-faint); }
+.lyrics-count .dot.spent { background: var(--muted); }
 .lyrics-count .count-num {
   margin-left: var(--sp-3);
   min-width: 1.2em;
   font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 700;
+  font-size: var(--size-lg);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  color: var(--fg);
-  text-shadow: 0 1px 8px rgb(var(--ink-rgb) / 0.8);
+  color: var(--text);
+  text-shadow: 0 1px 8px rgb(var(--bg-rgb) / 0.8);
 }

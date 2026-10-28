@@ -4,30 +4,27 @@ import { capture } from "../analytics/posthog.ts";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { LegalLinks } from "../legal/LegalLinks.tsx";
 import { useRoom } from "../rooms/RoomProvider.tsx";
-import { useScene } from "../scene/SceneProvider.tsx";
-import type { RoomId } from "../scene/rooms.ts";
-import { KeyHints } from "../ui/KeyHints.tsx";
-import { MenuList, type MenuItem } from "../ui/MenuList.tsx";
+import { KeyHintBar } from "../ui/KeyHints.tsx";
+import "./mainMenu.css";
+import { SelectableList, type ListItem } from "../ui/SelectableList.tsx";
 import { isRoomCode, normalizeRoomCode } from "../ui/roomCode.ts";
 import { getDisplayName, validName } from "./identity.ts";
 
-/** Each mode drops you straight into its own queue (or solo Training), in its own room. */
-const MODES: { mode: string; label: string; desc: string; room: RoomId; to: string }[] = [
-  { mode: "ranked", label: "Ranked", desc: "1v1. The same chorus, you then them. Winner takes casual Elo.", room: "ranked", to: "/play/ranked?go=1" },
-  { mode: "duet", label: "Duet", desc: "Sing the whole song together. One shared score, no Elo.", room: "duet", to: "/play/duet?go=1" },
-  { mode: "training", label: "Training", desc: "Just you. Live pitch, scored, no Elo.", room: "training", to: "/training" },
-  { mode: "chaos", label: "Chaos", desc: "Drop into the party. Up to eight on camera, no score.", room: "party", to: "/play/chaos?go=1" },
+/** Each mode drops you straight into its own queue (or solo Training). */
+const MODES: { mode: string; label: string; desc: string; to: string }[] = [
+  { mode: "ranked", label: "Ranked", desc: "1v1. The same chorus, you then them. Winner takes casual Elo.", to: "/play/ranked?go=1" },
+  { mode: "duet", label: "Duet", desc: "Sing the whole song together. One shared score, no Elo.", to: "/play/duet?go=1" },
+  { mode: "training", label: "Training", desc: "Just you. Live pitch, scored, no Elo.", to: "/training" },
+  { mode: "chaos", label: "Chaos", desc: "Drop into the party. Up to eight on camera, no score.", to: "/play/chaos?go=1" },
 ];
 
 /**
- * The main menu: a left-aligned list of modes over the room. The backdrop
- * crossfades to each mode's room as it is selected. Replaces the old Home and
+ * The main menu: a left-aligned list of modes. Replaces the old Home and
  * mode-picker pages; the analytics events they fired still fire.
  */
 export function MainMenu() {
   const navigate = useNavigate();
   const { mode: authMode, user } = useAuth();
-  const { setMenuRoom } = useScene();
   const { hello, roomJoin, connected, error } = useRoom();
   const signedOut = authMode === "accounts" && !user;
   const [codeOpen, setCodeOpen] = useState(false);
@@ -53,7 +50,7 @@ export function MainMenu() {
     roomJoin(code); // the room provider takes us to /room/:code once it joins
   }
 
-  const items: MenuItem[] = [
+  const items: ListItem[] = [
     ...MODES.map((m) => ({ id: m.mode, label: m.label, desc: m.desc, onActivate: () => play(m) })),
     {
       id: "code",
@@ -89,7 +86,6 @@ export function MainMenu() {
     { id: "settings", label: "Settings", secondary: true, desc: "Your name, mic and camera.", onActivate: () => navigate("/settings") },
   ];
 
-  const roomOf = (id: string): RoomId | null => MODES.find((m) => m.mode === id)?.room ?? null;
 
   return (
     <main className="main-menu">
@@ -99,13 +95,10 @@ export function MainMenu() {
       </header>
 
       <div>
-        <MenuList
+        <SelectableList
           items={items}
           label="Main menu"
-          onSelectionChange={(it) => {
-            const room = roomOf(it.id);
-            if (room) setMenuRoom(room);
-          }}
+          className="menu"
           onBack={() => {
             setCodeOpen(false);
             setCode("");
@@ -128,7 +121,7 @@ export function MainMenu() {
       <footer className="menu-foot">
         <LegalLinks />
       </footer>
-      <KeyHints />
+      <KeyHintBar />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { KeyHints } from "../ui/KeyHints.tsx";
+import { KeyHintBar } from "../ui/KeyHints.tsx";
 
 type Props = {
   title: string;
@@ -48,7 +48,7 @@ export function PageShell({ title, tag, wide, bare, children, className, onHome 
         {tag ? <p className="tag">{tag}</p> : null}
         {children}
       </div>
-      <KeyHints hints={[{ keys: ["Esc"], label: "Back" }]} />
+      <KeyHintBar hints={[{ keys: ["Esc"], label: "Back" }]} />
     </main>
   );
 }

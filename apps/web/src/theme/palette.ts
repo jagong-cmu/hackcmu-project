@@ -6,9 +6,9 @@
 export type Palette = {
   bg: string;
   fg: string;
-  /** Cream at a given alpha: grid lines, spent notes, dim labels. */
+  /** The guide-line colour (--line-rgb) at a given alpha: grid lines, spent notes, dim labels. */
   ink: (alpha: number) => string;
-  /** Any `--*-rgb` channel token at a given alpha, e.g. tone("gold-rgb", 0.4). */
+  /** Any `--*-rgb` channel token at a given alpha, e.g. tone("ice-rgb", 0.4). */
   tone: (channel: string, alpha: number) => string;
   accent: string;
 };
@@ -18,32 +18,26 @@ let cached: Palette | null = null;
 export function palette(): Palette {
   if (cached) return cached;
   const css = getComputedStyle(document.documentElement);
-  const read = (name: string, fallback: string) =>
-    css.getPropertyValue(name).trim() || fallback;
-  const cream = read("--cream-rgb", "255 232 205");
+  const read = (name: string) => css.getPropertyValue(name).trim();
+  const line = read("--line-rgb");
   cached = {
-    // Translucent on purpose: the canvas paints this over whatever is behind
-    // the element, so the voice wave shows through the meter.
-    bg: read("--meter-bg", "rgba(31, 13, 16, 0.6)"),
-    fg: read("--fg", "#f4eadf"),
-    ink: (alpha: number) => `rgb(${cream} / ${alpha})`,
-    tone: (channel: string, alpha: number) =>
-      `rgb(${read(`--${channel}`, cream)} / ${alpha})`,
-    accent: read("--accent", "#f45a5d"),
+    bg: read("--surface"),
+    fg: read("--text"),
+    ink: (alpha: number) => `rgb(${line} / ${alpha})`,
+    tone: (channel: string, alpha: number) => `rgb(${read(`--${channel}`)} / ${alpha})`,
+    accent: read("--red"),
   };
   return cached;
 }
 
 /**
- * Brightness by pitch height rather than hue: the palette is one bulb, so a
- * high note reads as hotter light, a low note as deeper gold. `lit` is the
- * in-tune state and gets the full white-hot end of the ramp.
+ * Your voice in the pitch lane: red (red = you). Higher notes read a little
+ * lighter; `lit` is the in-tune state and gets the full-strength end.
  */
 export function pitchColor(midi: number, alpha = 1, lit = true): string {
   // C2..C6 covers every melody in the catalogue plus the singers' range.
   const t = Math.max(0, Math.min(1, (midi - 36) / 48));
-  const hue = 40 + t * 8;
-  const sat = lit ? 95 : 45;
-  const light = lit ? 62 + t * 26 : 46 + t * 12;
-  return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+  const sat = lit ? 80 : 40;
+  const light = lit ? 50 + t * 14 : 40 + t * 10;
+  return `hsla(350, ${sat}%, ${light}%, ${alpha})`;
 }

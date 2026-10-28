@@ -53,3 +53,35 @@ test("an all-disabled menu stays put", () => {
   const disabled = new Set([0, 1, 2]);
   assert.equal(navigate({ index: 1, count: 3, disabled }, "ArrowDown").index, 1);
 });
+
+// Grid: 7 items in 3 columns.
+//   0 1 2
+//   3 4 5
+//   6
+const grid = { count: 7, columns: 3 };
+
+test("grid: Left/Right move within the list, Up/Down move by a row", () => {
+  assert.equal(navigate({ ...grid, index: 4 }, "ArrowRight").index, 5);
+  assert.equal(navigate({ ...grid, index: 4 }, "ArrowLeft").index, 3);
+  assert.equal(navigate({ ...grid, index: 4 }, "ArrowDown").index, 4); // nothing below 4: stay
+  assert.equal(navigate({ ...grid, index: 1 }, "ArrowDown").index, 4);
+  assert.equal(navigate({ ...grid, index: 3 }, "ArrowDown").index, 6);
+  assert.equal(navigate({ ...grid, index: 6 }, "ArrowUp").index, 3);
+});
+
+test("grid: edges stop instead of wrapping", () => {
+  assert.equal(navigate({ ...grid, index: 1 }, "ArrowUp").index, 1);
+  assert.equal(navigate({ ...grid, index: 0 }, "ArrowLeft").index, 0);
+  assert.equal(navigate({ ...grid, index: 6 }, "ArrowRight").index, 6);
+});
+
+test("grid: disabled cells are skipped in the direction of travel", () => {
+  assert.equal(navigate({ ...grid, index: 0, disabled: new Set([3]) }, "ArrowDown").index, 6);
+  assert.equal(navigate({ ...grid, index: 3, disabled: new Set([4]) }, "ArrowRight").index, 5);
+  assert.equal(navigate({ ...grid, index: 0, disabled: new Set([3, 6]) }, "ArrowDown").index, 0);
+});
+
+test("a vertical list ignores Left/Right", () => {
+  assert.equal(navigate({ index: 2, count: 5 }, "ArrowRight").index, 2);
+  assert.equal(navigate({ index: 2, count: 5 }, "ArrowLeft").index, 2);
+});

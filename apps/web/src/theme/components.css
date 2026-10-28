@@ -5,15 +5,17 @@
  */
 
 /* --------------------------------------------------------------- button --
- * Primary is the one amber thing on a screen. Secondary is an outline.
- * Ghost is text. Danger is for destructive actions only.
+ * Use the <Button> component (ui/Button.tsx); these classes are its styles
+ * (and what older markup with .cta still uses).
+ * Primary: solid red, white text (one per screen). Secondary: outline on
+ * surface. Ghost: text. Danger: destructive actions only.
  */
 .btn,
 .text-btn,
 .cta {
-  --btn-bg: var(--surface-2);
-  --btn-fg: var(--fg);
-  --btn-edge: var(--edge-strong);
+  --btn-bg: var(--surface);
+  --btn-fg: var(--text);
+  --btn-edge: var(--line);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25,29 +27,33 @@
   color: var(--btn-fg);
   border: 1px solid var(--btn-edge);
   border-radius: var(--r-md);
-  font-family: var(--font-ui);
-  font-size: var(--text-base);
+  font-family: var(--font-body);
+  font-size: var(--size-base);
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0;
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-instant) var(--ease-out);
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
 }
 .btn:hover,
 .text-btn:hover,
 .cta:hover {
-  --btn-bg: var(--surface-3);
-  --btn-edge: var(--edge-strong);
+  --btn-bg: var(--surface-2);
+  --btn-edge: var(--line-strong);
   background: var(--btn-bg);
   color: var(--btn-fg);
   border-color: var(--btn-edge);
 }
-.btn:active { transform: translateY(1px); }
+.btn:focus-visible,
+.text-btn:focus-visible,
+.cta:focus-visible { outline: 2px solid var(--red-text); outline-offset: 3px; }
+.btn:active:not(:disabled),
+.cta:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled,
 .btn[aria-disabled="true"],
 .text-btn:disabled,
@@ -58,51 +64,49 @@
 }
 
 .btn-primary,
-.btn.gold,
 .cta:not(.cta-ghost) {
-  --btn-bg: var(--accent-fill);
-  --btn-fg: var(--on-accent);
-  --btn-edge: var(--accent-fill);
-  font-weight: 700;
+  --btn-bg: var(--red);
+  --btn-fg: var(--on-red);
+  --btn-edge: var(--red);
+  font-weight: 600;
 }
 .btn-primary:hover,
-.btn.gold:hover,
 .cta:not(.cta-ghost):hover {
-  --btn-bg: var(--accent-fill-hi);
-  --btn-edge: var(--accent-fill-hi);
-  color: var(--on-accent);
+  --btn-bg: var(--red-hi);
+  --btn-edge: var(--red-hi);
+  color: var(--on-red);
 }
 .btn-ghost,
 .btn.ghost {
   --btn-bg: transparent;
   --btn-edge: transparent;
-  --btn-fg: var(--fg-dim);
+  --btn-fg: var(--muted);
   padding-inline: var(--sp-3);
 }
 .btn-ghost:hover,
 .btn.ghost:hover {
-  --btn-bg: rgb(var(--cream-rgb) / 0.08);
+  --btn-bg: rgb(var(--line-rgb) / 0.08);
   --btn-edge: transparent;
-  color: var(--fg);
+  color: var(--text);
 }
 .btn-danger {
   --btn-bg: transparent;
-  --btn-fg: var(--danger);
-  --btn-edge: var(--danger);
+  --btn-fg: var(--red-text);
+  --btn-edge: var(--red-text);
 }
 .btn-danger:hover {
-  --btn-bg: rgb(var(--danger-rgb) / 0.12);
-  color: var(--danger);
+  --btn-bg: rgb(var(--red-rgb) / 0.12);
+  color: var(--red-text);
 }
 .btn-lg,
-.cta-lg { min-height: 3.5rem; padding-inline: var(--sp-6); font-size: var(--text-md); }
+.cta-lg { min-height: 3.5rem; padding-inline: var(--sp-6); font-size: var(--size-md); }
 
 /* A selected toggle button (e.g. the chosen option in a group). */
 .cta.is-on,
 .btn.is-on {
   --btn-bg: rgb(var(--red-rgb) / 0.18);
-  --btn-fg: var(--fg);
-  --btn-edge: var(--accent);
+  --btn-fg: var(--text);
+  --btn-edge: var(--red);
   cursor: default;
 }
 
@@ -112,12 +116,12 @@
 .field { display: flex; flex-direction: column; gap: var(--sp-2); }
 .field > label,
 .field-label {
-  font-size: var(--text-sm);
+  font-size: var(--size-sm);
   font-weight: 500;
-  color: var(--fg-dim);
+  color: var(--muted);
 }
-.field-hint { font-size: var(--text-sm); color: var(--fg-faint); margin: 0; }
-.field-error { font-size: var(--text-sm); color: var(--danger); margin: 0; }
+.field-hint { font-size: var(--size-sm); color: var(--muted); margin: 0; }
+.field-error { font-size: var(--size-sm); color: var(--red-text); margin: 0; }
 
 input:not([type="checkbox"], [type="radio"], [type="range"]),
 select,
@@ -126,19 +130,19 @@ textarea {
   min-width: 7rem;
   padding: var(--sp-2) var(--sp-3);
   background: var(--surface-2);
-  color: var(--fg);
-  border: 1px solid var(--edge);
-  border-bottom: 1px solid var(--edge);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   border-radius: var(--r-md);
   font: inherit;
-  transition: border-color var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease);
 }
-input::placeholder, textarea::placeholder { color: var(--fg-faint); }
-input:hover, select:hover, textarea:hover { border-color: var(--edge-strong); }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
 input:focus-visible, select:focus-visible, textarea:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--red);
 }
-input[aria-invalid="true"], .field.invalid input { border-color: var(--danger); }
+input[aria-invalid="true"], .field.invalid input { border-color: var(--red-text); }
 input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---------------------------------------------------------------- panel --
@@ -148,7 +152,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
 .panel {
   padding: var(--sp-5);
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
 }
@@ -168,18 +172,19 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   margin: 0;
   overflow: hidden;
   aspect-ratio: 4 / 3;
-  background: var(--ink-2);
-  border: 1px solid var(--edge);
+  background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  --feed-side: var(--player-a);
+  --feed-side: var(--them);
 }
-.feed[data-side="b"] { --feed-side: var(--player-b); }
+.feed[data-you] { --feed-side: var(--you); }
 .feed > video,
 .feed > canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.feed[data-state="live"] { border-color: var(--edge-strong); }
+.feed[data-state="live"] { border-color: var(--line-strong); }
 /* Neon marks whose turn it is. "You" is the tag in the label, not a glow. */
-.feed.singing { box-shadow: var(--glow-live); border-color: var(--accent); }
+/* Whose turn it is, in that singer's colour: red if it is you, blue if them. */
+.feed.singing { box-shadow: 0 0 0 1px var(--feed-side); border-color: var(--feed-side); }
 .feed.waiting > video { opacity: 0.55; }
 
 .feed-label {
@@ -195,9 +200,9 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   /* Whose feed this is: the chip is outlined in the side colour (and sits on that side). */
   box-shadow: inset 0 0 0 1px var(--feed-side);
   border-radius: var(--r-pill);
-  font-size: var(--text-sm);
+  font-size: var(--size-sm);
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -209,16 +214,16 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--feed-side);
 }
 .feed[data-you] .feed-label::after {
   content: "YOU";
   padding-inline: var(--sp-2);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--red);
   border-radius: var(--r-sm);
-  font-size: var(--text-xs);
+  font-size: var(--size-xs);
   letter-spacing: var(--track-caps);
-  color: var(--accent);
+  color: var(--red-text);
 }
 
 /* Not live: say so in words, over a quiet ground. */
@@ -230,10 +235,10 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   gap: var(--sp-2);
   padding: var(--sp-4);
   text-align: center;
-  color: var(--fg-dim);
-  font-size: var(--text-sm);
+  color: var(--muted);
+  font-size: var(--size-sm);
 }
-.feed-state strong { color: var(--fg); font-size: var(--text-md); font-weight: 600; }
+.feed-state strong { color: var(--text); font-size: var(--size-md); font-weight: 600; }
 
 /* ----------------------------------------------------------------- score --
  * Scoreboard numerals: used on results only. Big, tabular, a faint segment
@@ -246,22 +251,22 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-a
   align-items: baseline;
   gap: var(--sp-2);
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 400;
   line-height: var(--leading-tight);
-  color: var(--gold-200);
+  color: var(--ice);
   font-variant-numeric: tabular-nums;
 }
-.score-display .num { font-size: var(--text-display); letter-spacing: -0.02em; }
-.score-display .score-unit { font-size: var(--text-lg); color: var(--fg-faint); font-weight: 500; }
-.score-display.is-pending .num { color: var(--fg-faint); }
-.score-display.is-winner .num { color: var(--gold-100); }
+.score-display .num { font-size: var(--size-display); letter-spacing: -0.02em; }
+.score-display .score-unit { font-size: var(--size-lg); color: var(--muted); font-weight: 500; }
+.score-display.is-pending .num { color: var(--muted); }
+.score-display.is-winner .num { color: var(--ice); }
 
 /* Signed deltas (Elo). The sign is a character, so colour is never alone. */
 .delta { font-weight: 700; font-variant-numeric: tabular-nums; }
-.delta.is-up { color: var(--positive); }
-.delta.is-down { color: var(--danger); }
-.delta.is-flat { color: var(--fg-dim); }
+.delta.is-up { color: var(--ice); }
+.delta.is-down { color: var(--red-text); }
+.delta.is-flat { color: var(--muted); }
 
 /* ------------------------------------------------------------- headings -- */
-.display { font-family: var(--font-display); font-weight: 700; line-height: var(--leading-tight); letter-spacing: -0.01em; text-wrap: balance; }
-.text-meta { font-size: var(--text-sm); color: var(--fg-dim); }
+.display { font-family: var(--font-display); font-weight: 400; line-height: var(--leading-tight); letter-spacing: -0.01em; text-wrap: balance; }
+.text-meta { font-size: var(--size-sm); color: var(--muted); }

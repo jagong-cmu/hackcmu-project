@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { ACCENT, ACCENT_DEEP, DANGER, FG, GOOD, INK, PANEL, WARN } from "./cardPaint.ts";
+import { BG, BLUE, BLUE_TEXT, FG, ICE, MUTED, PANEL, RED, RED_TEXT } from "./cardPaint.ts";
 
 const css = readFileSync(new URL("../theme/tokens.css", import.meta.url), "utf8");
 const token = (name: string): string => {
@@ -28,12 +28,17 @@ const hexOf = (name: string): string => {
 };
 
 test("canvas colours mirror the design tokens", () => {
-  assert.equal(INK, hex(token("ink-rgb")));
-  assert.equal(PANEL, hex(token("surface-rgb")));
-  assert.equal(FG, hex(token("fg-rgb")));
-  assert.equal(ACCENT, hexOf("accent"));
-  assert.equal(ACCENT_DEEP, hexOf("red-600"));
-  assert.equal(GOOD, hexOf("positive"));
-  assert.equal(WARN, hexOf("warning"));
-  assert.equal(DANGER, hexOf("danger"));
+  assert.equal(BG, hexOf("bg"));
+  assert.equal(PANEL, hexOf("surface"));
+  assert.equal(FG, hexOf("text"));
+  assert.equal(MUTED, hexOf("muted"));
+  assert.equal(RED, hexOf("red"));
+  assert.equal(RED_TEXT, hexOf("red-text"));
+  assert.equal(BLUE, hexOf("blue"));
+  assert.equal(BLUE_TEXT, hexOf("blue-text"));
+  assert.equal(ICE, hexOf("ice"));
+  // The rgb channels used for alpha variants match the hex values.
+  for (const [name, h] of [["bg", BG], ["surface", PANEL], ["text", FG], ["red", RED], ["blue", BLUE], ["ice", ICE]] as const) {
+    assert.equal(hex(token(`${name}-rgb`)), h, `--${name}-rgb`);
+  }
 });

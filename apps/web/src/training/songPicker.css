@@ -8,7 +8,7 @@
   padding: 0;
   border: 0;
 }
-.song-picker legend { padding: 0 0 var(--sp-2); font-size: var(--text-sm); font-weight: 500; color: var(--fg-dim); text-shadow: 0 1px 8px rgb(var(--ink-rgb) / 0.8); }
+.song-picker legend { padding: 0 0 var(--sp-2); font-size: var(--size-sm); font-weight: 500; color: var(--muted); text-shadow: 0 1px 8px rgb(var(--bg-rgb) / 0.8); }
 
 .song-entry {
   position: relative;
@@ -18,11 +18,11 @@
   padding: var(--sp-1) var(--sp-2) var(--sp-1) 1.3rem;
   background: none;
   border-radius: var(--r-sm);
-  color: var(--fg-dim);
+  color: var(--muted);
   cursor: pointer;
 }
-.song-entry:hover { background: rgb(var(--ink-rgb) / 0.45); }
-.song-entry.is-picked { color: var(--fg); }
+.song-entry:hover { background: rgb(var(--bg-rgb) / 0.45); }
+.song-entry.is-picked { color: var(--text); }
 .song-entry.is-picked::before {
   content: "";
   position: absolute;
@@ -31,7 +31,7 @@
   width: 0.5rem;
   height: 0.5rem;
   transform: translateY(-50%);
-  background: var(--accent);
+  background: var(--red);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 .song-entry.is-off { opacity: 0.5; cursor: not-allowed; }
@@ -43,10 +43,10 @@
   flex: none;
   min-width: 2.2em;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-md);
-  letter-spacing: 0.04em;
-  color: var(--gold-200);
+  font-weight: 400;
+  font-size: var(--fs-num);
+  letter-spacing: var(--tr-num);
+  color: var(--ice);
   font-variant-numeric: tabular-nums;
 }
 .song-cover {
@@ -56,7 +56,7 @@
   height: 2.25rem;
   overflow: hidden;
   border-radius: var(--r-sm);
-  background: var(--red-800);
+  background: var(--surface-2);
 }
 .song-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
 .song-cover-fallback {
@@ -65,21 +65,22 @@
   display: grid;
   place-items: center;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-md);
-  color: var(--fg-dim);
+  font-weight: 400;
+  font-size: var(--size-md);
+  color: var(--muted);
 }
 
 .song-entry-text { display: grid; min-width: 0; text-align: left; }
+/* Song titles are long: Hanken Grotesk (.t-song role), never Krona One. */
 .song-entry-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: var(--text-md);
-  letter-spacing: 0.02em;
+  font-size: var(--fs-song);
+  letter-spacing: var(--tr-song);
   text-transform: uppercase;
   line-height: var(--leading-snug);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.song-entry-artist { font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-entry-artist { font-size: var(--size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

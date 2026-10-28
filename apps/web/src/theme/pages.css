@@ -5,7 +5,7 @@
  * motion, instant hover states.
  */
 
-/* The room behind every page is the Backdrop (scene/); pages are transparent. */
+/* Pages are transparent: the flat --bg and <Ambient> show through. */
 .page.shell {
   background: none;
   align-items: flex-start;
@@ -17,16 +17,16 @@
 .shell-inner h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: var(--text-3xl);
+  font-weight: 400;
+  font-size: var(--size-3xl);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   line-height: var(--leading-tight);
   text-shadow: none;
 }
 .page-head { margin-bottom: var(--sp-5); }
-.page-head .back { font-size: var(--text-sm); }
-.shell-inner .tag { color: var(--fg-dim); font-size: var(--text-md); }
+.page-head .back { font-size: var(--size-sm); }
+.shell-inner .tag { color: var(--muted); font-size: var(--size-md); }
 .shell-inner .dim,
 .shell-inner .status,
 .shell-inner .err { text-shadow: none; }
@@ -35,7 +35,7 @@
 .card {
   padding: var(--sp-5);
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
   backdrop-filter: none;
@@ -43,62 +43,62 @@
 .stat-tile,
 .board {
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
 }
 .stat-tile strong { font-family: var(--font-display); letter-spacing: -0.01em; }
 .board { overflow: hidden; }
-.board th { color: var(--fg-dim); font-weight: 600; font-size: var(--text-sm); }
+.board th { color: var(--muted); font-weight: 600; font-size: var(--size-sm); }
 .board td, .board th { font-variant-numeric: tabular-nums; }
 
 /* Mode picker. */
 .mode-card {
   background: var(--surface);
   border-radius: var(--r-lg);
-  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 .mode-card:hover,
 .mode-card:focus-visible {
   background: var(--surface-2);
-  border-color: var(--edge-strong);
+  border-color: var(--line-strong);
   box-shadow: none;
   transform: none;
 }
 .mode-card:focus-visible { box-shadow: var(--focus-ring); }
 .mode-card-label {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-xl);
+  font-weight: 400;
+  font-size: var(--size-xl);
   letter-spacing: -0.01em;
 }
-.mode-card-hint { font-size: var(--text-sm); }
+.mode-card-hint { font-size: var(--size-sm); }
 
 .play-choice h2,
 .play-page .play-choice h2 {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-xl);
+  font-weight: 400;
+  font-size: var(--size-xl);
   letter-spacing: -0.01em;
 }
 
-/* Segmented controls: tabs and the mode pick. The selected one is the amber one. */
+/* Segmented controls: tabs and the mode pick. The selected one is the red one. */
 .tabs,
 .mode-pick {
   border-radius: var(--r-md);
   background: var(--surface);
-  border-color: var(--edge);
+  border-color: var(--line);
 }
 .tabs button,
 .mode-pick button {
   border-radius: var(--r-sm);
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .tabs button:hover,
-.mode-pick button:hover { color: var(--fg); }
+.mode-pick button:hover { color: var(--text); }
 .tabs button.on,
 .mode-pick button.on {
-  background: var(--accent-fill);
-  color: var(--on-accent);
+  background: var(--red);
+  color: var(--on-red);
   box-shadow: none;
 }
 
@@ -106,16 +106,16 @@
 .code-form input,
 .room-code-digits {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 .code-form input { border-radius: var(--r-md); background: var(--surface-2); letter-spacing: 0.3em; }
 
 a { color: inherit; text-underline-offset: 0.2em; }
-a:not([class]):hover { color: var(--accent-hi); }
+a:not([class]):hover { color: var(--red-text); }
 
 /* Ranked is the front door; the other modes sit beside it. */
-.mode-card.is-primary { border-color: var(--accent); }
+.mode-card.is-primary { border-color: var(--red); }
 
 
 /* ---- One panel, left-aligned ---------------------------------------------- */
@@ -124,8 +124,8 @@ a:not([class]):hover { color: var(--accent-hi); }
   width: min(100%, 40rem);
   margin: 0;
   padding: var(--sp-5) var(--sp-6);
-  background: var(--panel);
-  border: 1px solid var(--edge-soft);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
   border-radius: var(--r-lg);
   text-align: left;
 }
@@ -150,5 +150,5 @@ a:not([class]):hover { color: var(--accent-hi); }
 .stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-4); }
 .stat-tile { padding: 0; background: none; border: 0; border-radius: 0; }
 .board { background: none; border: 0; border-radius: 0; }
-.board th { border-bottom: 1px solid var(--edge); }
+.board th { border-bottom: 1px solid var(--line); }
 .play-choices { gap: var(--sp-6); margin-top: var(--sp-4); }

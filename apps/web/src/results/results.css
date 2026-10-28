@@ -19,14 +19,14 @@
   max-width: 34rem;
   max-height: calc(100vh - 32px);
   padding: var(--sp-6) var(--sp-5) var(--sp-5);
-  border: 1px solid var(--edge-strong);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-2);
   text-align: center;
 }
-.results.results-show { animation: results-land var(--dur-slow) var(--ease-out) both; }
-.results.booth-wait { animation: results-land var(--dur) var(--ease-out) both; max-width: 26rem; }
+.results.results-show { animation: results-land var(--dur-slow) var(--ease) both; }
+.results.booth-wait { animation: results-land var(--dur) var(--ease) both; max-width: 26rem; }
 
 @keyframes results-land {
   from { opacity: 0; transform: translateY(1.5rem); }
@@ -37,8 +37,8 @@
 .results.booth-wait h2 {
   margin: 0 0 var(--sp-2);
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-2xl);
+  font-weight: 400;
+  font-size: var(--size-2xl);
   line-height: var(--leading-tight);
   letter-spacing: -0.01em;
   text-shadow: none;
@@ -58,11 +58,11 @@
   position: absolute;
   inset: 18%;
   border-radius: 50%;
-  border: 1.5px solid rgb(var(--gold-rgb) / 0.4);
-  animation: booth-pulse 2.2s var(--ease-out) infinite;
+  border: 1.5px solid rgb(var(--ice-rgb) / 0.4);
+  animation: booth-pulse 2.2s var(--ease) infinite;
 }
-.booth-ring:nth-child(3) { inset: 8%; animation-delay: 0.35s; border-color: rgb(var(--gold-rgb) / 0.25); }
-.booth-ring:nth-child(4) { inset: 0; animation-delay: 0.7s; border-color: rgb(var(--gold-rgb) / 0.14); }
+.booth-ring:nth-child(3) { inset: 8%; animation-delay: 0.35s; border-color: rgb(var(--ice-rgb) / 0.25); }
+.booth-ring:nth-child(4) { inset: 0; animation-delay: 0.7s; border-color: rgb(var(--ice-rgb) / 0.14); }
 @keyframes booth-pulse {
   0% { transform: scale(0.85); opacity: 0.9; }
   100% { transform: scale(1.12); opacity: 0; }
@@ -80,8 +80,8 @@
   width: 6px;
   height: 18px;
   border-radius: var(--r-pill);
-  background: var(--accent);
-  animation: booth-eq 0.85s var(--ease-in-out) infinite;
+  background: var(--red);
+  animation: booth-eq 0.85s var(--ease) infinite;
 }
 .booth-eq i:nth-child(1) { animation-delay: 0s; height: 16px; }
 .booth-eq i:nth-child(2) { animation-delay: 0.1s; height: 28px; }
@@ -98,19 +98,19 @@
 .booth-wait .scoring-copy {
   min-height: 1.5em;
   margin: 0 0 var(--sp-4);
-  color: var(--fg-dim);
-  font-size: var(--text-md);
+  color: var(--muted);
+  font-size: var(--size-md);
 }
 .booth-wait .scoring-track {
   height: 6px;
   border-radius: var(--r-pill);
-  background: var(--edge-soft);
+  background: var(--line-soft);
   overflow: hidden;
 }
 .booth-wait .scoring-track span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--red);
 }
 
 /* The score could not be sent: say so, offer a retry. */
@@ -120,7 +120,7 @@
   justify-items: center;
   gap: var(--sp-3);
 }
-.scoring-failed p { margin: 0; color: var(--danger); font-size: var(--text-base); }
+.scoring-failed p { margin: 0; color: var(--red-text); font-size: var(--size-base); }
 
 /* ---- hero score: scoreboard numerals ---------------------------------- */
 
@@ -130,36 +130,30 @@
   place-items: center;
 }
 
-/* Thin scanlines cut the numerals, like an LED panel. Digits are tabular. */
+/* The hero score. Digits are tabular. */
 .results-hero-score {
   position: relative;
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 400;
   font-size: clamp(6rem, 16vw, 8.5rem);
   letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--gold-200);
+  color: var(--ice);
 }
-@supports (mask-image: linear-gradient(#000, #000)) {
-  .results-hero-score {
-    -webkit-mask-image: repeating-linear-gradient(0deg, var(--mask-on) 0 4px, transparent 4px 5px);
-    mask-image: repeating-linear-gradient(0deg, var(--mask-on) 0 4px, transparent 4px 5px);
-  }
-}
-.results.is-win .results-hero-score { color: var(--gold-100); }
-.results.is-loss .results-hero-score { color: var(--fg-dim); }
+.results.is-win .results-hero-score { color: var(--ice); }
+.results.is-loss .results-hero-score { color: var(--muted); }
 
 .results-blurb {
   margin: var(--sp-2) auto 0;
   max-width: 26rem;
-  font-size: var(--text-md);
+  font-size: var(--size-md);
   line-height: var(--leading-snug);
-  color: var(--fg);
+  color: var(--text);
   opacity: 0;
 }
-.results-show.is-landed .results-blurb { animation: reveal var(--dur) var(--ease-out) both; }
+.results-show.is-landed .results-blurb { animation: reveal var(--dur) var(--ease) both; }
 
 @keyframes reveal {
   from { opacity: 0; transform: translateY(0.5rem); }
@@ -174,9 +168,9 @@
   padding: var(--sp-3);
   border-radius: var(--r-md);
   background: var(--surface-2);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
 }
-.results .score-break.winner { border-color: var(--accent); }
+.results .score-break.winner { border-color: var(--red); }
 .results .score-break .who {
   display: flex;
   align-items: center;
@@ -185,19 +179,19 @@
 }
 /* Winner is a word, not a colour. */
 .win-tag {
-  font-size: var(--text-xs);
+  font-size: var(--size-xs);
   font-weight: 700;
   letter-spacing: var(--track-caps);
-  color: var(--accent);
+  color: var(--red-text);
   text-transform: uppercase;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--red);
   border-radius: var(--r-sm);
   padding: 1px var(--sp-2);
 }
 
 .results-show .score-meter-track span {
   transform-origin: left center;
-  animation: results-fill 0.9s var(--ease-out) both;
+  animation: results-fill 0.9s var(--ease) both;
 }
 .results-show .score-meter:nth-of-type(1) .score-meter-track span { animation-delay: 0.42s; }
 .results-show .score-meter:nth-of-type(2) .score-meter-track span { animation-delay: 0.56s; }
@@ -207,28 +201,28 @@
   to { transform: scaleX(1); }
 }
 
-.results .shared { margin: var(--sp-3) 0 0; font-size: var(--text-md); color: var(--fg-dim); }
+.results .shared { margin: var(--sp-3) 0 0; font-size: var(--size-md); color: var(--muted); }
 
 /* Elo arrives after the score has landed. The sign is in the text. */
 .results .elo {
   margin: var(--sp-3) 0 0;
-  font-size: var(--text-lg);
+  font-size: var(--size-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   opacity: 0;
 }
-.results-show.is-landed .elo { animation: reveal var(--dur) var(--ease-out) both; }
-.results .elo.up { color: var(--positive); }
-.results .elo.down { color: var(--danger); }
+.results-show.is-landed .elo { animation: reveal var(--dur) var(--ease) both; }
+.results .elo.up { color: var(--ice); }
+.results .elo.down { color: var(--red-text); }
 .results .elo.flat,
-.results .elo.unrated { color: var(--fg-dim); font-weight: 500; font-size: var(--text-base); }
+.results .elo.unrated { color: var(--muted); font-weight: 500; font-size: var(--size-base); }
 
 /* The AI verdict: a quiet line, clearly secondary to the score. */
 .results .verdict {
   margin: var(--sp-3) auto 0;
   max-width: 28rem;
-  color: var(--fg-dim);
-  font-size: var(--text-sm);
+  color: var(--muted);
+  font-size: var(--size-sm);
   line-height: var(--leading-body);
   font-style: italic;
 }
@@ -236,18 +230,18 @@
 /* ---- rematch handshake ------------------------------------------------ */
 .results .rematch-status {
   margin: var(--sp-3) 0 0;
-  font-size: var(--text-sm);
-  color: var(--fg-dim);
+  font-size: var(--size-sm);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.results .rematch-status.rematch-invited { color: var(--fg); font-weight: 600; }
+.results .rematch-status.rematch-invited { color: var(--text); font-weight: 600; }
 .results .rematch-status.rematch-lapsed,
-.results .rematch-status.rematch-unavailable { color: var(--warning); }
+.results .rematch-status.rematch-unavailable { color: var(--ice); }
 
 .results-show .result-actions,
 .results-show .results-moment { opacity: 0; }
 .results-show.is-landed .result-actions,
-.results-show.is-landed .results-moment { animation: reveal var(--dur) var(--ease-out) 0.12s both; }
+.results-show.is-landed .results-moment { animation: reveal var(--dur) var(--ease) 0.12s both; }
 
 @media (prefers-reduced-motion: reduce) {
   .results.results-show,
@@ -271,10 +265,10 @@
   width: min(100%, 12rem);
   margin: var(--sp-3) auto 0;
   padding: 0;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   overflow: hidden;
-  background: var(--ink);
+  background: var(--bg);
   cursor: pointer;
 }
 .results-moment img,
@@ -293,10 +287,10 @@
 .moment-label {
   display: block;
   padding: var(--sp-2);
-  color: var(--fg-dim);
-  font-size: var(--text-xs);
+  color: var(--muted);
+  font-size: var(--size-xs);
 }
-.results-moment:hover { border-color: var(--edge-strong); }
+.results-moment:hover { border-color: var(--line-strong); }
 
 /* ---- share sheet ------------------------------------------------------ */
 .share-scrim { z-index: 80; background: var(--scrim); }
@@ -305,7 +299,7 @@
   max-height: calc(100vh - 40px);
   overflow: auto;
   padding: var(--sp-5);
-  border: 1px solid var(--edge-strong);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-2);
@@ -314,7 +308,7 @@
 .share-sheet h2 {
   margin: 0 0 var(--sp-4);
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: var(--size-lg);
   line-height: var(--leading-snug);
 }
 .share-card {
@@ -324,7 +318,7 @@
   max-height: min(62vh, 34rem);
   object-fit: contain;
   border-radius: var(--r-md);
-  background: var(--ink);
+  background: var(--bg);
 }
 .share-sheet video.share-card { aspect-ratio: 16 / 9; object-fit: cover; }
 .share-actions {
@@ -337,10 +331,10 @@
 .share-actions .cta { width: auto; min-width: 8.5rem; max-width: none; }
 
 /* The verdict is a quiet line, clearly secondary to the score. */
-.results-blurb.is-verdict { font-size: var(--text-sm); font-style: italic; color: var(--fg-dim); max-width: 28rem; }
+.results-blurb.is-verdict { font-size: var(--size-sm); font-style: italic; color: var(--muted); max-width: 28rem; }
 
 /* The score lands with one short beat, the way a noraebang machine announces it. */
-.results-show.is-landed .results-hero-score { animation: score-beat 420ms var(--ease-out) both; }
+.results-show.is-landed .results-hero-score { animation: score-beat 420ms var(--ease) both; }
 @keyframes score-beat {
   0% { transform: scale(1); }
   35% { transform: scale(1.07); }

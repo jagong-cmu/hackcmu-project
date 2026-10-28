@@ -9,9 +9,6 @@ import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
 import { ArenaStats } from "./leaderboard/ArenaStats.tsx";
 import { DesignSystem } from "./theme/DesignSystem.tsx";
 import { NotFound } from "./theme/NotFound.tsx";
-import { SceneCheck } from "./scene/SceneCheck.tsx";
-import { Backdrop } from "./scene/Backdrop.tsx";
-import { SceneProvider } from "./scene/SceneProvider.tsx";
 import { PitchTest } from "./training/PitchTest.tsx";
 import { SyncLyrics } from "./training/SyncLyrics.tsx";
 import { ResultsPreview } from "./results/ResultsPreview.tsx";
@@ -19,6 +16,7 @@ import { Training } from "./training/Training.tsx";
 import { RoomProvider } from "./rooms/RoomProvider.tsx";
 import Stage from "./stage/Stage.tsx";
 import { AnalyticsRoot } from "./analytics/AnalyticsRoot.tsx";
+import { RouteAmbient } from "./ui/Ambient.tsx";
 import { DeviceCheck } from "./onboarding/DeviceCheck.tsx";
 import { DeviceCheckGate } from "./onboarding/DeviceCheckGate.tsx";
 import { VoiceCheck } from "./onboarding/VoiceCheck.tsx";
@@ -30,8 +28,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnalyticsRoot />
-      <SceneProvider>
-      <Backdrop />
+      <RouteAmbient />
       <RoomProvider><AuthProvider>
         <Routes>
           <Route path="/" element={<MainMenu />} />
@@ -48,7 +45,6 @@ export default function App() {
           {import.meta.env.DEV ? (
             <>
               <Route path="/system" element={<DesignSystem />} />
-              <Route path="/scene-check" element={<SceneCheck />} />
               <Route path="/results-preview" element={<ResultsPreview />} />
               <Route path="/sync" element={<SyncLyrics />} />
               <Route path="/pitchtest" element={<PitchTest />} />
@@ -60,7 +56,6 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider></RoomProvider>
-      </SceneProvider>
     </BrowserRouter>
   );
 }

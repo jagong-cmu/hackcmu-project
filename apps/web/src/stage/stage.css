@@ -6,7 +6,7 @@
 .stage.stage-fit {
   /* Lyrics share the board with the timer and pitch staff, so they run a step
      smaller here than the token's full size. Still the largest text on screen. */
-  --text-lyric: clamp(1.75rem, 3.6vw, 3.25rem);
+  --size-lyric: clamp(1.75rem, 3.6vw, 3.25rem);
   gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
 }
@@ -20,12 +20,12 @@
 
 .stage-fit .lyrics { min-height: 0; flex: 0 1 auto; justify-content: center; padding: var(--sp-1) var(--sp-3); }
 .stage-fit .lyrics-now {
-  font-size: var(--text-lyric);
+  font-size: var(--size-lyric);
   line-height: 1.1;
   color: var(--unsung);
   -webkit-line-clamp: 3;
 }
-.stage-fit .lyrics-next { font-size: var(--text-md); margin-top: var(--sp-2); }
+.stage-fit .lyrics-next { font-size: var(--size-md); margin-top: var(--sp-2); }
 
 /* Duet seat cue on a feed: words, top left. */
 .cam-cue {
@@ -34,16 +34,16 @@
   padding: var(--sp-1) var(--sp-3);
   background: var(--shade);
   border-radius: var(--r-pill);
-  font-family: var(--font-ui);
-  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  font-size: var(--size-sm);
   font-weight: 600;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   line-height: 1.2;
-  color: var(--fg-dim);
+  color: var(--muted);
   text-shadow: none;
 }
-.cam-cue.on { color: var(--accent); }
+.cam-cue.on { color: var(--red-text); }
 
 /* Whose turn: a quiet pill at the top, not a banner. The stage-wide
    position:relative rule would otherwise drop it into the flow below the dock. */
@@ -54,19 +54,19 @@
   transform: translateX(-50%);
   padding: var(--sp-2) var(--sp-5);
   background: var(--scrim);
-  border: 1px solid var(--edge-strong);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-pill);
 }
-.turn-guide.go { border-color: var(--accent); }
-.turn-guide.wait { border-color: var(--edge-strong); }
+.turn-guide.go { border-color: var(--red); }
+.turn-guide.wait { border-color: var(--line-strong); }
 .turn-guide strong {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-md);
+  font-weight: 400;
+  font-size: var(--size-md);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }
-.turn-guide span { font-size: var(--text-sm); color: var(--fg-dim); }
+.turn-guide span { font-size: var(--size-sm); color: var(--muted); }
 
 /* Stage and landing buttons share the system button; the old rules used
    the pink "hot" alias for primary. */
@@ -75,22 +75,22 @@
   min-height: 2.5rem;
   padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-md);
-  border-color: var(--edge-strong);
+  border-color: var(--line-strong);
   background: var(--surface-2);
   font-weight: 600;
 }
 .stage button:not(.btn):not(.cta):hover:not(:disabled),
-.landing button:not(.btn):not(.cta):hover:not(:disabled) { border-color: var(--edge-strong); background: var(--surface-3); }
+.landing button:not(.btn):not(.cta):hover:not(:disabled) { border-color: var(--line-strong); background: var(--surface-2); }
 .stage button:not(.btn):not(.cta).primary,
 .landing button:not(.btn):not(.cta).primary {
-  background: var(--accent-fill);
-  border-color: var(--accent-fill);
-  color: var(--on-accent);
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--on-red);
   font-weight: 700;
 }
 .stage button:not(.btn):not(.cta).primary:hover:not(:disabled),
-.landing button:not(.btn):not(.cta).primary:hover:not(:disabled) { background: var(--accent-fill-hi); border-color: var(--accent-fill-hi); }
-.timer .bar span { background: var(--accent); }
+.landing button:not(.btn):not(.cta).primary:hover:not(:disabled) { background: var(--red-hi); border-color: var(--red-hi); }
+.timer .bar span { background: var(--red); }
 
 /* Match intro: the versus card that opens the countdown. Left is the opponent,
    right is you, the way the feeds sit. */
@@ -101,16 +101,16 @@
   gap: var(--sp-5);
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-3xl);
+  font-weight: 400;
+  font-size: var(--size-3xl);
   line-height: var(--leading-tight);
 }
 .versus-name { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.versus-name:first-child { color: var(--player-a); }
-.versus-name:last-child { color: var(--player-b); }
-.versus-vs { font-size: var(--text-lg); color: var(--fg-dim); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-caps); }
-.versus-song { margin: 0; font-size: var(--text-md); color: var(--fg-dim); }
-.versus-skip { margin: 0; font-size: var(--text-xs); color: var(--fg-faint); }
+.versus-name:first-child { color: var(--blue-text); } /* them */
+.versus-name:last-child { color: var(--red-text); } /* you */
+.versus-vs { font-size: var(--size-lg); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: var(--track-caps); }
+.versus-song { margin: 0; font-size: var(--size-md); color: var(--muted); }
+.versus-skip { margin: 0; font-size: var(--size-xs); color: var(--muted); }
 
 /* Chaos: a featured singer, then a strip of the rest (up to 8 feeds). */
 .grid.compact.has-featured {
@@ -126,7 +126,7 @@
 .grid.compact.has-featured > :not(.chaos-featured) .feed-label {
   left: var(--sp-2);
   bottom: var(--sp-2);
-  font-size: var(--text-xs);
+  font-size: var(--size-xs);
   padding: 2px var(--sp-2);
 }
 
@@ -139,8 +139,8 @@
   line-height: var(--leading-tight);
   text-shadow: none;
 }
-.countdown-go { color: var(--accent); }
-.countdown-wait { color: var(--fg-dim); }
+.countdown-go { color: var(--red-text); }
+.countdown-wait { color: var(--muted); }
 .countdown-num {
   font-weight: 700;
   font-size: clamp(5rem, 13vw, 9rem);
@@ -151,15 +151,15 @@
 .callout-title,
 .callout-count {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.01em;
   line-height: var(--leading-tight);
   text-shadow: none;
 }
-.callout-count.go { color: var(--accent); }
+.callout-count.go { color: var(--red-text); }
 
 /* Use the height: lyrics scale up on big screens, the board centres under the feeds. */
-.stage.stage-fit { --text-lyric: clamp(1.75rem, 3.3vw, 4rem); }
+.stage.stage-fit { --size-lyric: clamp(1.75rem, 3.3vw, 4rem); }
 .stage-board { justify-content: center; gap: var(--sp-4); }
 
 /* The live score HUD sits under the staff, not over it, so it never covers the axis labels. */
@@ -169,8 +169,8 @@
 }
 
 /* The clip timer is the second thing the singer glances at: give it size. */
-.stage .timer { font-family: var(--font-display); font-weight: 700; font-size: var(--text-xl); font-variant-numeric: tabular-nums; }
-.stage .timer.timer-compact { font-size: var(--text-lg); }
+.stage .timer { font-family: var(--font-display); font-weight: 400; font-size: var(--size-xl); font-variant-numeric: tabular-nums; }
+.stage .timer.timer-compact { font-size: var(--size-lg); }
 
 /* Staff on top, score HUD under it. (Training's .pitch-stage is a flex row.) */
 .pitch-stage { display: flex; flex-direction: column; }
@@ -189,5 +189,5 @@
   width: min(100%, 80rem);
   margin-inline: auto;
 }
-.tile.feed { background: var(--panel); border-color: var(--edge); }
+.tile.feed { background: var(--surface); border-color: var(--line); }
 .stage header .badge { text-transform: uppercase; letter-spacing: var(--track-caps); }

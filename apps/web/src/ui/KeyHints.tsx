@@ -1,24 +1,31 @@
-import "./menu.css";
+import "./ui.css";
 
-export type KeyHint = { keys: string[]; label: string };
+export type Hint = { keys: string[]; label: string };
 
-export const MenuHints: KeyHint[] = [
+export const MenuHints: Hint[] = [
   { keys: ["↑", "↓"], label: "Move" },
   { keys: ["Enter"], label: "Select" },
   { keys: ["Esc"], label: "Back" },
 ];
 
-/** Small key glyphs with labels, bottom-right on every screen that takes keys. */
-export function KeyHints({ hints = MenuHints }: { hints?: KeyHint[] }) {
+/** One hint: keycaps followed by what they do. */
+export function KeyHint({ keys, label }: Hint) {
+  return (
+    <span className="key-hint">
+      {keys.map((k) => (
+        <kbd key={k}>{k}</kbd>
+      ))}
+      {label}
+    </span>
+  );
+}
+
+/** The footer row of hints, bottom-right on every screen that takes keys. */
+export function KeyHintBar({ hints = MenuHints }: { hints?: Hint[] }) {
   return (
     <footer className="key-hints" aria-label="Keyboard shortcuts">
       {hints.map((h) => (
-        <span key={h.label} className="key-hint">
-          {h.keys.map((k) => (
-            <kbd key={k}>{k}</kbd>
-          ))}
-          {h.label}
-        </span>
+        <KeyHint key={h.label} {...h} />
       ))}
     </footer>
   );

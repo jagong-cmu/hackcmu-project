@@ -1,8 +1,16 @@
 /**
- * Menu keyboard navigation as a pure function, so it can be tested without a
- * browser. Arrow keys wrap and skip disabled items; Enter selects; Esc goes back.
+ * List and grid keyboard navigation as a pure function, so it can be tested
+ * without a browser. Vertical lists (columns 1, the default): Up/Down wrap.
+ * Grids: arrows move in 2D and stop at the edges. Both skip disabled items;
+ * Enter/Space select; Esc goes back.
  */
-export type NavState = { index: number; count: number; disabled?: ReadonlySet<number> };
+export type NavState = {
+  index: number;
+  count: number;
+  /** Items per row; 1 (default) is a vertical list. */
+  columns?: number;
+  disabled?: ReadonlySet<number>;
+};
 export type NavResult = { index: number; action: "select" | "back" | null };
 
 function seek(s: NavState, from: number, step: 1 | -1): number {
@@ -13,8 +21,27 @@ function seek(s: NavState, from: number, step: 1 | -1): number {
   return s.index; // everything is disabled: stay put
 }
 
+/** Grid step without wrapping: the first enabled cell along the direction, or stay. */
+function step(s: NavState, delta: number, sameRow: boolean): number {
+  const cols = s.columns ?? 1;
+  const row = Math.floor(s.index / cols);
+  for (let at = s.index + delta; at >= 0 && at < s.count; at += delta) {
+    if (sameRow && Math.floor(at / cols) !== row) break;
+    if (!s.disabled?.has(at)) return at;
+  }
+  return s.index;
+}
+
 export function navigate(s: NavState, key: string): NavResult {
   if (s.count <= 0) return { index: s.index, action: null };
+  const cols = s.columns ?? 1;
+  if (cols > 1) {
+    const move = { ArrowLeft: [-1, true], ArrowRight: [1, true], ArrowUp: [-cols, false], ArrowDown: [cols, false] } as const;
+    if (key in move) {
+      const [delta, sameRow] = move[key as keyof typeof move];
+      return { index: step(s, delta, sameRow), action: null };
+    }
+  }
   switch (key) {
     case "ArrowDown":
       return { index: seek(s, s.index, 1), action: null };

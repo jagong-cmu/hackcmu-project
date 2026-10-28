@@ -11,7 +11,12 @@ import { holdMatchReel, startMatchReel } from "./matchReel.ts";
 import { drawReelOutro } from "./reelOutro.ts";
 import { buildReelResults, OutroMs, type ReelResultsInput } from "./reelResults.ts";
 import { useMatchReel, useMatchReelPending } from "./useMatchMoment.ts";
-import { loadCardFonts } from "./cardPaint.ts";
+import {
+  BG,
+  FG,
+  loadCardFonts,
+  rgba,
+} from "./cardPaint.ts";
 
 const card = (
   overall: number,
@@ -88,7 +93,7 @@ export function ReelOutroPreview() {
   }, [name, fixed]);
 
   return (
-    <div style={{ background: "#000", minHeight: "100vh", display: "grid", placeItems: "center" }}>
+    <div style={{ background: BG, minHeight: "100vh", display: "grid", placeItems: "center" }}>
       <canvas ref={ref} width={1280} height={720} style={{ width: "min(100vw, 1280px)", aspectRatio: "16 / 9" }} />
     </div>
   );
@@ -109,7 +114,7 @@ function FakeCam({ name, hue }: { name: string; hue: number }) {
       g.addColorStop(1, `hsl(${hue + 30} 60% 12%)`);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 640, 720);
-      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.fillStyle = rgba(FG, 0.22);
       ctx.beginPath();
       ctx.ellipse(320 + Math.sin(now / 400) * 30, 300, 110, 140, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -171,16 +176,16 @@ export function ReelRunPreview() {
 
   return (
     <div style={{ padding: 16 }}>
-      <p className="stage-song" style={{ color: "#fff" }}>
+      <p className="stage-song" style={{ color: FG }}>
         Viva La Vida — Coldplay
       </p>
       <FakeCam name="Alex" hue={210} />
       <FakeCam name="Jonathan" hue={260} />
-      <p className="lyrics-now" style={{ color: "#fff" }}>
+      <p className="lyrics-now" style={{ color: FG }}>
         I used to rule the world
       </p>
       <audio ref={audioRef} className="instrumental" src="/songs/viva-la-vida/instrumental.mp3" preload="auto" />
-      <p style={{ color: "#fff" }} data-step={step} data-pending={pending ? "1" : "0"} data-reel={reel ? "1" : "0"} id="reel-status">
+      <p style={{ color: FG }} data-step={step} data-pending={pending ? "1" : "0"} data-reel={reel ? "1" : "0"} id="reel-status">
         step {step} · pending {String(pending)} · reel {reel ? `${Math.round(reel.blob.size / 1024)} KB` : "none"}
       </p>
       {step === "idle" ? (

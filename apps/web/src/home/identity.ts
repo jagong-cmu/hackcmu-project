@@ -2,9 +2,6 @@ import { authHeaders, getSupabase } from "../auth/supabase.ts";
 
 const NAME = "karaoke.displayName";
 const ID = "karaoke.clientId";
-const COLOR = "karaoke.avatarColor";
-
-const COLORS = ["#f45a5d", "#f6cc6e", "#e8b550", "#ff8a80", "#d6313a", "#ffe3a0"];
 
 export function getClientId(): string {
   let id = localStorage.getItem(ID);
@@ -23,14 +20,7 @@ export function setDisplayName(name: string): string {
   const trimmed = name.trim().slice(0, 16);
   localStorage.setItem(NAME, trimmed);
   getClientId();
-  if (!localStorage.getItem(COLOR)) {
-    localStorage.setItem(COLOR, COLORS[Math.floor(Math.random() * COLORS.length)]);
-  }
   return trimmed;
-}
-
-export function getAvatarColor(): string {
-  return localStorage.getItem(COLOR) || COLORS[0];
 }
 
 export function validName(name: string): boolean {

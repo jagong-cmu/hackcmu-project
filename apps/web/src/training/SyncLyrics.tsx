@@ -179,7 +179,7 @@ export function SyncLyrics() {
       <audio ref={audioRef} preload="auto" />
 
       <div className="ctas">
-        <button type="button" className="btn gold" disabled={playing || preroll > 0 || !audioUrl} onClick={begin}>
+        <button type="button" className="btn btn-primary" disabled={playing || preroll > 0 || !audioUrl} onClick={begin}>
           Start
         </button>
         <button type="button" className="btn ghost" disabled={!playing} onClick={tap}>

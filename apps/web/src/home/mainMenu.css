@@ -1,0 +1,48 @@
+/**
+ * The main menu page (owner: session A). The list itself is SelectableList
+ * (ui/ui.css).
+ */
+.main-menu {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: var(--sp-6) clamp(var(--sp-5), 6vw, 6rem);
+}
+.menu-brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--size-xl);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.menu-top { display: flex; justify-content: space-between; align-items: baseline; }
+.menu-top a { color: var(--muted); font-size: var(--size-sm); text-decoration: none; }
+.menu-top a:hover { color: var(--text); }
+
+.main-menu > div { align-self: center; }
+.menu { max-width: 34rem; }
+
+/* Inline field inside a menu item (the room code). */
+.menu-field { display: flex; align-items: baseline; gap: var(--sp-3); }
+.menu-field input {
+  width: 4.2em;
+  min-height: 0;
+  padding: 0 0.15em;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--red);
+  border-radius: 0;
+  color: var(--text);
+  font: inherit;
+  letter-spacing: 0.3em;
+  text-transform: none;
+}
+.menu-field input:focus-visible { box-shadow: none; outline: none; }
+.menu-error { margin: var(--sp-2) 0 0; padding-left: 1.1em; color: var(--red-text); font-size: var(--size-sm); }
+
+.menu-foot { display: flex; gap: var(--sp-4); font-size: var(--size-sm); }
+.menu-foot a { color: var(--muted); }
+.menu-foot a:hover { color: var(--text); }

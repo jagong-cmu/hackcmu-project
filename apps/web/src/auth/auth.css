@@ -10,7 +10,7 @@
 .auth-card .cta { max-width: none; }
 .auth-note {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--size-sm);
 }
 .auth-wait {
   margin: 30vh auto 0;
@@ -25,7 +25,7 @@
 }
 .google-btn svg {
   flex: none;
-  background: var(--fg);
+  background: var(--text);
   border-radius: 50%;
   padding: 2px;
   box-sizing: content-box;
@@ -38,7 +38,7 @@
   width: min(22rem, 100%);
   margin: 0 auto 24px;
   padding-top: 16px;
-  border-top: 1px solid var(--edge-soft);
+  border-top: 1px solid var(--line-soft);
   text-align: left;
 }
 .settings-account .dim {
@@ -49,7 +49,7 @@
 
 .home-account {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--size-sm);
 }
 
 /* Google Identity Services button (preferred flow). Google draws it in an
@@ -73,9 +73,9 @@
 .gis-holder[hidden] { display: none; }
 .gis-pending {
   align-items: center;
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 999px;
-  font-size: var(--text-sm);
+  font-size: var(--size-sm);
 }
 .gis-busy { margin: 10px 0; }
 .gis-alt {
@@ -83,12 +83,12 @@
   border: 0;
   background: none;
   padding: 2px 4px;
-  color: var(--fg-faint);
+  color: var(--muted);
   font: inherit;
-  font-size: var(--text-xs);
+  font-size: var(--size-xs);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .gis-alt:hover,
-.gis-alt:focus-visible { color: var(--fg); }
+.gis-alt:focus-visible { color: var(--text); }

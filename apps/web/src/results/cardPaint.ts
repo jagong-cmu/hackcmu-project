@@ -3,18 +3,27 @@
  * fonts, the spaced ARIA wordmark, the red bloom, and the chip copy.
  */
 
-export const INK = "#110709";
-export const PANEL = "#1f0d10";
-export const FG = "#f4eadf";
-export const DIM = "rgba(244, 234, 223, 0.62)";
-export const ACCENT = "#f45a5d";
-export const ACCENT_DEEP = "#b3202a";
-export const GOOD = "#f6cc6e";
-export const WARN = "#e8b550";
-export const DANGER = "#ff7d74";
+// Canvas painters cannot read CSS variables: these mirror theme/tokens.css
+// (canvasPalette.test.ts fails if they drift).
+export const BG = "#05070d";
+export const PANEL = "#0d1220";
+export const FG = "#e8eeff";
+export const MUTED = "#8e9ab8";
+export const RED = "#e5183b";
+export const RED_TEXT = "#ff5c73";
+export const BLUE = "#4d86ff";
+export const BLUE_TEXT = "#7fa8ff";
+export const ICE = "#bbd0ff";
+export const DIM = MUTED;
 
-export const DISPLAY = "'Barlow Condensed', sans-serif";
-export const BODY = "Figtree, sans-serif";
+/** A palette hex at an alpha, for gradients and translucent fills. */
+export function rgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+export const DISPLAY = "'Krona One', sans-serif";
+export const BODY = "'Hanken Grotesk', sans-serif";
 
 export async function loadCardFonts() {
   try {
@@ -82,9 +91,9 @@ export function paintBloom(
   strength = 1,
 ) {
   const bloom = ctx.createRadialGradient(cx, cy - radius * 0.11, 20, cx, cy, radius);
-  bloom.addColorStop(0, `rgba(240, 72, 75, ${0.38 * strength})`);
-  bloom.addColorStop(0.45, `rgba(179, 32, 42, ${0.16 * strength})`);
-  bloom.addColorStop(1, "rgba(17, 7, 9, 0)");
+  bloom.addColorStop(0, rgba(RED, 0.38 * strength));
+  bloom.addColorStop(0.45, rgba(RED, 0.16 * strength));
+  bloom.addColorStop(1, rgba(BG, 0));
   ctx.fillStyle = bloom;
   ctx.fillRect(0, 0, width, height);
 }
@@ -113,13 +122,13 @@ export function paintWordmark(
 
   const ruleY = top + size * 1.16;
   const half = size * 2.8;
-  ctx.strokeStyle = "rgba(232, 181, 80, 0.35)";
+  ctx.strokeStyle = rgba(ICE, 0.35);
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx - half, ruleY);
   ctx.lineTo(cx + half, ruleY);
   ctx.stroke();
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = RED;
   ctx.beginPath();
   ctx.arc(cx, ruleY, Math.max(2.5, size * 0.055), 0, Math.PI * 2);
   ctx.fill();
@@ -132,14 +141,13 @@ export function eloLabel(delta: number): string {
 }
 
 export function eloColor(delta: number): string {
-  if (delta > 0) return GOOD;
-  if (delta < 0) return DANGER;
-  return ACCENT;
+  // The sign carries the meaning; red and blue stay reserved for you / them.
+  return delta > 0 ? ICE : MUTED;
 }
 
 /** Same bands as the on-screen meters (scoreBand). */
 export function bandColor(n: number): string {
-  if (n >= 80) return GOOD;
-  if (n >= 55) return WARN;
-  return DANGER;
+  if (n >= 80) return ICE;
+  if (n >= 55) return FG;
+  return MUTED;
 }
