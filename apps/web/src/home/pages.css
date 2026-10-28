@@ -1,0 +1,114 @@
+/* Secondary screens: settings, leaderboard, stats, room code. Owner: Session A.
+   Everything hangs off .pg so the legacy sheets (loaded later) can't reach it. */
+
+.pg { width: 100%; text-align: left; display: grid; gap: var(--sp-6); align-content: start; }
+.pg-wide { gap: var(--sp-4); }
+.pg .dim, .pg p { margin: 0; color: var(--muted); font-size: var(--fs-body); }
+.pg .err { color: var(--red-text); }
+
+.pg-group { display: grid; gap: var(--sp-3); justify-items: start; padding-bottom: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+.pg-group > h2 { margin: 0; color: var(--muted); }
+.pg-group > h2.t-menu-2 { color: var(--text); }
+.pg-group .ui-btn { width: auto; }
+
+.pg-field { display: grid; gap: var(--sp-2); width: min(22rem, 100%); }
+.pg-field .t-label { color: var(--muted); }
+.pg input:not(.pg-code) {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  caret-color: var(--ice);
+}
+.pg input:not(.pg-code):focus { outline: 2px solid var(--red-text); outline-offset: 3px; border-color: var(--line-strong); }
+
+/* Device and voice check links read as secondary buttons. */
+.pg .device-check-link { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin: 0; }
+.pg .device-check-link a {
+  padding: var(--sp-3) var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.pg .device-check-link a:hover { background: var(--surface-2); border-color: var(--line-strong); }
+.pg .settings-legal { justify-content: flex-start; font-size: var(--fs-label); font-weight: 600; }
+
+/* ---- leaderboard ---- */
+.pg-tabs { display: flex; gap: var(--sp-5); }
+.pg-tabs button {
+  padding: var(--sp-2) 0;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+.pg-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--ice); }
+.pg-tabs button:focus-visible { outline: 2px solid var(--red-text); outline-offset: 3px; }
+
+.pg-table { width: 100%; border-collapse: collapse; }
+.pg-table th {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--muted);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-align: left;
+  text-transform: uppercase;
+}
+.pg-table td { padding: var(--sp-3); border-top: 1px solid var(--line-soft); color: var(--text); }
+.pg-table td.dim { color: var(--muted); }
+.pg-table .pg-rank { color: var(--ice); width: 4.5rem; }
+.pg-table .pg-rank.top { color: var(--text); }
+.pg-table .pg-name { font-weight: 600; }
+.pg-table tr.is-me td { background: var(--surface); }
+.pg-table tr.is-me td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+
+/* ---- stats ---- */
+.pg-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--sp-5); }
+.pg-stat { display: grid; gap: var(--sp-2); }
+.pg-stat strong { font-weight: 400; color: var(--text); }
+.pg-stat .t-label { color: var(--muted); }
+.pg-h { margin: var(--sp-5) 0 0; color: var(--muted); }
+
+/* ---- room code ---- */
+.pg-code-form { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: stretch; }
+.pg-code {
+  width: 9.5em;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  caret-color: var(--ice);
+  font-family: var(--font-display);
+  font-size: var(--fs-menu);
+  letter-spacing: 0.35em;
+  text-align: center;
+  text-indent: 0.35em; /* balances the trailing letter-spacing */
+}
+.pg-code::placeholder { color: var(--muted); opacity: 0.4; }
+.pg-code:focus { outline: 2px solid var(--red-text); outline-offset: 3px; border-color: var(--line-strong); }
+.pg-code-form .ui-btn { min-height: 0; }
+
+/* ---- page chrome (PageShell) for these screens ---- */
+.pg-page .page-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  letter-spacing: var(--tr-title);
+  text-shadow: none;
+  color: var(--text);
+}
+.pg-page .shell-inner .tag { align-self: flex-start; max-width: none; margin-bottom: var(--sp-5); text-align: left; color: var(--muted); }
+.pg-page .shell-inner { margin-top: 7.5rem; }
+/* A section whose only child is its heading (e.g. Account when sign-in is off). */
+.pg-group:not(:has(> :not(h2))) { display: none; }
+.pg-stats + p, .pg-stats ~ p { margin-top: 0; }

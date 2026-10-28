@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Digits } from "../ui/Digits.tsx";
+import "../home/pages.css";
 import { PageShell } from "../theme/PageShell.tsx";
 
 type ArenaStats = {
@@ -55,16 +57,19 @@ export function ArenaStats() {
   const songs = stats?.songs ?? [];
 
   return (
-    <PageShell title="Arena" tag="How busy the room has been." wide quietWave>
+    <PageShell title="Arena" tag="How busy the room has been." wide quietWave className="pg-page">
+      <div className="pg pg-wide">
       {error ? <p className="dim">Stats are unavailable right now.</p> : null}
       {!error && !stats ? <p className="dim">Counting…</p> : null}
       {totals ? (
         <>
-          <div className="stat-grid">
+          <div className="pg-stats">
             {TILES.map((tile) => (
-              <div className="stat-tile" key={tile.key}>
-                <strong>{totals[tile.key]}</strong>
-                <span>{tile.label}</span>
+              <div className="pg-stat" key={tile.key}>
+                <strong className="t-score">
+                  <Digits value={totals[tile.key]} />
+                </strong>
+                <span className="t-label">{tile.label}</span>
               </div>
             ))}
           </div>
@@ -88,8 +93,8 @@ export function ArenaStats() {
         </>
       ) : null}
 
-      <h2 className="stat-songs-title">Songs</h2>
-      <table className="board">
+      <h2 className="t-label pg-h">Songs</h2>
+      <table className="pg-table">
         <thead>
           <tr>
             <th>Song</th>
@@ -109,12 +114,15 @@ export function ArenaStats() {
               <tr key={song.id}>
                 <td>{song.title}</td>
                 <td>{song.artist || "—"}</td>
-                <td>{song.plays}</td>
+                <td className="t-num">
+                  <Digits value={song.plays} />
+                </td>
               </tr>
             ))
           )}
         </tbody>
       </table>
+      </div>
     </PageShell>
   );
 }
