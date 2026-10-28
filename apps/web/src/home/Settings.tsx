@@ -8,6 +8,8 @@ import { DeviceCheckLink } from "../onboarding/DeviceCheckGate.tsx";
 import { AccountSection } from "../auth/AccountSection.tsx";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { LegalLinks } from "../legal/LegalLinks.tsx";
+import { Button } from "../ui/Button.tsx";
+import "./pages.css";
 import { safeNextPath } from "../lib/safeNext.ts";
 
 export function Settings() {
@@ -46,33 +48,43 @@ export function Settings() {
   }
 
   return (
-    <PageShell title="Settings" tag="This is how other singers will see you.">
-      {canName ? <form className="settings-form" onSubmit={(e) => void save(e)}>
-        <label>
-          Display name
-          <input
-            value={name}
-            maxLength={16}
-            autoComplete="nickname"
-            autoFocus
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        {msg ? <p className="err">{msg}</p> : null}
-        <button type="submit" className="cta">
-          Save name
-        </button>
-      </form> : null}
-      <AccountSection />
-      <p className="dim">
-        {mongo == null
-          ? "Checking connection…"
-          : mongo
-            ? "Ready."
-            : "Can't reach the server right now."}
-      </p>
-      <DeviceCheckLink next="/settings" />
-      <LegalLinks className="settings-legal" />
+    <PageShell title="Settings" tag="This is how other singers will see you." className="pg-page">
+      <div className="pg">
+        {canName ? (
+          <form className="pg-group" onSubmit={(e) => void save(e)}>
+            <h2 className="t-label">Profile</h2>
+            <label className="pg-field">
+              <span className="t-label">Display name</span>
+              <input
+                value={name}
+                maxLength={16}
+                autoComplete="nickname"
+                autoFocus
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            {msg ? <p className="err">{msg}</p> : null}
+            <Button type="submit" variant="primary">
+              Save name
+            </Button>
+          </form>
+        ) : null}
+        <section className="pg-group">
+          <h2 className="t-label">Account</h2>
+          <AccountSection />
+        </section>
+        <section className="pg-group">
+          <h2 className="t-label">Devices</h2>
+          <DeviceCheckLink next="/settings" />
+        </section>
+        <section className="pg-group">
+          <h2 className="t-label">Connection</h2>
+          <p className="dim">
+            {mongo == null ? "Checking connection…" : mongo ? "Ready." : "Can't reach the server right now."}
+          </p>
+        </section>
+        <LegalLinks className="settings-legal" />
+      </div>
     </PageShell>
   );
 }

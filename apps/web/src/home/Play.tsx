@@ -4,6 +4,8 @@ import { type Mode } from "@karaoke/shared";
 import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
+import { Button } from "../ui/Button.tsx";
+import "./pages.css";
 
 type PlayMode = Extract<Mode, "ranked" | "duet" | "chaos">;
 
@@ -132,12 +134,10 @@ export function Play() {
       >
         {notices}
         <div className="play-choices">
-          <section className="card play-choice play-waiting">
-            <h2>{copy.waiting}</h2>
+          <section className="pg-group play-waiting">
+            <h2 className="t-menu-2">{copy.waiting}</h2>
             <p>{connected ? copy.hint : "Connecting — you’ll be matched automatically."}</p>
-            <button type="button" className="cta cta-ghost" onClick={leave}>
-              {isChaos ? "Cancel" : "Leave queue"}
-            </button>
+            <Button onClick={leave}>{isChaos ? "Cancel" : "Leave queue"}</Button>
           </section>
         </div>
       </PageShell>
@@ -173,12 +173,35 @@ export function Play() {
       <p className="mode-pick-blurb">{selected.blurb}</p>
 
       <div className="play-choices">
-        <section className="card play-choice">
-          <h2>Create a room</h2>
+        <section className="pg-group">
+          <h2 className="t-menu-2">Join a room</h2>
+          <p>Type the code your friend sent you.</p>
+          <form
+            className="pg-code-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              joinRoom(code);
+            }}
+          >
+            <input
+              className="pg-code"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="0000"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              aria-label="Room code"
+            />
+            <Button type="submit" variant="primary" disabled={!named || !connected || code.length !== 4}>
+              Join
+            </Button>
+          </form>
+        </section>
+
+        <section className="pg-group">
+          <h2 className="t-menu-2">Create a room</h2>
           <p>Start a private {selected.label.toLowerCase()} room and share its code.</p>
-          <button
-            type="button"
-            className="cta"
+          <Button
             disabled={!named || !connected}
             onClick={() => {
               announce();
@@ -186,31 +209,7 @@ export function Play() {
             }}
           >
             Create a room
-          </button>
-        </section>
-
-        <section className="card play-choice">
-          <h2>Join a room</h2>
-          <p>Type the code your friend sent you.</p>
-          <form
-            className="code-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              joinRoom(code);
-            }}
-          >
-            <input
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              aria-label="Room code"
-            />
-            <button type="submit" className="cta" disabled={!named || !connected || code.length !== 4}>
-              Join
-            </button>
-          </form>
+          </Button>
         </section>
       </div>
     </PageShell>
