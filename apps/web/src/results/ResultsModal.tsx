@@ -1,6 +1,8 @@
 import type { ScoreCard } from "@karaoke/shared";
 import { useEffect, useState } from "react";
-import { ScoreBreakdown, ScoreMeter, scoreBand } from "../scoring/ScoreBars.tsx";
+import { scoreBand } from "../scoring/ScoreBars.tsx";
+import { Button } from "../ui/Button.tsx";
+import { Digits } from "../ui/Digits.tsx";
 import { coachLine } from "./coachLine.ts";
 import {
   composeShareImage,
@@ -8,13 +10,28 @@ import {
 } from "./composeShareImage.ts";
 import { extForMime, feedMatchReelResults, waitForCurrentReel } from "./matchReel.ts";
 import { buildReelResults, OutroMs, ResultsWaitMs } from "./reelResults.ts";
-import { ScoreBurst } from "./ScoreBurst.tsx";
 import { ShareSheet } from "./ShareSheet.tsx";
 import { useCountUp } from "./useCountUp.ts";
 import { useMatchMoment, useMatchReel, useMatchReelPending } from "./useMatchMoment.ts";
 import type { RematchView } from "../stage/rematchView.ts";
 
 const SCORE_COUNTDOWN_SEC = 6;
+const CountUpMs = 800;
+
+function Breakdown({ card }: { card: ScoreCard }) {
+  return (
+    <dl className="km-res-break">
+      <div>
+        <dt className="t-label">Pitch</dt>
+        <dd><Digits value={card.silence ? "--" : `${card.pitch}%`} /></dd>
+      </div>
+      <div>
+        <dt className="t-label">Tone</dt>
+        <dd><Digits value={card.silence ? "--" : `${card.tone}%`} /></dd>
+      </div>
+    </dl>
+  );
+}
 
 const WAIT_LINES = [
   "Reading pitch and tone",
@@ -104,6 +121,8 @@ type Props = {
   /** Withdraw my offer or decline theirs. */
   onRematchCancel?: () => void;
   onAgain?: () => void;
+  /** Leave for the song / mode list. */
+  onPickSong?: () => void;
   /** Your real name for the match video ("You" reads oddly in a shared clip). */
   shareName?: string;
   /** The match ended because someone left. */
@@ -131,6 +150,7 @@ export function ResultsModal({
   rematch,
   onRematchCancel,
   onAgain,
+  onPickSong,
   shareName,
   forfeit,
   opponentLeft,
@@ -205,8 +225,20 @@ export function ResultsModal({
   }, [reelFeed]);
 
   const heroTarget = shared != null ? shared : you.overall;
-  const shown = useCountUp(you.silence ? 0 : heroTarget, true);
-  const burstCount = you.silence ? 0 : you.overall >= 80 ? 36 : you.overall >= 55 ? 22 : 0;
+  const shown = useCountUp(you.silence ? 0 : heroTarget, true, CountUpMs);
+  const theirs = useCountUp(opponent && !locked ? opponent.overall : 0, Boolean(opponent && !locked), CountUpMs);
+  const versus = Boolean(opponent) || Boolean(opponentLeft) || ranked;
+  const headline = you.silence
+    ? "Mic check"
+    : shared != null
+      ? "Duet"
+      : draw
+        ? "Draw"
+        : youWon
+          ? "You win"
+          : theyWon
+            ? "They win"
+            : title;
   const [landed, setLanded] = useState(false);
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -274,41 +306,47 @@ export function ResultsModal({
   return (
     <div className="modal-scrim results-scrim">
       <div
-        className={`results results-show band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""}`}
+        className={`results results-show km-results band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""}`}
         role="dialog"
         aria-labelledby="results-title"
       >
-        <h2 id="results-title">{title}</h2>
-        <div className="results-hero">
-          {burstCount > 0 ? <ScoreBurst count={burstCount} /> : null}
-          <p className="results-hero-score" aria-label={`Score ${heroTarget}`}>
-            {you.silence ? "--" : shown}
-          </p>
-          <p className="results-blurb">{coach.line}</p>
-        </div>
-        {opponent ? (
-          <div className="score-row split">
-            <ScoreBreakdown name={youName} card={you} winner={youWon} compact />
-            {locked ? (
-              <ScoreBreakdown name={opponentName} card={null} pending compact />
-            ) : (
-              <ScoreBreakdown name={opponentName} card={opponent} winner={theyWon} compact />
-            )}
-          </div>
+        {songTitle ? <p className="km-res-song t-label">{songTitle}{songArtist ? ` · ${songArtist}` : ""}</p> : null}
+        {versus ? (
+          <>
+            <h2 id="results-title" className="km-res-head">{headline}</h2>
+            <div className="km-res-scores">
+              <div className="km-res-side you">
+                <p className="t-label">{shared != null ? "Team" : youName}</p>
+                <p className="km-res-num"><Digits value={you.silence ? "--" : shown} /></p>
+                <Breakdown card={you} />
+              </div>
+              {shared != null ? null : (
+                <div className="km-res-side them">
+                  <p className="t-label">{opponentName}</p>
+                  <p className="km-res-num"><Digits value={locked || !opponent || opponent.silence ? "--" : theirs} /></p>
+                  {locked || !opponent ? null : <Breakdown card={opponent} />}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="results-subs">
-            <ScoreMeter label="Pitch" value={you.silence ? 0 : you.pitch} />
-            <ScoreMeter label="Tone" value={you.silence ? 0 : you.tone} />
-          </div>
+          <>
+            <h2 id="results-title" className="km-res-head km-res-num" aria-label={you.silence ? "Mic check" : `Score ${heroTarget}`}>
+              {you.silence ? "Mic check" : <Digits value={shown} />}
+            </h2>
+            <Breakdown card={you} />
+          </>
         )}
-        {shared != null ? <p className="shared">Shared score {shared}</p> : null}
-        {unrated && revealOpponent ? <p className="elo friendly">Unrated — friendly match</p> : null}
+        {unrated && revealOpponent ? <p className="elo friendly t-label">Unrated · friendly match</p> : null}
         {eloDelta != null && revealOpponent ? (
-          <p className={`elo ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
-            {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : ""}${eloDelta} ELO`}
+          <p className={`elo t-label ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
+            {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : "−"}${Math.abs(eloDelta)} ELO`}
           </p>
         ) : null}
-        {showGemini ? <p className="verdict">{gemini}</p> : null}
+        <p className="results-blurb">{showGemini ? gemini : coach.line}</p>
+        <p className="sr-only" aria-live="polite">
+          {landed ? `Final score ${you.silence ? "none" : heroTarget}${opponent && !locked && shared == null ? `, ${opponentName} ${opponent.overall}` : ""}` : ""}
+        </p>
         {reel || moment || reelPending ? (
           <button type="button" className="results-moment" onClick={() => void openShare()}>
             {moment ? (
@@ -339,39 +377,44 @@ export function ResultsModal({
           </p>
         ) : null}
         <div className="result-actions">
-          <button type="button" className="cta cta-ghost" disabled={sharing} onClick={() => void openShare()}>
-            {sharing ? (reelPending ? "Finishing video…" : "Making the clip…") : "Share"}
-          </button>
           {onAgain ? (
-            <button type="button" className="cta" onClick={onAgain}>
+            <Button variant="primary" onClick={onAgain}>
               Sing again
-            </button>
+            </Button>
           ) : null}
           {onRematch && rematch?.kind === "invited" ? (
-            <button type="button" className="cta" onClick={onRematch}>
+            <Button variant="primary" onClick={onRematch}>
               Accept ({rematch.secondsLeft}s)
-            </button>
+            </Button>
           ) : null}
           {onRematchCancel && rematch?.kind === "invited" ? (
-            <button type="button" className="cta cta-ghost" onClick={onRematchCancel}>
+            <Button variant="secondary" onClick={onRematchCancel}>
               Decline
-            </button>
+            </Button>
           ) : null}
           {onRematchCancel && rematch?.kind === "waiting" ? (
-            <button type="button" className="cta cta-ghost" onClick={onRematchCancel}>
+            <Button variant="secondary" onClick={onRematchCancel}>
               Cancel
-            </button>
+            </Button>
           ) : null}
           {onRematch && (!rematch || rematch.kind === "idle") ? (
-            <button type="button" className="cta" onClick={onRematch}>
+            <Button variant="primary" onClick={onRematch}>
               Rematch
-            </button>
+            </Button>
+          ) : null}
+          {onPickSong ? (
+            <Button variant="secondary" onClick={onPickSong}>
+              Pick another song
+            </Button>
           ) : null}
           {onHome ? (
-            <button type="button" className="cta cta-ghost" onClick={onHome}>
+            <Button variant="ghost" onClick={onHome}>
               Home
-            </button>
+            </Button>
           ) : null}
+          <Button variant="ghost" disabled={sharing} onClick={() => void openShare()}>
+            {sharing ? (reelPending ? "Finishing video…" : "Making the clip…") : "Share"}
+          </Button>
         </div>
       </div>
       {sheet ? (

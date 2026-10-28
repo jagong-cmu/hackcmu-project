@@ -1,5 +1,5 @@
 import { PitchDetector } from "pitchy";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
@@ -11,7 +11,8 @@ import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
-import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
+import type { ScoreBits } from "../scoring/ScoreBars.tsx";
+import { resetStageHud, setStageHud } from "./stageHud.ts";
 import { loadSongPack } from "../scoring/catalog.ts";
 import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
@@ -508,14 +509,6 @@ export function StagePitch() {
             overall: themLive.overall,
           }
         : null));
-  const youSinging =
-    room?.mode === "duet"
-      ? singingNow(duetVoice, seat).me
-      : Boolean(room && myPlayerId && room.activeSingerId === myPlayerId && (room.status === "turnA" || room.status === "turnB"));
-  const themSinging =
-    room?.mode === "duet"
-      ? singingNow(duetVoice, seat).them
-      : Boolean(room && opponent && room.activeSingerId === opponent.id && (room.status === "turnA" || room.status === "turnB"));
   const showHud =
     room?.mode === "ranked" || room?.mode === "duet"
       ? room.status === "turnA" ||
@@ -532,6 +525,21 @@ export function StagePitch() {
   );
   const calloutGrade = gradeLive(guideMelody, playhead, shownHz);
 
+  // Display-only combo per side, counted by the lane while that side's voice is on it.
+  const laneSide = mine ? "you" : "them";
+  const [combo, setCombo] = useState({ you: 0, them: 0 });
+  const onCombo = useCallback(
+    (n: number) => setCombo((c) => (c[laneSide] === n ? c : { ...c, [laneSide]: n })),
+    [laneSide],
+  );
+  useEffect(() => {
+    setStageHud({ you: youCard, them: themCard, laneSide, combo });
+  });
+  useEffect(() => {
+    setCombo({ you: 0, them: 0 });
+    return resetStageHud;
+  }, [room?.matchId]);
+
   return (
     <div className="pitch-stage">
       <PitchMeter
@@ -541,14 +549,9 @@ export function StagePitch() {
         liveClarity={shownClarity}
         liveRms={shownRms}
         voiceProfile={mine ? voiceProfile : null}
+        onCombo={onCombo}
       />
       {showHud ? <HitCallout grade={calloutGrade} /> : null}
-      {showHud ? (
-        <LiveScoreHud
-          left={{ name: opponent?.displayName ?? "Them", card: themCard, singing: themSinging }}
-          right={{ name: "You", card: youCard, singing: youSinging }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -613,6 +616,10 @@ export function StageResults() {
       onHome={() => {
         roomLeave();
         navigate("/");
+      }}
+      onPickSong={() => {
+        roomLeave();
+        navigate(`/play/${room.mode}`);
       }}
       rematch={rematch}
       onRematch={rematch?.kind === "unavailable" ? undefined : rematchRequest}

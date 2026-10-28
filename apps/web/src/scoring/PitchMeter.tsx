@@ -1,18 +1,17 @@
 import { useEffect, useRef } from "react";
-import { palette, pitchColor } from "../theme/palette.ts";
+import { palette } from "../theme/palette.ts";
 import type { MelodyFile } from "@karaoke/shared";
 import { midiFromHz } from "./cents.ts";
 import { melodyHzAt } from "./scoreClip.ts";
 import {
-  TRAIL_SEC,
   createPitchSmoothState,
   noteName,
   segmentMelody,
   smoothLivePitch,
+  wrapMidi,
   type NoteRun,
 } from "./pitchGuide.ts";
 import type { VoiceProfile } from "./voiceRange.ts";
-import { BODY } from "../results/cardPaint.ts";
 
 type Props = {
   melody: MelodyFile | null;
@@ -26,21 +25,32 @@ type Props = {
    * null → no guard.
    */
   voiceProfile?: VoiceProfile | null;
+  /**
+   * Display-only combo: notes in a row held in tune (the detector's inTune
+   * flag), reported when each note ends. Never feeds scoring.
+   */
+  onCombo?: (combo: number) => void;
 };
 
 function smoothStateFor(profile: VoiceProfile | null | undefined) {
   return createPitchSmoothState(profile ? { profile } : undefined);
 }
 
-const LOOKAHEAD_SEC = 2.0;
-const LOOKBEHIND_SEC = TRAIL_SEC;
-/**
- * Fixed vertical range, C2–C6 (MIDI 36–84): bass to soprano. Y is linear in
- * MIDI, so every semitone gets the same height. Pitches outside pin to an edge.
- */
-const VIEW_MIN_MIDI = 36;
-const VIEW_MAX_MIDI = 84;
-const RAIL = 78;
+/** Playhead sits this far across; the rest is look-ahead. */
+const PLAYHEAD_X = 0.26;
+const LOOKAHEAD_SEC = 3.5;
+const LOOKAHEAD_NARROW_SEC = 2.5;
+const NARROW_PX = 900;
+/** Notes after the window that still count toward the fitted range, so it settles before they arrive. */
+const FIT_EXTRA_SEC = 2;
+const FIT_MARGIN_ST = 2;
+/** At least an octave plus margin, so an octave-folded live dot always lands in view. */
+const MIN_SPAN_ST = 14;
+const RANGE_EASE_MS = 350;
+const GUIDES = 6;
+const DOT_TRAIL_SEC = 0.3;
+/** Share of a note's frames that must be in tune for it to count as hit. */
+const HIT_RATIO = 0.4;
 /**
  * Add ?pitchdebug to the URL for a Hz / note / clarity / RMS readout, and a
  * per-frame log of the last ~20 s in the console as `pitchLog`
@@ -57,19 +67,51 @@ type FrameLog = {
 const pitchLog: FrameLog[] = [];
 if (DEBUG) (window as unknown as { pitchLog: FrameLog[] }).pitchLog = pitchLog;
 
-export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0, voiceProfile }: Props) {
+type NoteHit = { on: number; n: number; done: boolean; hit: boolean };
+type LaneState = {
+  lo: number | null;
+  hi: number | null;
+  lastMs: number;
+  lastT: number;
+  hits: Map<number, NoteHit>;
+  combo: number;
+};
+
+const freshLane = (): LaneState => ({ lo: null, hi: null, lastMs: 0, lastT: -Infinity, hits: new Map(), combo: 0 });
+
+type Colors = { blue: string; red: string; redGlow: string; ice: string; muted: string; line: string; white: string };
+let colorCache: Colors | null = null;
+/** Resolved once: reading tokens every frame is a style lookup the lane cannot afford. */
+function colors(): Colors {
+  if (colorCache) return colorCache;
+  const p = palette();
+  colorCache = {
+    blue: p.tone("blue-rgb", 1),
+    red: p.tone("red-rgb", 1),
+    redGlow: p.tone("red-rgb", 0.7),
+    ice: p.tone("ice-rgb", 1),
+    muted: getComputedStyle(document.documentElement).getPropertyValue("--muted").trim(),
+    line: p.ink(0.2),
+    white: p.tone("text-rgb", 1),
+  };
+  return colorCache;
+}
+
+export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms = 0, voiceProfile, onCombo }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const propsRef = useRef({ melody, playheadSec, liveHz, liveClarity, liveRms });
+  const propsRef = useRef({ melody, playheadSec, liveHz, liveClarity, liveRms, onCombo });
   const runsRef = useRef<NoteRun[]>([]);
   const smoothRef = useRef(createPitchSmoothState());
+  const laneRef = useRef(freshLane());
   const profileRef = useRef(voiceProfile);
-  propsRef.current = { melody, playheadSec, liveHz, liveClarity, liveRms };
+  propsRef.current = { melody, playheadSec, liveHz, liveClarity, liveRms, onCombo };
   profileRef.current = voiceProfile;
 
   useEffect(() => {
     runsRef.current = melody ? segmentMelody(melody) : [];
     smoothRef.current = smoothStateFor(profileRef.current);
+    laneRef.current = freshLane();
   }, [melody]);
 
   // A different voice on the line (e.g. your turn starts after watching
@@ -87,10 +129,11 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
     if (!canvas || !wrap) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let raf = 0;
     const draw = () => {
-      paint(canvas, ctx, wrap, propsRef.current, runsRef.current, smoothRef.current);
+      paint(canvas, ctx, wrap, propsRef.current, runsRef.current, smoothRef.current, laneRef.current, reduced.matches);
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -99,12 +142,7 @@ export function PitchMeter({ melody, playheadSec, liveHz, liveClarity, liveRms =
 
   return (
     <div ref={wrapRef} className="pitch-guide">
-      <canvas
-        ref={canvasRef}
-        className="pitch-meter"
-        aria-label="Pitch guide"
-        draggable={false}
-      />
+      <canvas ref={canvasRef} className="pitch-meter" aria-hidden="true" draggable={false} />
     </div>
   );
 }
@@ -116,226 +154,192 @@ function paint(
   props: Props,
   runs: NoteRun[],
   smooth: ReturnType<typeof createPitchSmoothState>,
+  lane: LaneState,
+  reduced: boolean,
 ) {
-  const cssW = Math.max(1, wrap.clientWidth);
-  const cssH = Math.max(1, wrap.clientHeight);
+  const w = Math.max(1, wrap.clientWidth);
+  const h = Math.max(1, wrap.clientHeight);
   const dpr = window.devicePixelRatio || 1;
-  const pw = Math.floor(cssW * dpr);
-  const ph = Math.floor(cssH * dpr);
+  const pw = Math.floor(w * dpr);
+  const ph = Math.floor(h * dpr);
   if (canvas.width !== pw || canvas.height !== ph) {
     canvas.width = pw;
     canvas.height = ph;
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const w = cssW;
-  const h = cssH;
-
   ctx.clearRect(0, 0, w, h);
-  const pal = palette();
-  ctx.fillStyle = pal.bg;
-  ctx.fillRect(0, 0, w, h);
+  const c = colors();
 
-  const tNow = props.playheadSec;
-  const min = VIEW_MIN_MIDI;
-  const max = VIEW_MAX_MIDI;
-  const span = max - min;
-  const yPad = Math.max(8, Math.min(14, h * 0.09));
-  const stPx = (h - 2 * yPad) / span;
-  const yOf = (midi: number) => {
-    const t = (midi - min) / span;
-    const y = h - yPad - t * (h - 2 * yPad);
-    return Math.min(h - 4, Math.max(4, y));
-  };
-  // Lanes and the voice line are sized in semitones so a line one semitone
-  // off the note is visibly off it.
-  const laneH = Math.max(4, stPx);
-  const voiceW = Math.max(4, Math.min(Math.round(h * 0.065), Math.round(stPx * 1.5)));
-  const headR = Math.max(10, Math.round(h * 0.045));
-
-  const windowSec = LOOKAHEAD_SEC + LOOKBEHIND_SEC;
-  const fieldX = RAIL + 10;
-  const fieldW = w - fieldX - 12;
-  const xOf = (sec: number) => fieldX + ((sec - (tNow - LOOKBEHIND_SEC)) / windowSec) * fieldW;
-  const nowX = xOf(tNow);
-
-  ctx.fillStyle = pal.ink(0.04);
-  ctx.fillRect(0, 0, RAIL, h);
-
-  for (let m = min; m <= max; m++) {
-    // Octave lines always; semitone lines only when they would not smear into a fill.
-    if (m % 12 !== 0 && stPx < 6) continue;
-    const y = yOf(m);
-    ctx.strokeStyle = m % 12 === 0 ? pal.ink(0.16) : pal.ink(0.06);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(RAIL, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
+  const t = props.playheadSec;
+  const nowMs = performance.now();
+  const dt = lane.lastMs ? nowMs - lane.lastMs : 0;
+  lane.lastMs = nowMs;
+  // Seek back or a new take on the same melody: notes are ungraded again.
+  if (t < lane.lastT - 0.5) {
+    lane.hits.clear();
+    if (lane.combo !== 0) props.onCombo?.(0);
+    lane.combo = 0;
   }
+  lane.lastT = t;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(fieldX, 0, fieldW, h);
-  ctx.clip();
+  const ahead = window.innerWidth < NARROW_PX ? LOOKAHEAD_NARROW_SEC : LOOKAHEAD_SEC;
+  const playX = Math.round(w * PLAYHEAD_X);
+  const pps = (w - playX) / ahead;
+  const behind = playX / pps;
+  const xOf = (sec: number) => playX + (sec - t) * pps;
 
+  // Fit the vertical range to the notes around now, eased so lanes never jump.
+  let fitLo = Infinity;
+  let fitHi = -Infinity;
   for (const run of runs) {
-    if (run.endSec < tNow - LOOKBEHIND_SEC || run.startSec > tNow + LOOKAHEAD_SEC) continue;
-    const x1 = xOf(run.startSec);
-    const x2 = xOf(run.endSec);
-    const y = yOf(run.midi);
-    const rw = Math.max(6, x2 - x1);
-    const rh = laneH;
-    const active = tNow >= run.startSec && tNow <= run.endSec;
-    const upcoming = run.startSec > tNow;
-    // Current note ice, coming up blue (them / coming up), sung notes dim.
-    ctx.fillStyle = active
-      ? pal.tone("ice-rgb", 0.92)
-      : upcoming
-        ? pal.tone("blue-rgb", 0.78)
-        : pal.ink(0.28);
-    roundRect(ctx, x1, y - rh / 2, rw, rh, Math.min(8, rh / 2));
-    ctx.fill();
+    if (run.endSec < t - behind || run.startSec > t + ahead + FIT_EXTRA_SEC) continue;
+    if (run.midi < fitLo) fitLo = run.midi;
+    if (run.midi > fitHi) fitHi = run.midi;
   }
+  if (fitLo <= fitHi) {
+    fitLo -= FIT_MARGIN_ST;
+    fitHi += FIT_MARGIN_ST;
+    if (fitHi - fitLo < MIN_SPAN_ST) {
+      const mid = (fitLo + fitHi) / 2;
+      fitLo = mid - MIN_SPAN_ST / 2;
+      fitHi = mid + MIN_SPAN_ST / 2;
+    }
+    if (lane.lo == null || lane.hi == null || reduced) {
+      lane.lo = fitLo;
+      lane.hi = fitHi;
+    } else {
+      const k = 1 - Math.exp(-dt / RANGE_EASE_MS);
+      lane.lo += (fitLo - lane.lo) * k;
+      lane.hi += (fitHi - lane.hi) * k;
+    }
+  }
+  const lo = lane.lo ?? 53;
+  const hi = lane.hi ?? 67;
 
-  const targetHz = props.melody ? melodyHzAt(props.melody, tNow) : null;
+  const noteH = Math.max(14, Math.min(22, Math.round(h * 0.11)));
+  const pad = noteH / 2 + 6;
+  const yOf = (midi: number) => pad + ((hi - midi) / (hi - lo)) * (h - 2 * pad);
+
+  ctx.strokeStyle = c.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < GUIDES; i++) {
+    const y = Math.round(pad + (i * (h - 2 * pad)) / (GUIDES - 1)) + 0.5;
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+  }
+  ctx.stroke();
+
+  const targetHz = props.melody ? melodyHzAt(props.melody, t) : null;
   const targetMidi = targetHz ? midiFromHz(targetHz) : null;
   const live = smoothLivePitch(smooth, {
     hz: props.liveHz,
     clarity: props.liveClarity,
     rms: props.liveRms ?? 0,
     targetMidi,
-    playheadSec: tNow,
-    nowMs: performance.now(),
+    playheadSec: t,
+    nowMs,
   });
+  // The detector's own "no pitch" (midi null) hides the dot; never pin or freeze it.
+  const voiced = live.midi != null && Number.isFinite(live.midi);
 
-  // The head marker rides the smoothed curve so the two cannot disagree.
-  let headY: number | null = null;
-
-  // Silence breaks the line instead of holding a stale note.
-  type TrailPoint = { t: number; midi: number; inTune: boolean };
-  const segments: TrailPoint[][] = [];
-  let open: TrailPoint[] | null = null;
-  for (const p of smooth.trail) {
-    if (p.midi == null) {
-      open = null;
-      continue;
-    }
-    if (!open) segments.push((open = []));
-    open.push({ t: p.t, midi: p.midi, inTune: p.inTune });
+  // Grade the note under the playhead, then close out any that just ended.
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i]!;
+    if (run.startSec > t) break;
+    if (t > run.endSec) continue;
+    const rec = lane.hits.get(i) ?? { on: 0, n: 0, done: false, hit: false };
+    rec.n++;
+    if (live.inTune) rec.on++;
+    lane.hits.set(i, rec);
+  }
+  for (const [i, rec] of lane.hits) {
+    if (rec.done || t <= runs[i]!.endSec) continue;
+    rec.done = true;
+    rec.hit = rec.on / rec.n >= HIT_RATIO;
+    lane.combo = rec.hit ? lane.combo + 1 : 0;
+    props.onCombo?.(lane.combo);
   }
 
-  for (const trail of segments) {
-    if (trail.length < 2) continue;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    const hue = Math.round(trail[trail.length - 1]!.midi);
-    const voiceHue = pitchColor(hue, 0.95);
-    ctx.shadowColor = pitchColor(hue, 0.7);
-    ctx.shadowBlur = 26;
-    // Rolling average over the trail, then a quadratic through the midpoints.
-    // Straight segments between per-frame samples read as a jagged sawtooth
-    // even when the pitch itself is steady.
-    const n = trail.length;
-    const avg = new Array<number>(n);
-    for (let i = 0; i < n; i++) {
-      let sum = 0;
-      let count = 0;
-      for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) {
-        sum += trail[j]!.midi;
-        count++;
+  const r = noteH / 2;
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i]!;
+    if (run.endSec < t - behind) continue;
+    if (run.startSec > t + ahead) break;
+    const x1 = xOf(run.startSec);
+    const x2 = Math.max(x1 + noteH, xOf(run.endSec));
+    const y = yOf(run.midi) - r;
+    const rec = lane.hits.get(i);
+    if (run.endSec < t) {
+      if (rec?.hit) {
+        ctx.shadowColor = c.redGlow;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = c.red;
+        pill(ctx, x1, y, x2 - x1, noteH, r);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = c.muted;
+        pill(ctx, x1, y, x2 - x1, noteH, r);
+        ctx.fill();
+        ctx.globalAlpha = 1;
       }
-      avg[i] = sum / count;
-    }
-    if (live.midi != null && trail === open) headY = yOf(avg[n - 1]!);
-
-    const pts: Array<{ x: number; y: number }> = [];
-    for (let i = 0; i < n; i++) {
-      const p = trail[i];
-      if (!p) continue;
-      const x = xOf(p.t);
-      const prev = pts[pts.length - 1];
-      if (prev && Math.abs(x - prev.x) < 0.75) continue;
-      pts.push({ x, y: yOf(avg[i]!) });
-    }
-
-    ctx.beginPath();
-    if (pts.length === 1) {
-      ctx.moveTo(pts[0]!.x, pts[0]!.y);
-    } else if (pts.length > 1) {
-      ctx.moveTo(pts[0]!.x, pts[0]!.y);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const a = pts[i]!;
-        const b = pts[i + 1]!;
-        ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2);
+    } else if (run.startSec <= t) {
+      // Being sung: the sung part shows hit (red) or not (muted), the rest is still to come.
+      const hitSoFar = rec != null && rec.on / rec.n >= HIT_RATIO;
+      pill(ctx, x1, y, x2 - x1, noteH, r);
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = c.blue;
+      ctx.fillRect(playX, y, x2 - playX, noteH);
+      if (hitSoFar) ctx.fillStyle = c.red;
+      else {
+        ctx.fillStyle = c.muted;
+        ctx.globalAlpha = 0.3;
       }
-      const last = pts[pts.length - 1]!;
-      ctx.lineTo(last.x, last.y);
-    }
-    ctx.strokeStyle = voiceHue;
-    ctx.lineWidth = voiceW;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Dots sit on the smoothed curve, not the raw samples, or they read as
-    // speckle scattered either side of the line.
-    for (let i = 0; i < n; i += 4) {
-      const p = trail[i];
-      if (!p) continue;
-      const age = (tNow - p.t) / LOOKBEHIND_SEC;
-      const alpha = Math.max(0, 1 - age);
-      ctx.fillStyle = p.inTune
-        ? pitchColor(Math.round(p.midi), 0.25 + 0.7 * alpha)
-        : pal.ink(0.16 + 0.45 * alpha);
-      ctx.beginPath();
-      ctx.arc(xOf(p.t), yOf(avg[i]!), p.inTune ? headR * 0.42 : headR * 0.32, 0, Math.PI * 2);
+      ctx.fillRect(x1, y, playX - x1, noteH);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = c.blue;
+      pill(ctx, x1, y, x2 - x1, noteH, r);
       ctx.fill();
     }
   }
 
+  ctx.save();
+  ctx.shadowColor = c.ice;
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = c.ice;
+  ctx.fillRect(playX - 1, 0, 2, h);
   ctx.restore();
 
-  ctx.strokeStyle = pal.ink(0.5);
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(nowX, 8);
-  ctx.lineTo(nowX, h - 8);
-  ctx.stroke();
+  if (voiced) {
+    const center = (lo + hi) / 2;
+    const fold = (m: number) => wrapMidi(m, center);
+    ctx.fillStyle = c.white;
+    for (const p of smooth.trail) {
+      if (p.midi == null || p.t < t - DOT_TRAIL_SEC || p.t >= t) continue;
+      const age = (t - p.t) / DOT_TRAIL_SEC;
+      ctx.globalAlpha = 0.45 * (1 - age);
+      ctx.beginPath();
+      ctx.arc(xOf(p.t), yOf(fold(p.midi)), 9 * (1 - 0.5 * age), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
-  if (live.midi != null) {
-    const y = headY ?? yOf(live.midi);
-    const pillH = Math.max(28, Math.round(laneH * 0.85));
-    ctx.save();
-    const headHue = pitchColor(Math.round(live.midi), 1);
-    ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.35);
-    ctx.shadowBlur = live.inTune ? 22 : 8;
-    ctx.fillStyle = live.inTune ? headHue : pal.fg;
-    roundRect(ctx, 8, y - pillH / 2, RAIL - 16, pillH, 6);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle = live.inTune ? headHue : pal.ink(0.8);
-    ctx.fillRect(RAIL - 2, y - voiceW / 2, Math.max(0, nowX - (RAIL - 2)), voiceW);
-
-    ctx.save();
-    ctx.shadowColor = live.inTune ? pitchColor(Math.round(live.midi), 0.9) : pal.ink(0.45);
-    ctx.shadowBlur = live.inTune ? 22 : 10;
-    ctx.fillStyle = live.inTune ? headHue : pal.fg;
+    const y = yOf(fold(live.midi!));
+    const pulse = live.inTune && !reduced ? 1.5 * (1 + Math.sin(nowMs / 140)) : 0;
+    ctx.strokeStyle = live.inTune ? c.red : c.blue;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(nowX, y, headR, 0, Math.PI * 2);
+    ctx.arc(playX, y, 12 + pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = c.white;
+    ctx.beginPath();
+    ctx.arc(playX, y, 9, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
   }
-
-  ctx.fillStyle = pal.ink(0.5);
-  ctx.font = `12px ${BODY}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText("high", 10, 8);
-  ctx.textBaseline = "bottom";
-  ctx.fillText("low", 10, h - 8);
-  ctx.textAlign = "right";
-  ctx.textBaseline = "top";
-  ctx.fillText("coming up →", w - 12, 8);
 
   if (DEBUG) {
     const hz = props.liveHz;
@@ -358,29 +362,16 @@ function paint(
     ctx.font = "11px ui-monospace, monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillStyle = pal.bg;
     ctx.globalAlpha = 0.85;
-    ctx.fillRect(fieldX + 4, 4, 240, lines.length * 13 + 6);
+    ctx.fillStyle = palette().bg;
+    ctx.fillRect(4, 4, 240, lines.length * 13 + 6);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = pal.fg;
-    lines.forEach((line, i) => ctx.fillText(line, fieldX + 8, 7 + i * 13));
+    ctx.fillStyle = c.white;
+    lines.forEach((line, i) => ctx.fillText(line, 8, 7 + i * 13));
   }
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  const radius = Math.min(r, w / 2, h / 2);
+function pill(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
-  ctx.closePath();
+  ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2));
 }

@@ -391,37 +391,6 @@
   animation: blurb-in 0.4s ease 0.12s both;
 }
 
-/* ---- score burst ----------------------------------------------------- */
-
-.score-burst {
-  position: absolute;
-  inset: -12%;
-  pointer-events: none;
-  z-index: 2;
-}
-.score-burst i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  margin-top: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 9px rgb(var(--ice-rgb) / 0.95), 0 0 20px rgb(var(--ice-rgb) / 0.55);
-  opacity: 0;
-  animation: score-spark 1.35s ease-out var(--pd, 0s) both;
-}
-.results.band-good .score-burst i {
-  background: var(--ice);
-  box-shadow: 0 0 9px rgb(var(--ice-rgb) / 0.95), 0 0 18px rgb(var(--ice-rgb) / 0.5);
-}
-
-@keyframes score-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  12%  { opacity: 1; transform: translate(calc(var(--dx) * 0.12), calc(var(--dy) * 0.12)) scale(1.15); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .results.results-show,
   .results.booth-wait,
@@ -434,7 +403,6 @@
   .booth-ring,
   .booth-sweep,
   .booth-eq i,
-  .score-burst i,
   .results-hero::before,
   .results-show .score-meter-track span {
     animation: none;
@@ -562,4 +530,62 @@
   max-width: none;
   min-height: 46px;
   padding: 12px 22px;
+}
+
+/* ---- karaoke machine results ------------------------------------------ */
+
+.results.km-results {
+  max-width: 36rem;
+  background: rgb(var(--surface-rgb) / 0.96);
+  border-color: var(--line);
+  box-shadow: 0 24px 80px rgb(var(--bg-rgb) / 0.7), inset 0 1px 0 rgb(var(--ice-rgb) / 0.08);
+}
+/* index.css blurs every modal scrim; the design system bans backdrop-filter. */
+.modal-scrim.results-scrim { backdrop-filter: none; }
+.results-scrim:has(.km-results) { background: var(--scrim); }
+.km-res-song { margin: 0 0 var(--sp-3); color: var(--muted); }
+.results.km-results h2.km-res-head {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  letter-spacing: var(--tr-title);
+  text-transform: uppercase;
+  line-height: 1.05;
+  color: var(--text);
+  text-shadow: none;
+}
+.km-res-num {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(var(--fs-score) * 1.6);
+  line-height: 1.05;
+  color: var(--red-text);
+}
+.results.km-results h2.km-res-num { font-size: calc(var(--fs-score) * 2); color: var(--red-text); }
+.km-res-scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+.km-res-side .t-label { margin: 0 0 var(--sp-2); color: var(--muted); }
+.km-res-side.them .km-res-num { color: var(--blue-text); }
+.km-res-break {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-5);
+  margin: var(--sp-3) 0 0;
+}
+.km-res-break dt { color: var(--muted); }
+.km-res-break dd { margin: 2px 0 0; font-weight: 600; color: var(--text); }
+.km-results .elo { margin: var(--sp-3) 0 0; color: var(--muted); }
+.km-results .elo.up { color: var(--red-text); }
+.km-results .elo.down { color: var(--blue-text); }
+.km-results .results-blurb { margin: var(--sp-4) auto 0; color: var(--muted); }
+.km-results .result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
 }

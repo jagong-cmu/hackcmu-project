@@ -2,7 +2,8 @@
 
 * { box-sizing: border-box; }
 
-.stage button,
+/* :where keeps the old 0,1,1 weight; ui-btn (shared Button) styles itself. */
+:where(.stage) button:not(.ui-btn),
 .landing button {
   font: inherit;
   padding: 0.6rem 1rem;
@@ -12,9 +13,9 @@
   color: var(--text);
   cursor: pointer;
 }
-.stage button:hover:not(:disabled),
+:where(.stage) button:not(.ui-btn):hover:not(:disabled),
 .landing button:hover:not(:disabled) { border-color: var(--ice); }
-.stage button:disabled,
+:where(.stage) button:not(.ui-btn):disabled,
 .landing button:disabled { opacity: 0.45; cursor: not-allowed; }
 .stage button.primary,
 .landing button.primary { background: var(--ice); border-color: var(--ice); font-weight: 600; }
@@ -520,21 +521,20 @@
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-weight: 400;
-  font-size: clamp(3.2rem, 9vw, 7.2rem);
-  letter-spacing: 0.03em;
+  font-size: var(--fs-title);
+  letter-spacing: var(--tr-title);
   line-height: 0.92;
   color: var(--text);
   text-shadow: 0 2px 28px rgb(var(--bg-rgb) / 0.55);
 }
-.countdown-go { color: var(--ice); }
-.countdown-wait { color: var(--red-text); }
+.countdown-go { color: var(--red-text); }
+.countdown-wait { color: var(--muted); }
 .countdown-num {
   margin: 0;
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-weight: 400;
-  font-size: clamp(5.5rem, 16vw, 9.5rem);
-  font-variant-numeric: tabular-nums;
+  font-size: clamp(4rem, 10vw, 7rem);
   letter-spacing: 0.04em;
   line-height: 0.9;
   color: var(--text);

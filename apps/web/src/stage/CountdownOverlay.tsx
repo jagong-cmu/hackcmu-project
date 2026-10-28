@@ -5,6 +5,7 @@
  * GO; ranked swap stays up until GO so the handoff is as obvious as the start.
  */
 import { createPortal } from "react-dom";
+import { Digits } from "../ui/Digits.tsx";
 import {
   countdownVeilOpacity,
   formatCountdown,
@@ -28,8 +29,7 @@ export default function CountdownOverlay({
   return createPortal(
     <div
       className="countdown-veil"
-      role="status"
-      aria-live="assertive"
+      aria-hidden="true"
       style={{ background: `rgb(var(--bg-rgb) / ${veil})` }}
     >
       {phase === "swap" ? <p className="countdown-kicker">Same chorus</p> : null}
@@ -44,7 +44,7 @@ export default function CountdownOverlay({
           </>
         )}
       </p>
-      <p className="countdown-num">{formatCountdown(remainingMs)}</p>
+      <p className="countdown-num"><Digits value={formatCountdown(remainingMs)} /></p>
     </div>,
     document.body,
   );

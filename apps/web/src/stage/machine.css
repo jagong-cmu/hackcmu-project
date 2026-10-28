@@ -1,0 +1,499 @@
+/**
+ * The karaoke machine: mode tabs, machine body, score panels, progress.
+ * Desktop draws a fixed 1208×520 stage and scales it (MachineStage);
+ * under 900px it stacks instead. Selectors are scoped deep enough to beat
+ * the legacy .lyrics / .pitch-guide / .tile rules in index.css and theme.css.
+ */
+
+/* ---- mode tabs ---------------------------------------------------------- */
+
+.km-tabs {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: 2px var(--sp-4);
+}
+.km-tab {
+  display: grid;
+  place-items: center;
+  flex: 0 0 150px;
+  height: 40px;
+  transform: skewX(-14deg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.km-tab > span { transform: skewX(14deg); }
+.km-tab.is-active {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--on-red);
+}
+
+/* ---- stage scaling ------------------------------------------------------ */
+
+.km-fit {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.km-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1208px;
+  height: 520px;
+  transform: translate(-50%, -50%) scale(var(--km-scale, 1));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.km-row {
+  display: grid;
+  grid-template-columns: 200px 760px 200px;
+  gap: 24px;
+  align-items: center;
+}
+
+/* ---- machine body ------------------------------------------------------- */
+
+.km-machine {
+  position: relative;
+  height: 470px;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+  border-radius: 28px;
+  border: 1px solid var(--line);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface) 90%, var(--ice)) 0%,
+    var(--surface) 30%,
+    color-mix(in srgb, var(--surface) 30%, var(--bg)) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(var(--ice-rgb) / 0.14),
+    0 10px 20px rgb(var(--bg-rgb) / 0.6),
+    0 34px 70px rgb(var(--bg-rgb) / 0.85);
+}
+/* The red glow on the floor under the machine. */
+.km-machine::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -30px;
+  height: 36px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgb(var(--red-rgb) / 0.3), transparent 72%);
+}
+.km-machine.no-lanes { height: auto; }
+
+.km-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 32px;
+  flex: none;
+}
+.km-model { color: var(--muted); }
+.km-leds { display: flex; gap: 6px; margin-left: auto; }
+.km-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--line-rgb) / 0.3);
+}
+.km-led.red { background: var(--red); box-shadow: 0 0 6px rgb(var(--red-rgb) / 0.8); }
+.km-led.blue { background: var(--blue); box-shadow: 0 0 6px rgb(var(--blue-rgb) / 0.8); }
+
+.km-bezel {
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgb(var(--bg-rgb) / 0.9);
+  border: 1px solid var(--line-soft);
+}
+.km-screen {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px 10px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow:
+    0 0 22px rgb(var(--blue-rgb) / 0.16),
+    inset 0 0 0 1px rgb(var(--blue-rgb) / 0.14);
+}
+/* Glass sheen. */
+.km-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgb(var(--ice-rgb) / 0.05) 0%, transparent 32%);
+}
+.km-screen-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  flex: none;
+}
+.km-screen-id { min-width: 0; }
+.km-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.km-label { margin: 4px 0 0; color: var(--muted); }
+.km-time { margin: 0; color: var(--text); white-space: nowrap; }
+
+.km-lanes {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+.km-machine .km-lanes > div,
+.km-machine .km-lanes .pitch-stage {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+.km-machine .km-lanes .pitch-guide {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+}
+.km-machine .km-lanes .hit-callout {
+  top: 8%;
+  font-size: 26px;
+}
+.km-idle {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---- lyrics on the screen ----------------------------------------------- */
+
+.km-lyrics { flex: none; }
+.km-machine .km-lyrics .lyrics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 96px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+.km-machine .km-lyrics .lyrics::before { display: none; }
+.km-machine .km-lyrics .lyrics-now {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-lyric);
+  font-weight: 700;
+  line-height: 1.15;
+  text-transform: none;
+  text-shadow: none;
+  color: rgb(var(--text-rgb) / 0.55);
+  animation: km-fade var(--dur-slow) var(--ease) both;
+}
+.km-machine .km-lyrics .lyrics-now.lyrics-soon { color: rgb(var(--text-rgb) / 0.55); }
+.km-machine .km-lyrics .lyric-word.sung { color: var(--red-text); }
+.km-machine .km-lyrics .duet-them .lyric-word.sung { color: var(--blue-text); }
+.km-machine .km-lyrics .lyrics-next {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-lyric-next);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--muted);
+  animation: km-fade var(--dur-slow) var(--ease) both;
+}
+.km-machine .km-lyrics .lyrics-next .who { margin-right: var(--sp-2); }
+.km-machine .km-lyrics .lyrics-cue {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.km-machine .km-lyrics .lyrics-cue.you { color: var(--red-text); }
+.km-machine .km-lyrics .lyrics-cue.them { color: var(--blue-text); }
+.km-machine .km-lyrics .lyrics-cue.together,
+.km-machine .km-lyrics .lyrics-cue.leadin { color: var(--ice); }
+.km-machine .km-lyrics .lyrics-rest { margin: 0; color: var(--muted); font-size: var(--fs-lyric-next); }
+@keyframes km-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---- control strip ------------------------------------------------------ */
+
+.km-controls {
+  display: grid;
+  grid-template-columns: 28px 1fr auto 1fr 28px;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 56px;
+  flex: none;
+}
+.km-controls > :nth-child(1) { grid-column: 1; }
+.km-lock { grid-column: 3; }
+.km-jack { grid-column: 4; justify-self: end; }
+.km-controls > :last-child { grid-column: 5; }
+.km-grille {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: radial-gradient(circle, rgb(var(--line-rgb) / 0.55) 1px, transparent 1.6px) 0 0 / 5px 5px;
+}
+.km-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.km-lock-label { color: var(--muted); }
+.km-lock-bars { display: flex; gap: 4px; }
+.km-lock-bars i {
+  width: 6px;
+  height: 14px;
+  border-radius: 1px;
+  background: rgb(var(--blue-rgb) / 0.18);
+}
+.km-lock-bars i.b.on { background: var(--blue); }
+.km-lock-bars i.r.on { background: var(--red); }
+.km-jack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.km-jack i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: radial-gradient(circle, var(--bg) 35%, transparent 40%);
+}
+
+/* ---- score panels ------------------------------------------------------- */
+
+.km-panel {
+  transform: skewX(-8deg);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.km-panel-in {
+  transform: skewX(8deg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.km-you {
+  border-left: 4px solid var(--red);
+  background: linear-gradient(160deg, rgb(var(--red-rgb) / 0.18), rgb(var(--surface-rgb) / 0.92) 60%);
+}
+.km-them {
+  border-right: 4px solid var(--blue);
+  background: linear-gradient(200deg, rgb(var(--blue-rgb) / 0.18), rgb(var(--surface-rgb) / 0.92) 60%);
+}
+.km-them { padding-right: 22px; }
+.km-them .km-panel-in { align-items: flex-end; text-align: right; }
+.km-name {
+  margin: 4px 0 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-body);
+  color: var(--text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.km-score { margin: 0; display: flex; flex-direction: column; }
+.km-score-label { color: var(--muted); }
+.km-you .km-score { color: var(--red-text); }
+.km-them .km-score { color: var(--blue-text); }
+.km-stats { display: flex; gap: var(--sp-4); margin: 0; }
+.km-stats dt {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.km-stats dd { margin: 0; font-size: var(--fs-label); font-weight: 600; color: var(--text); }
+.km-combo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+/* Camera tile as a small monitor on top of the panel. */
+.km-cam { align-self: stretch; }
+.km-cam .stage-cam { display: block; height: auto; }
+.km-panel .km-cam .tile {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-width: none;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.km-you .km-cam .tile { border-top: 2px solid var(--red); }
+.km-them .km-cam .tile { border-top: 2px solid var(--blue); }
+.km-panel .km-cam .tile video { width: 100%; height: 100%; object-fit: cover; }
+.km-panel .km-cam .tile .name { display: none; }
+.km-panel .km-cam .placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-label);
+  opacity: 1;
+}
+.km-panel .km-cam .placeholder.cam-initial,
+.stage-chaos .tile .placeholder.cam-initial {
+  font-family: var(--font-display);
+  font-size: 40px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+/* ---- progress ----------------------------------------------------------- */
+
+.km-progress {
+  width: 760px;
+  margin: 0 auto;
+}
+.km-progress-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+.km-progress-row > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.km-track {
+  height: 8px;
+  overflow: hidden;
+  transform: skewX(-20deg);
+  background: rgb(var(--blue-rgb) / 0.2);
+}
+.km-track > span {
+  display: block;
+  height: 100%;
+  background: var(--red);
+  transform-origin: left center;
+  transition: transform 80ms linear;
+}
+
+/* ---- Chaos: camera grid with the machine (lyrics only) beside it --------- */
+
+.km-page .stage-chaos {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: var(--sp-5);
+}
+.km-page .stage-chaos > .grid { grid-row: 1 / -1; }
+.km-page .stage-chaos .km-machine { align-self: center; }
+.km-page .stage-chaos .km-progress { width: auto; }
+
+/* The legacy `.stage-fit > *` rule makes children relative; the hint bar stays fixed. */
+.stage.stage-fit.km-page > .key-hints { position: fixed; }
+
+/* ---- stacked (phones, small tablets) ------------------------------------ */
+
+@media (max-width: 899px) {
+  .stage.stage-fit.km-page {
+    height: auto;
+    max-height: none;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .km-page .key-hints { display: none; }
+  .km-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px var(--sp-4);
+  }
+  .km-fit { flex: none; }
+  .km-stage {
+    position: static;
+    width: auto;
+    height: auto;
+    transform: none;
+  }
+  .km-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "m m" "you them";
+    gap: var(--sp-3);
+    align-items: start;
+  }
+  .km-row > .km-machine { grid-area: m; }
+  .km-row > .km-you { grid-area: you; }
+  .km-row > .km-them { grid-area: them; }
+  .km-machine { height: auto; padding: 0 12px; border-radius: 20px; }
+  .km-lanes { flex: none; height: 170px; }
+  .km-grille { display: none; }
+  .km-controls { grid-template-columns: 1fr auto auto 1fr; height: 48px; gap: var(--sp-2); }
+  .km-lock { grid-column: 2; }
+  .km-jack { grid-column: 3; }
+  .km-lock-bars { gap: 3px; }
+  .km-lock-bars i { width: 5px; }
+  .km-row { padding: 0 var(--sp-3); }
+  .km-panel { padding: 10px; }
+  .km-progress { width: 100%; padding: 0 var(--sp-3); }
+  .km-page .stage-chaos { grid-template-columns: 1fr; grid-template-rows: auto; }
+  .km-page .stage-chaos > .grid { grid-row: auto; }
+}
+@media (max-width: 599px) {
+  .km-jack { display: none; }
+  .km-screen { padding: 10px 10px 8px; }
+}

@@ -1,9 +1,8 @@
 /**
- * LANE A — the stage.
- *
- * One viewport: two large face cams on top, lyrics and pitch underneath.
+ * The stage: a karaoke machine (pitch lane + lyrics) between two score
+ * panels that carry the face cams. Chaos keeps its camera grid.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   chaosLoungeName,
@@ -12,6 +11,8 @@ import {
   MatchCountdownMs,
   songById,
   votesToRemove,
+  type Mode,
+  type RoomState,
 } from "@karaoke/shared";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { useSafety } from "../rooms/useSafety.ts";
@@ -25,9 +26,61 @@ import { useSharedClock } from "./useSharedClock.ts";
 import { leaveEffectOf, leaveSuffix, msUntilForfeit } from "./leaveEffect.ts";
 import { serverNow } from "../rooms/timeSync.ts";
 import TurnBadge from "./TurnBadge.tsx";
-import ClipTimer from "./ClipTimer.tsx";
+import ClipTimer, { ClipClock } from "./ClipTimer.tsx";
 import TurnOverlay from "./TurnOverlay.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
+import { KaraokeMachine, MachineStage, ModeTabs, ScorePanel } from "./KaraokeMachine.tsx";
+import { useStageHud } from "./stageHud.ts";
+import { KeyHintBar } from "../ui/KeyHints.tsx";
+
+const ModeNames: Record<Mode, string> = { ranked: "Ranked", duet: "Duet", chaos: "Chaos", training: "Training" };
+const PhaseNames: Partial<Record<RoomState["status"], string>> = {
+  countdown: "Get ready",
+  turnA: "Turn A",
+  turnB: "Turn B",
+  swap: "Swap",
+  live: "Live",
+  results: "Results",
+};
+
+const initialOf = (name: string | undefined) => (name?.trim()[0] ?? "?").toUpperCase();
+
+/** The panels and the machine, fed by the scores StagePitch publishes. */
+function MachineRow({
+  mode,
+  you,
+  them,
+  machine,
+}: {
+  mode: Mode;
+  you: { name: string; camera: ReactNode };
+  them: { name: string; camera: ReactNode };
+  machine: (lock: number | null) => ReactNode;
+}) {
+  const hud = useStageHud();
+  const lock = (hud.laneSide === "you" ? hud.you : hud.them)?.pitch ?? null;
+  if (mode !== "duet") {
+    return (
+      <div className="km-row">
+        <ScorePanel side="you" {...you} card={hud.you} combo={hud.combo.you} />
+        {machine(lock)}
+        <ScorePanel side="them" {...them} card={hud.them} combo={hud.combo.them} />
+      </div>
+    );
+  }
+  // Duet is one team: the shared score (the results card's average) on the left only.
+  const cards = [hud.you, hud.them].filter((c) => c != null);
+  const shared = cards.length
+    ? { overall: Math.round(cards.reduce((n, c) => n + c.overall, 0) / cards.length), pitch: 0, tone: 0 }
+    : null;
+  return (
+    <div className="km-row">
+      <ScorePanel side="you" {...you} card={hud.you && shared ? { ...hud.you, overall: shared.overall } : null} combo={hud.combo.you} scoreLabel="Team" />
+      {machine(lock)}
+      <ScorePanel side="them" {...them} card={hud.them} combo={hud.combo.them} hideScore />
+    </div>
+  );
+}
 
 /** Pre-match countdown in whole seconds, for lobby copy. */
 const countdownSec = Math.round(MatchCountdownMs / 1000);
@@ -103,11 +156,6 @@ export default function Stage() {
   const isChaos = room?.mode === "chaos";
   const inLobby = !room || room.status === "lobby";
   const showResults = room?.status === "results";
-  const singing =
-    room?.status === "turnA" ||
-    room?.status === "turnB" ||
-    room?.status === "live";
-  const countingIn = room?.status === "countdown" || room?.status === "swap";
   const loungeName = chaosLoungeName(code);
   const song = room?.songId ? songById(room.songId) : undefined;
   const privateCode = /^\d{4}$/.test(code) && code !== DemoRoomCode;
@@ -234,9 +282,35 @@ export default function Stage() {
           ? "Starting…"
           : seated;
 
+  const machineLabel = [room ? ModeNames[room.mode] : "…", room ? PhaseNames[room.status] : null]
+    .filter(Boolean)
+    .join(" · ");
+  const timer = (
+    <ClipTimer
+      clockPlay={clockPlay}
+      playAtUnixMs={room?.playAtUnixMs}
+      status={room?.status ?? "lobby"}
+      label={song ? `${song.title} · ${song.artist}` : machineLabel}
+    />
+  );
+
+  // Esc leaves, after a confirm that says what leaving costs right now.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // A sheet or the results card is up: Esc belongs to it.
+      if (document.querySelector('[role="dialog"]')) return;
+      if (!window.confirm(`Leave the room? (${leaveSuffix(leaveEffect)})`)) return;
+      roomLeave();
+      navigate("/");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [leaveEffect, roomLeave, navigate]);
+
   return (
     <StageContext.Provider value={stageValue}>
-      <div className="stage stage-fit">
+      <div className="stage stage-fit km-page">
         <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
           <Link to="/" onClick={() => roomLeave()}>
@@ -251,14 +325,6 @@ export default function Stage() {
               Friendly match · doesn't affect ELO
             </span>
           ) : null}
-          {song ? (
-            <span className="stage-song">
-              {song.title}
-              <em> {song.artist}</em>
-            </span>
-          ) : (
-            <span className="stage-song dim">{room?.mode ?? "…"}</span>
-          )}
           <TurnBadge room={room} myPlayerId={me?.id ?? null} duetVoice={duetVoice} />
         </header>
 
@@ -339,6 +405,8 @@ export default function Stage() {
           )}
         </div>
 
+        {room ? <ModeTabs mode={room.mode} /> : null}
+
         {isChaos ? (
           <div className="stage-chaos">
             <VideoGrid
@@ -350,58 +418,67 @@ export default function Stage() {
                 safetyMenuFor(room?.players.find((player) => player.id === p.identity))
               }
             />
-            <div className="stage-board">
-              <ClipTimer
-                clockPlay={clockPlay}
-                playAtUnixMs={room?.playAtUnixMs}
-                status={room?.status ?? "lobby"}
-              />
-              <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
-            </div>
+            <KaraokeMachine
+              title={song?.title ?? loungeName ?? "Chaos"}
+              label={machineLabel}
+              time={<ClipClock clockPlay={clockPlay} playAtUnixMs={room?.playAtUnixMs} />}
+              lyrics={<Slot component={slots.LyricsOverlay} label="LyricsOverlay" />}
+              lock={null}
+            />
+            {timer}
           </div>
         ) : (
-          <div className="stage-arena">
-            <CameraPane
-              participant={them}
-              singing={themSinging}
-              waiting={Boolean(duetActive && !themSinging)}
-              cue={themCue}
-              isLocal={false}
-              emptyLabel={opponentBlocked ? "blocked" : "waiting…"}
-              menu={safetyMenuFor(opponent)}
-            />
-            <div className="stage-board">
-              {singing || countingIn ? (
-                <ClipTimer
-                  clockPlay={clockPlay}
-                  playAtUnixMs={room?.playAtUnixMs}
-                  status={room?.status ?? "lobby"}
+          <MachineStage>
+            <MachineRow
+              mode={room?.mode ?? "ranked"}
+              you={{
+                name: me?.displayName ?? "You",
+                camera: (
+                  <CameraPane
+                    participant={you}
+                    singing={youSinging}
+                    waiting={Boolean(duetActive && !youSinging)}
+                    cue={youCue}
+                    isLocal
+                    emptyLabel={initialOf(me?.displayName)}
+                  />
+                ),
+              }}
+              them={{
+                name: opponent?.displayName ?? "Opponent",
+                camera: (
+                  <CameraPane
+                    participant={them}
+                    singing={themSinging}
+                    waiting={Boolean(duetActive && !themSinging)}
+                    cue={themCue}
+                    isLocal={false}
+                    emptyLabel={opponentBlocked ? "blocked" : opponent ? initialOf(opponent.displayName) : "waiting…"}
+                    menu={safetyMenuFor(opponent)}
+                  />
+                ),
+              }}
+              machine={(lock) => (
+                <KaraokeMachine
+                  title={song?.title ?? "Karaoke Arena"}
+                  label={machineLabel}
+                  time={<ClipClock clockPlay={clockPlay} playAtUnixMs={room?.playAtUnixMs} />}
+                  lanes={
+                    room && room.status !== "lobby" ? (
+                      <div className={showResults ? "pitch-hold" : "km-lane-slot"}>
+                        <Slot component={slots.PitchMeter} label="PitchMeter" />
+                      </div>
+                    ) : (
+                      <p className="km-idle t-label">{waitingHint}</p>
+                    )
+                  }
+                  lyrics={<Slot component={slots.LyricsOverlay} label="LyricsOverlay" />}
+                  lock={lock}
                 />
-              ) : (
-                <div className="timer timer-compact ghost">
-                  {inLobby
-                    ? room && room.players.length >= 2
-                      ? "Starting…"
-                      : "Waiting for someone to sit down"
-                    : "\u00a0"}
-                </div>
               )}
-              <Slot component={slots.LyricsOverlay} label="LyricsOverlay" />
-              {room && room.status !== "lobby" ? (
-                <div className={showResults ? "pitch-hold" : undefined}>
-                  <Slot component={slots.PitchMeter} label="PitchMeter" />
-                </div>
-              ) : null}
-            </div>
-            <CameraPane
-              participant={you}
-              singing={youSinging}
-              waiting={Boolean(duetActive && !youSinging)}
-              cue={youCue}
-              isLocal
-              emptyLabel="you"
             />
-          </div>
+            {timer}
+          </MachineStage>
         )}
 
         {!isChaos && !showResults && (
@@ -442,6 +519,7 @@ export default function Stage() {
         )}
 
         <TurnOverlay room={room} myPlayerId={me?.id ?? null} clockPlay={clockPlay} />
+        <KeyHintBar hints={[{ keys: ["Esc"], label: "Leave" }]} />
         <audio ref={audioRef} className="instrumental" preload="auto" loop={false} />
 
         {removed ? (
