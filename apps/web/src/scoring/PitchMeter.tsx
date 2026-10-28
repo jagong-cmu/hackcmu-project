@@ -12,6 +12,7 @@ import {
   type NoteRun,
 } from "./pitchGuide.ts";
 import type { VoiceProfile } from "./voiceRange.ts";
+import { BODY } from "../results/cardPaint.ts";
 
 type Props = {
   melody: MelodyFile | null;
@@ -186,10 +187,11 @@ function paint(
     const rh = laneH;
     const active = tNow >= run.startSec && tNow <= run.endSec;
     const upcoming = run.startSec > tNow;
+    // Current note ice, coming up blue (them / coming up), sung notes dim.
     ctx.fillStyle = active
-      ? pitchColor(run.midi, 0.92)
+      ? pal.tone("ice-rgb", 0.92)
       : upcoming
-        ? pal.ink(0.78)
+        ? pal.tone("blue-rgb", 0.78)
         : pal.ink(0.28);
     roundRect(ctx, x1, y - rh / 2, rw, rh, Math.min(8, rh / 2));
     ctx.fill();
@@ -325,7 +327,7 @@ function paint(
   }
 
   ctx.fillStyle = pal.ink(0.5);
-  ctx.font = "12px Outfit, sans-serif";
+  ctx.font = `12px ${BODY}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("high", 10, 8);

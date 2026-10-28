@@ -1,0 +1,239 @@
+/**
+ * ARIA design tokens: Midnight Stage. The single source of truth.
+ *
+ * Every colour, font, size, space, radius and motion value in the app comes
+ * from this file; component CSS references tokens and never raw values.
+ * Docs: docs/design-system.md. Owner: QA (screen sessions file requests in
+ * docs/followups-<session>.md instead of editing this file).
+ * Loaded first (main.tsx), so every other sheet can use these.
+ *
+ * Colour rules: red = you, blue = them / coming up. Neither is decorative.
+ * Roughly 70% black, 15% text/ice, 10% red, 5% blue.
+ *
+ * Colour channels (`--*-rgb`) keep alpha variants on-palette:
+ *   background: rgb(var(--ice-rgb) / 0.1);
+ */
+
+/* ------------------------------------------------------------------ fonts --
+ * Self-hosted from public/fonts (OFL, see the LICENSE files there). Krona One
+ * and Hanken are preloaded in index.html. The fallbacks are Arial matched to
+ * each face's measured average width and line metrics, so the swap barely
+ * moves text.
+ */
+@font-face {
+  font-family: "Krona One";
+  src: url("/fonts/krona-one-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("/fonts/hanken-grotesk-latin-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("/fonts/hanken-grotesk-latin-wght-italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Krona One Fallback";
+  src: local("Arial");
+  size-adjust: 94.5%;
+  ascent-override: 95%;
+  descent-override: 26%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 97.2%;
+  ascent-override: 103%;
+  descent-override: 31%;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ----------------------------------------------------------- colour -- */
+  --bg: #05070d;                 /* page background, flat */
+  --surface: #0d1220;            /* panels, rows, lane box, cards */
+  --text: #e8eeff;               /* headings, primary text */
+  --muted: #8e9ab8;              /* secondary text, inactive items */
+  --red: #e5183b;                /* YOU: fills, your notes, primary button */
+  --red-text: #ff5c73;           /* small red text on dark */
+  --blue: #4d86ff;               /* THEM / COMING UP: opponent, upcoming notes */
+  --blue-text: #7fa8ff;          /* small blue text on dark */
+  --ice: #bbd0ff;                /* song numbers, playhead, highlights */
+  --line: rgba(140, 170, 255, 0.2); /* borders, guides */
+
+  /* Channels for alpha variants. Keep in sync with the hex values above. */
+  --bg-rgb: 5 7 13;
+  --surface-rgb: 13 18 32;
+  --text-rgb: 232 238 255;
+  --red-rgb: 229 24 59;
+  --blue-rgb: 77 134 255;
+  --ice-rgb: 187 208 255;
+  --line-rgb: 140 170 255;
+
+  /* Derived roles (no new hues). */
+  --on-red: #ffffff;             /* text on --red: white passes AA, --text does not */
+  --red-hi: color-mix(in srgb, var(--red) 86%, var(--bg));        /* primary hover: deepens, so white text stays AA */
+  --surface-2: color-mix(in srgb, var(--surface) 90%, var(--ice)); /* raised: inputs, hover */
+  --line-soft: rgb(var(--line-rgb) / 0.1);
+  --line-strong: rgb(var(--line-rgb) / 0.4);
+  --scrim: rgb(var(--bg-rgb) / 0.86);  /* behind modals */
+  --shade: rgb(var(--bg-rgb) / 0.6);   /* chips over video */
+  --you: var(--red);
+  --them: var(--blue);
+  --mask-on: #000;                     /* alpha mask, not a palette colour */
+
+  /* ------------------------------------------------------------- fonts -- */
+  /* Krona One: short, important words and numbers only (logo, titles, menu,
+     tabs, numbers, scores). It is wide: anything long uses --font-body. */
+  --font-display: "Krona One", "Krona One Fallback", sans-serif;
+  --font-body: "Hanken Grotesk", "Hanken Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+
+  /* ------------------------------------------------- type scale (roles) -- */
+  /* Krona One, uppercase, line-height 1.05 */
+  --fs-logo: 20px;   --tr-logo: 0.12em;
+  --fs-title: 44px;  --tr-title: 0.02em;
+  --fs-menu: 36px;   --tr-menu: 0.02em;
+  --fs-menu-2: 16px; --tr-menu-2: 0.06em;
+  --fs-score: 44px;
+  --fs-num: 16px;    --tr-num: 0.04em;
+  --fs-tab: 12px;    --tr-tab: 0.08em;
+  /* Hanken Grotesk */
+  --fs-lyric: 40px;
+  --fs-lyric-next: 26px;
+  --fs-desc: 18px;
+  --fs-body: 16px;
+  --fs-song: 15px;   --tr-song: 0.04em;
+  --fs-label: 12px;  --tr-label: 0.14em;
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.25;
+  --leading-body: 1.5;
+  --track-caps: 0.08em;
+  --measure: 68ch;
+
+  /* ------------------------------------------------- space, radius, depth -- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4.5rem;
+  --sp-9: 7rem;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  --shadow-1: 0 1px 2px rgb(var(--bg-rgb) / 0.5), 0 4px 12px rgb(var(--bg-rgb) / 0.35);
+  --shadow-2: 0 2px 4px rgb(var(--bg-rgb) / 0.5), 0 14px 36px rgb(var(--bg-rgb) / 0.55);
+  --glow-soft: none;
+  --glow-hard: 0 0 0 1px var(--red);
+
+  /* Focus: 2px --red-text, 3px offset. The global rule below uses outline;
+     this box-shadow twin is for elements that clip outlines. */
+  --focus-ring: 0 0 0 3px var(--bg), 0 0 0 5px var(--red-text);
+
+  /* ------------------------------------------------------------- motion -- */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 300ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: var(--leading-body);
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (max-width: 599px) {
+  :root {
+    --fs-logo: 16px;
+    --fs-title: 30px;
+    --fs-menu: 26px;
+    --fs-menu-2: 14px;
+    --fs-score: 30px;
+    --fs-num: 14px;
+    --fs-tab: 11px;
+    --fs-lyric: 24px;
+    --fs-lyric-next: 18px;
+    --fs-desc: 16px;
+    --fs-body: 15px;
+    --fs-song: 14px;
+    --fs-label: 11px;
+  }
+}
+
+/* The page colour lives on :root so <Ambient> (z-index -1) can sit above it. */
+body { background: transparent; }
+
+/* Krona One ships one weight and no italic: never fake either. Hanken ships
+   real italics and every weight, so nothing anywhere needs synthesis. */
+:root { font-synthesis: none; }
+
+/* ----------------------------------------------------- type role classes --
+ * One class per role in the scale: font, size, weight, case and tracking.
+ */
+.t-logo, .t-title, .t-menu, .t-menu-2, .t-score, .t-num, .t-tab {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+.t-logo   { font-size: var(--fs-logo);   letter-spacing: var(--tr-logo); }
+.t-title  { font-size: var(--fs-title);  letter-spacing: var(--tr-title); }
+.t-menu   { font-size: var(--fs-menu);   letter-spacing: var(--tr-menu); }
+.t-menu-2 { font-size: var(--fs-menu-2); letter-spacing: var(--tr-menu-2); }
+.t-score  { font-size: var(--fs-score); }
+.t-num    { font-size: var(--fs-num);    letter-spacing: var(--tr-num); }
+.t-tab    { font-size: var(--fs-tab);    letter-spacing: var(--tr-tab); }
+
+.t-lyric, .t-lyric-next, .t-desc, .t-body, .t-song, .t-label { font-family: var(--font-body); }
+.t-lyric      { font-size: var(--fs-lyric); font-weight: 700; line-height: 1.15; }
+.t-lyric-next { font-size: var(--fs-lyric-next); font-weight: 600; line-height: 1.2; }
+.t-desc       { font-size: var(--fs-desc); font-weight: 400; line-height: var(--leading-snug); }
+.t-body       { font-size: var(--fs-body); font-weight: 400; line-height: var(--leading-body); }
+.t-song       { font-size: var(--fs-song); font-weight: 700; text-transform: uppercase; letter-spacing: var(--tr-song); }
+.t-label      { font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: var(--tr-label); }
+
+/* ----------------------------------------------------- browser surfaces -- */
+::selection { background: rgb(var(--red-rgb) / 0.45); color: var(--text); }
+input, textarea, select { caret-color: var(--red-text); }
+* { scrollbar-color: var(--surface-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: var(--r-pill); border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--red-text);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+/* Numerals in scores, clocks and tables line up. */
+.num, .overall, .score-meter-row, time { font-variant-numeric: tabular-nums; }
+
+/* Reduced motion: no transforms or slides; state changes (colour, opacity) stay. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: color, background-color, border-color, opacity, outline-color !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Bloom } from "./Bloom.tsx";
 import { VoiceWave } from "./VoiceWave.tsx";
 
 type Props = {
@@ -20,7 +19,6 @@ type Props = {
 export function PageShell({ title, tag, wide, children, className, onHome, stream, level, quietWave }: Props) {
   return (
     <main className={["page bloom-page shell", className ?? ""].filter(Boolean).join(" ")}>
-      <Bloom />
       <VoiceWave stream={stream} level={level} className={quietWave ? "quiet" : undefined} />
       {/* Title upper-left, the way back under it. */}
       <header className="page-head">

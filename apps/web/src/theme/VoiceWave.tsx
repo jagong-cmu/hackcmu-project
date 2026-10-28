@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { sharedAudioContext, unlockSharedAudio } from "../media/audioContext.ts";
+import { palette } from "./palette.ts";
 
 type Props = {
   /** LiveKit / getUserMedia stream. The wave follows this mic's volume. */
@@ -10,7 +11,7 @@ type Props = {
 };
 
 /**
- * Futuristic Siri-style ribbon: a few luminous blue waves with a bright core,
+ * Futuristic Siri-style ribbon: a few faint ice waves with a bright core,
  * fat in the middle, thin at the edges. Idle pages breathe; a live mic or
  * `level` makes the bulge follow volume.
  */
@@ -122,6 +123,7 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
       const w = canvas.width;
       const h = canvas.height;
       const ctx = ctx2d;
+      const pal = palette();
 
       const fromMic = readMic();
       micLevel = micLevel * 0.8 + fromMic * 0.2;
@@ -137,9 +139,9 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
 
       const amp = h * 0.085 * shown;
 
-      stroke(ctx, w, h, amp * 1.05, 1.15, 0, "rgba(70, 170, 255, 0.09)", Math.max(16, h * 0.055), 72);
-      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, "rgba(120, 210, 255, 0.14)", Math.max(6, h * 0.018), 54);
-      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, "rgba(160, 230, 255, 0.10)", Math.max(4, h * 0.012), 42);
+      stroke(ctx, w, h, amp * 1.05, 1.15, 0, pal.tone("ice-rgb", 0.09), Math.max(16, h * 0.055), 72);
+      stroke(ctx, w, h, amp * 0.92, 1.7, 1.1, pal.tone("ice-rgb", 0.14), Math.max(6, h * 0.018), 54);
+      stroke(ctx, w, h, amp * 0.7, 2.35, 2.4, pal.tone("ice-rgb", 0.1), Math.max(4, h * 0.012), 42);
       stroke(
         ctx,
         w,
@@ -147,12 +149,11 @@ export function VoiceWave({ stream, level = 0, className }: Props) {
         amp * (0.28 + shown * 0.22),
         1.05,
         0.2,
-        // Blue only — this stroke was pink, the one warm note in the palette.
-        `rgba(120, 190, 255, ${0.10 + shown * 0.16})`,
+        pal.tone("ice-rgb", 0.1 + shown * 0.16),
         Math.max(3, h * 0.009),
         46,
       );
-      stroke(ctx, w, h, amp * 0.18, 0.9, 0, "rgba(242, 248, 255, 0.17)", Math.max(2, h * 0.006), 34);
+      stroke(ctx, w, h, amp * 0.18, 0.9, 0, pal.tone("text-rgb", 0.17), Math.max(2, h * 0.006), 34);
 
       ctx.globalCompositeOperation = "source-over";
       ctx.shadowBlur = 0;

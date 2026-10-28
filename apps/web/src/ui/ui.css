@@ -1,0 +1,167 @@
+/**
+ * Shared components (ui/*.tsx). Owner: QA. Tokens only.
+ * Usage: docs/design-system.md.
+ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------- Button --
+ * Primary: solid red, white Hanken 600 (one per screen). Secondary: --line
+ * outline on --surface. Ghost: text only.
+ */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.ui-btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--line-strong); }
+.ui-btn:focus-visible { outline: 2px solid var(--red-text); outline-offset: 3px; }
+.ui-btn:active:not(:disabled) { transform: translateY(1px); }
+.ui-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ui-btn-primary { background: var(--red); border-color: var(--red); color: var(--on-red); }
+.ui-btn-primary:hover:not(:disabled) { background: var(--red-hi); border-color: var(--red-hi); }
+.ui-btn-ghost { background: transparent; border-color: transparent; color: var(--muted); padding-inline: var(--sp-3); }
+.ui-btn-ghost:hover:not(:disabled) { background: rgb(var(--line-rgb) / 0.08); border-color: transparent; color: var(--text); }
+
+/* ------------------------------------------------------- SelectableList --
+ * Items are Krona One menu text by default; grids usually pass their own
+ * `content` and restyle .sl-item from the screen's CSS.
+ */
+.sl { position: relative; }
+.sl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.sl-grid .sl-list { gap: var(--sp-3); }
+.sl-list-secondary { margin-top: var(--sp-6); }
+
+.sl-item {
+  display: block;
+  width: fit-content;
+  padding: 0.08em 0.3em 0.08em 1.1em;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-menu);
+  letter-spacing: var(--tr-menu);
+  text-transform: uppercase;
+  text-align: left;
+  line-height: 1.05;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
+}
+.sl-item.is-secondary { font-size: var(--fs-menu-2); letter-spacing: var(--tr-menu-2); }
+.sl-item[data-selected="true"] { color: var(--text); }
+.sl-item:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Focus and selection are the same thing here (roving tabindex), so the red
+   triangle plus the bright text is the focus indicator; no second ring. */
+.sl-item:focus-visible { outline: none; }
+.sl-grid .sl-item { width: 100%; }
+
+/* The one red triangle. It sits at the selected item's left edge (set from
+   SelectableList) and slides; reduced motion makes the move instant. */
+.sl-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 0.42em;
+  height: 0.42em;
+  background: var(--red);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  pointer-events: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.sl-desc {
+  min-height: 1.5em;
+  margin: var(--sp-5) 0 0;
+  padding-left: 1.1em;
+  max-width: 30rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------ KeyHint(Bar) -- */
+.key-hints {
+  position: fixed;
+  right: clamp(var(--sp-4), 3vw, var(--sp-7));
+  bottom: var(--sp-5);
+  z-index: 5;
+  display: flex;
+  gap: var(--sp-5);
+  color: var(--muted);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+}
+/* Phones have no keyboard to hint at. */
+@media (max-width: 599px) { .key-hints { display: none; } }
+.key-hint { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.key-hint kbd {
+  min-width: 1.9em;
+  padding: 0.25em 0.5em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------- Panel -- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+/* ---------------------------------------------------------------- Digits -- */
+.digits { white-space: nowrap; }
+.digit { display: inline-block; width: 1ch; text-align: center; }
+
+/* --------------------------------------------------------------- Ambient --
+ * Fixed behind everything. Two static radial gradients; opacity is baked into
+ * the colour stops (blue about 20%, red about 15%).
+ */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem 32rem at var(--glow-blue-at), rgb(var(--blue-rgb) / 0.2), transparent 70%),
+    radial-gradient(48rem 26rem at var(--glow-red-at), rgb(var(--red-rgb) / 0.15), transparent 70%);
+}
+.ambient-home { --glow-blue-at: 92% 4%; --glow-red-at: 20% 108%; }
+.ambient-game { --glow-blue-at: 100% 0%; --glow-red-at: 50% 112%; }

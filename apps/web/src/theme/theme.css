@@ -1,187 +1,15 @@
 /**
- * Aria — luminous blue on near-black.
- *
- * One ground colour (almost black, with a blue cast), one light source
- * (blue-white), and nothing else. Every accent in the product is a step on the
- * blue ramp; anything that used to be gold, hot pink, cyan or spectrum now
- * pulls from here. Dark only: there is no light theme.
+ * Component and page styles (legacy global sheet). Colours and fonts come from
+ * theme/tokens.css; this file only references tokens. Owner: QA (see
+ * docs/ui-ownership.md).
  */
 
-:root {
-  color-scheme: dark;
-
-  /* Ground */
-  --ink: #04060c;
-  --ink-2: #070b14;
-  --surface: #090e18;
-  --surface-2: #0c1320;
-  --edge: rgba(150, 190, 255, 0.14);
-  --edge-soft: rgba(150, 190, 255, 0.07);
-
-  /* Type */
-  --fg: #ffffff;
-  --fg-dim: rgba(206, 224, 255, 0.58);
-  --fg-faint: rgba(206, 224, 255, 0.3);
-
-  /* The light source */
-  --blue-050: #f2f8ff;
-  --blue-100: #d3e7ff;
-  --blue-200: #a8d0ff;
-  --blue-300: #79b4ff;
-  --blue-400: #4f97f5;
-  --blue-500: #2f74d8;
-  --blue-600: #1b4fa3;
-  --blue-800: #0d2551;
-
-  --accent: var(--blue-300);
-  --positive: var(--blue-200);
-  --warning: #f0c674;
-  --danger: #ff8a8a;
-  --score-good: #3ee08a;
-
-  /* The pitch meter's canvas fill. Alpha is what lets the voice wave through. */
-  --meter-bg: rgba(9, 14, 24, 0.55);
-
-  --glow-soft: 0 0 60px rgba(79, 151, 245, 0.18);
-  --glow-hard: 0 0 28px rgba(121, 180, 255, 0.55);
-
-  font-family: Outfit, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  line-height: 1.45;
-  color: var(--fg);
-  background: var(--ink);
-}
-
-/*
- * Legacy aliases. index.css and styles.css were written against two different
- * palettes (black/gold, and navy/pink/cyan); both resolve here so the app is
- * themed from one place rather than rule by rule.
- */
-:root {
-  --stage: var(--ink);
-  --cream: var(--fg);
-  --mute: var(--fg-dim);
-  --gold: var(--accent);
-  --line: var(--edge-soft);
-  --bg: var(--ink);
-  --panel: var(--surface-2);
-  --text: var(--fg);
-  --dim: var(--fg-dim);
-  --hot: var(--blue-400);
-  --cool: var(--blue-300);
-  --ok: var(--blue-200);
-}
-
-body { background: var(--ink); }
-
-/* ---------------------------------------------------------------- bloom --
- * The light field behind a page. A wide core band plus two enormous ring
- * arcs whose left and right run off-screen, so what shows is the curve of
- * something vast lit from behind.
- */
-.bloom {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-/*
- * Layer pairs. The .bloom-drift wrapper owns the slow ambient wander; the
- * inner element owns the pointer parallax. One transform cannot carry both a
- * keyframe animation and a live value, hence the pair.
- */
-.bloom-drift {
-  position: absolute;
-  inset: 0;
-  will-change: transform;
-}
-.bloom-drift-a { animation: bloom-wander-a 31s ease-in-out infinite; }
-.bloom-drift-b { animation: bloom-wander-b 41s ease-in-out infinite; }
-.bloom-drift-c { animation: bloom-wander-c 24s ease-in-out infinite; }
-
-.bloom-arc {
-  position: absolute;
-  left: 50%;
-  width: 190vw;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  /* A bright, narrow edge over dark mid-tones. Raising the shoulder stops
-     (0.10 / 0.16 here) is what washes the whole frame out — keep them low and
-     let only the 70-72% band carry the light. */
-  background: radial-gradient(
-    circle,
-    transparent 58%,
-    rgba(47, 116, 216, 0.10) 65%,
-    rgba(168, 208, 255, 0.72) 70%,
-    rgba(242, 248, 255, 0.95) 72%,
-    rgba(121, 180, 255, 0.16) 77%,
-    transparent 84%
-  );
-  filter: blur(30px);
-}
-
-/* Upper arc, curving down into frame. */
-.bloom-arc-top {
-  bottom: 53%;
-  transform: translateX(-50%) translate(
-    calc(var(--bx, 0) * 42px),
-    calc(var(--by, 0) * 26px)
-  );
-}
-/* Lower arc, curving up. Counter-drifts against the upper one. */
-.bloom-arc-bottom {
-  top: 53%;
-  transform: translateX(-50%) translate(
-    calc(var(--bx, 0) * -38px),
-    calc(var(--by, 0) * -22px)
-  );
-}
-
-/* The hot band where the two arcs meet. */
-.bloom-core {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 104vw;
-  height: 20vh;
-  transform: translate(-50%, -50%) translate(
-    calc(var(--bx, 0) * 58px),
-    calc(var(--by, 0) * 30px)
-  );
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 50%,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(216, 235, 255, 0.62) 24%,
-    rgba(79, 151, 245, 0.22) 50%,
-    transparent 78%
-  );
-  filter: blur(40px);
-}
-
-/* Long, prime-ish periods so the three layers never settle into a visible loop. */
-@keyframes bloom-wander-a {
-  0%, 100% { transform: translate3d(-7%, -5%, 0) rotate(-1.4deg) scale(1.06); }
-  33%      { transform: translate3d(6%, 4.5%, 0) rotate(0.8deg) scale(1); }
-  66%      { transform: translate3d(8.5%, -3%, 0) rotate(1.6deg) scale(1.12); }
-}
-@keyframes bloom-wander-b {
-  0%, 100% { transform: translate3d(8%, 4%, 0) rotate(1.2deg) scale(1.1); }
-  40%      { transform: translate3d(-7%, -5.5%, 0) rotate(-1.5deg) scale(1); }
-  72%      { transform: translate3d(-4%, 6.5%, 0) rotate(-0.6deg) scale(1.14); }
-}
-@keyframes bloom-wander-c {
-  0%, 100% { transform: translate3d(-6%, 3%, 0) scale(1); }
-  45%      { transform: translate3d(7.5%, -4.5%, 0) scale(1.18); }
-  75%      { transform: translate3d(2.5%, 5.5%, 0) scale(0.9); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bloom-drift { animation: none; }
-}
-
-/* Anything on a bloom page needs to sit above it. */
+/* Page content sits above the voice wave. (The animated bloom background is gone; <Ambient> replaces it.) */
 .bloom-page { position: relative; }
 .bloom-page > *:not(.bloom) { position: relative; z-index: 1; }
+
+/* Particles are retired (design-system.md: no grain, scanlines or particles). */
+.sparks, .lyric-sparks, .score-burst { display: none; }
 
 /* ----------------------------------------------------------------- chrome -- */
 
@@ -192,7 +20,7 @@ body { background: var(--ink); }
   justify-content: center;
   gap: 12px;
   margin: 0 0 18px;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.06em;
 }
@@ -201,21 +29,21 @@ body { background: var(--ink); }
   content: "";
   height: 1px;
   width: clamp(40px, 9vw, 110px);
-  background: linear-gradient(90deg, transparent, var(--edge));
+  background: linear-gradient(90deg, transparent, var(--line));
 }
-.eyebrow::after { background: linear-gradient(90deg, var(--edge), transparent); }
+.eyebrow::after { background: linear-gradient(90deg, var(--line), transparent); }
 .eyebrow .eyebrow-pill {
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 14px;
-  background: rgba(12, 19, 32, 0.7);
+  background: rgb(var(--surface-rgb) / 0.7);
   white-space: nowrap;
 }
 
 /* Glass card. */
 .card {
-  background: linear-gradient(180deg, rgba(18, 28, 46, 0.72), rgba(9, 14, 24, 0.72));
-  border: 1px solid var(--edge-soft);
+  background: linear-gradient(180deg, rgb(var(--surface-rgb) / 0.72), rgb(var(--bg-rgb) / 0.72));
+  border: 1px solid var(--line-soft);
   border-radius: 18px;
   padding: 18px;
   backdrop-filter: blur(12px);
@@ -226,8 +54,8 @@ body { background: var(--ink); }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--blue-050);
-  color: #06101f;
+  background: var(--red);
+  color: var(--on-red);
   border: 0;
   border-radius: 999px;
   padding: 9px 18px;
@@ -258,18 +86,18 @@ body { background: var(--ink); }
 .tabs button.on,
 .demo-code:hover,
 .demo-code:focus-visible {
-  border-bottom-color: var(--blue-200);
+  border-bottom-color: var(--red);
   outline: none;
 }
 .modes button:hover,
 .modes button:focus-visible {
-  text-shadow: 0 0 34px rgba(121, 180, 255, 0.55);
+  text-shadow: 0 0 34px rgb(var(--ice-rgb) / 0.55);
 }
 
 input:focus,
 select:focus {
-  border-bottom-color: var(--blue-300);
-  box-shadow: 0 1px 0 0 rgba(121, 180, 255, 0.45);
+  border-bottom-color: var(--red);
+  box-shadow: 0 1px 0 0 rgb(var(--ice-rgb) / 0.45);
 }
 
 /* ------------------------------------------------------------------ home -- */
@@ -277,18 +105,19 @@ select:focus {
 /* A title screen, not a header: the wordmark is the hero. */
 .wordmark {
   margin: 0 0 4px;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
+  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-size: clamp(3.5rem, 11vw, 9rem);
   font-weight: 400;
   letter-spacing: 0.26em;
   /* Tracking hangs off the last letter; pull it back so the word sits centred. */
   text-indent: 0.26em;
   line-height: 0.95;
-  color: var(--fg);
+  color: var(--text);
   text-shadow:
-    0 0 18px rgba(255, 255, 255, 0.35),
-    0 0 60px rgba(168, 208, 255, 0.55),
-    0 0 130px rgba(79, 151, 245, 0.45);
+    0 0 18px rgb(var(--text-rgb) / 0.35),
+    0 0 60px rgb(var(--ice-rgb) / 0.55),
+    0 0 130px rgb(var(--ice-rgb) / 0.45);
 }
 
 .bloom-page > .home-nav,
@@ -302,12 +131,12 @@ select:focus {
   align-items: center;
 }
 .home-nav a {
-  color: var(--fg-dim);
+  color: var(--muted);
   text-decoration: none;
   font-size: 13px;
   letter-spacing: 0.02em;
 }
-.home-nav a:hover { color: var(--fg); }
+.home-nav a:hover { color: var(--text); }
 
 .home-hero {
   flex: 1;
@@ -328,8 +157,8 @@ select:focus {
   pointer-events: none;
   background: radial-gradient(
     ellipse 40% 56% at 50% 50%,
-    rgba(4, 6, 12, 0.78) 0%,
-    rgba(4, 6, 12, 0.44) 44%,
+    rgb(var(--bg-rgb) / 0.78) 0%,
+    rgb(var(--bg-rgb) / 0.44) 44%,
     transparent 76%
   );
 }
@@ -358,13 +187,13 @@ select:focus {
 .mode-sub {
   display: block;
   margin-top: 2px;
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.88rem;
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: lowercase;
   line-height: 1.2;
-  color: var(--fg-dim);
+  color: var(--muted);
   text-shadow: none;
 }
 
@@ -374,14 +203,14 @@ select:focus {
   top: 50%;
   margin-left: 64px;
   white-space: nowrap;
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: lowercase;
   line-height: 1.2;
-  color: var(--blue-200);
-  text-shadow: 0 0 18px rgba(79, 151, 245, 0.6);
+  color: var(--ice);
+  text-shadow: 0 0 18px rgb(var(--ice-rgb) / 0.6);
   opacity: 0;
   /* Slides in from the word rather than appearing in place. */
   transform: translate(-20px, -50%);
@@ -404,19 +233,6 @@ select:focus {
   .mode-hint { display: none; }
 }
 
-/*
- * Inner pages get the same light, but only as a hero glow above the content.
- * Left full-height it runs straight through leaderboard rows and form labels.
- */
-.page.bloom-page .bloom {
-  opacity: 0.5;
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
-  mask-image: linear-gradient(180deg, #000 0%, #000 20%, transparent 58%);
-}
-.page.bloom-page .bloom-arc-top { bottom: 80%; }
-.page.bloom-page .bloom-arc-bottom { top: 26%; }
-.page.bloom-page .bloom-core { top: 24%; height: 15vh; }
-
 @media (max-width: 720px) {
   .home-hero .modes button { font-size: clamp(2.5rem, 11vw, 3.5rem); }
 }
@@ -429,12 +245,12 @@ select:focus {
   background: none;
   filter: none;
   box-shadow:
-    0 0 0 1.5px var(--blue-200),
-    0 0 10px rgba(121, 180, 255, 0.75);
+    0 0 0 1.5px var(--ice),
+    0 0 10px rgb(var(--ice-rgb) / 0.75);
 }
 .aria-orb.mark .aria-body {
   inset: 3px;
-  background: radial-gradient(circle at 50% 120%, rgba(121, 180, 255, 0.5) 0%, #03060d 62%);
+  background: radial-gradient(circle at 50% 120%, rgb(var(--ice-rgb) / 0.5) 0%, var(--bg) 62%);
   box-shadow: none;
 }
 .aria-orb.mark .aria-rim { box-shadow: none; }
@@ -458,8 +274,8 @@ select:focus {
   height: var(--ps, 3px);
   margin-left: calc(var(--ps, 3px) / -2);
   border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 10px rgba(168, 208, 255, 1), 0 0 22px rgba(79, 151, 245, 0.6);
+  background: var(--red);
+  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 1), 0 0 22px rgb(var(--ice-rgb) / 0.6);
   opacity: 0;
 }
 .modes button.mode:hover .sparks i,
@@ -504,8 +320,8 @@ select:focus {
   pointer-events: none;
   background: radial-gradient(
     ellipse 50% 50% at 50% 50%,
-    rgba(121, 180, 255, 0.22) 0%,
-    rgba(47, 116, 216, 0.10) 45%,
+    rgb(var(--ice-rgb) / 0.22) 0%,
+    rgb(var(--ice-rgb) / 0.10) 45%,
     transparent 76%
   );
   filter: blur(18px);
@@ -518,18 +334,18 @@ select:focus {
 .lyrics-duet::before { top: 50%; }
 
 .lyrics-now {
-  color: var(--fg);
+  color: var(--text);
   text-shadow:
-    0 0 14px rgba(255, 255, 255, 0.3),
-    0 0 44px rgba(121, 180, 255, 0.55),
-    0 2px 20px rgba(0, 0, 0, 0.6);
+    0 0 14px rgb(var(--text-rgb) / 0.3),
+    0 0 44px rgb(var(--ice-rgb) / 0.55),
+    0 2px 20px rgb(var(--bg-rgb) / 0.6);
 }
 /* A line that has not arrived yet is a preview, not the cue — keep it dim. */
 .lyrics-now.lyrics-soon {
-  color: var(--fg-dim);
+  color: var(--muted);
   text-shadow: none;
 }
-.lyrics-next { color: var(--fg-faint); }
+.lyrics-next { color: var(--muted); }
 
 /* Hugs the words, so "the sides" means the sides of the text and not of the
    column. The line is centred and rarely fills the width. */
@@ -550,8 +366,8 @@ select:focus {
   height: var(--ps, 3px);
   margin-left: calc(var(--ps, 3px) / -2);
   border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 9px rgba(168, 208, 255, 0.95), 0 0 20px rgba(79, 151, 245, 0.55);
+  background: var(--red);
+  box-shadow: 0 0 9px rgb(var(--ice-rgb) / 0.95), 0 0 20px rgb(var(--ice-rgb) / 0.55);
   opacity: 0;
   animation: lyric-spark 2.2s ease-out var(--pd, 0s) infinite;
 }
@@ -564,24 +380,24 @@ select:focus {
 }
 
 /* Count-in dots pick up the accent rather than the old gold. */
-.lyrics-count .dot { background: var(--blue-200); box-shadow: 0 0 8px rgba(121, 180, 255, 0.7); }
-.lyrics-count .dot.spent { background: var(--fg-faint); box-shadow: none; }
-.lyrics-count .count-num { color: var(--blue-100); }
+.lyrics-count .dot { background: var(--ice); box-shadow: 0 0 8px rgb(var(--ice-rgb) / 0.7); }
+.lyrics-count .dot.spent { background: var(--muted); box-shadow: none; }
+.lyrics-count .count-num { color: var(--ice); }
 
 /* ---- Hit callouts (stage and training) ---- */
 .hit-perfect {
-  color: var(--blue-050);
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.85), 0 0 52px rgba(121, 180, 255, 0.9);
+  color: var(--ice);
+  text-shadow: 0 0 18px rgb(var(--text-rgb) / 0.85), 0 0 52px rgb(var(--ice-rgb) / 0.9);
 }
 .hit-great {
-  color: var(--blue-100);
-  text-shadow: 0 0 14px rgba(168, 208, 255, 0.75), 0 0 40px rgba(79, 151, 245, 0.6);
+  color: var(--ice);
+  text-shadow: 0 0 14px rgb(var(--ice-rgb) / 0.75), 0 0 40px rgb(var(--ice-rgb) / 0.6);
 }
 .hit-good {
-  color: var(--blue-300);
-  text-shadow: 0 0 12px rgba(79, 151, 245, 0.5);
+  color: var(--ice);
+  text-shadow: 0 0 12px rgb(var(--ice-rgb) / 0.5);
 }
-.hit-okay { color: var(--fg-dim); text-shadow: none; }
+.hit-okay { color: var(--muted); text-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .lyric-sparks i { animation: none; }
@@ -602,25 +418,25 @@ select:focus {
 .page-head h1 {
   margin: 0;
   line-height: 0.95;
-  text-shadow: 0 0 42px rgba(121, 180, 255, 0.4);
+  text-shadow: 0 0 42px rgb(var(--ice-rgb) / 0.4);
 }
 .page-head .back {
-  color: var(--fg-dim);
+  color: var(--muted);
   text-decoration: none;
   font-size: 13px;
   letter-spacing: 0.02em;
 }
-.page-head .back:hover { color: var(--fg); }
+.page-head .back:hover { color: var(--text); }
 .page-head .back::before { content: "← "; }
 
 /*
- * One meter treatment on every page. The canvas paints --meter-bg (--surface
+ * One meter treatment on every page. The canvas paints --surface (--surface
  * at 0.55 alpha), so with the container transparent the voice wave reads
  * through the staff on Training and on the stage alike.
  */
 .pitch-guide {
   background: transparent;
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 14px;
   overflow: hidden;
   backdrop-filter: blur(3px);
@@ -641,12 +457,14 @@ select:focus {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  /* Background texture only: never above 25% (design-system.md). */
+  opacity: 0.25;
 }
 .bloom-page > .voice-wave {
   position: fixed;
   z-index: 0;
 }
-.voice-wave.quiet { opacity: 0.32; }
+.voice-wave.quiet { opacity: 0.12; }
 .stage .voice-wave {
   position: absolute;
   z-index: 0;
@@ -699,8 +517,8 @@ select:focus {
   padding: 14px 28px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--blue-050);
-  color: #06101f;
+  background: var(--red);
+  color: var(--on-red);
   font: inherit;
   font-size: 1.05rem;
   font-weight: 600;
@@ -717,19 +535,19 @@ select:focus {
   outline: none;
   box-shadow: var(--glow-hard);
   transform: translateY(-1px);
-  background: #ffffff;
-  color: #06101f;
+  background: var(--red-hi);
+  color: var(--on-red);
 }
 .cta-ghost {
-  background: rgba(12, 19, 32, 0.72);
-  color: var(--fg);
-  border-color: var(--edge);
+  background: rgb(var(--surface-rgb) / 0.72);
+  color: var(--text);
+  border-color: var(--line);
 }
 .cta-ghost:hover,
 .cta-ghost:focus-visible {
-  background: rgba(18, 28, 46, 0.95);
-  color: var(--fg);
-  border-color: var(--blue-300);
+  background: rgb(var(--surface-rgb) / 0.95);
+  color: var(--text);
+  border-color: var(--red);
 }
 .cta:disabled {
   opacity: 0.38;
@@ -743,8 +561,8 @@ select:focus {
   max-width: 26rem;
 }
 .cta.is-on {
-  background: var(--blue-400);
-  color: #fff;
+  background: var(--red);
+  color: var(--on-red);
   box-shadow: var(--glow-hard);
   cursor: default;
 }
@@ -753,8 +571,8 @@ select:focus {
 }
 .cta.is-on:hover,
 .cta.is-on:focus-visible {
-  background: var(--blue-400);
-  color: #fff;
+  background: var(--red);
+  color: var(--on-red);
   transform: none;
 }
 
@@ -773,11 +591,12 @@ select:focus {
   text-align: center;
   font-size: 1.35rem;
   letter-spacing: 0.28em;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
+  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   padding: 10px 12px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(4, 6, 12, 0.45);
+  background: rgb(var(--bg-rgb) / 0.45);
 }
 .code-form .cta {
   width: 100%;
@@ -803,7 +622,8 @@ select:focus {
   min-height: 280px;
 }
 .play-choice h2 {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
+  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-size: 2rem;
   letter-spacing: 0.04em;
   font-weight: 400;
@@ -812,7 +632,7 @@ select:focus {
 }
 .play-choice p {
   margin: 0;
-  color: var(--fg-dim);
+  color: var(--muted);
   text-align: center;
   flex: 1;
 }
@@ -835,9 +655,9 @@ select:focus {
   max-width: 26rem;
   margin: 18px auto 0;
   padding: 5px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(4, 6, 12, 0.45);
+  background: rgb(var(--bg-rgb) / 0.45);
 }
 .mode-pick button {
   min-width: 0;
@@ -845,7 +665,7 @@ select:focus {
   border: 0;
   border-radius: 999px;
   background: none;
-  color: var(--fg-dim);
+  color: var(--muted);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -853,16 +673,16 @@ select:focus {
 }
 .mode-pick button:hover,
 .mode-pick button:focus-visible {
-  color: var(--fg);
+  color: var(--text);
 }
 .mode-pick button.on {
-  background: var(--blue-400);
-  color: #fff;
+  background: var(--red);
+  color: var(--on-red);
   box-shadow: var(--glow-hard);
 }
 .mode-pick-blurb {
   margin: 10px auto 0;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.92rem;
   text-align: center;
 }
@@ -894,7 +714,7 @@ select:focus {
   background: none;
   border: 0;
   padding: 0;
-  color: var(--fg-dim);
+  color: var(--muted);
   cursor: pointer;
   font: inherit;
   font-size: 0.92rem;
@@ -903,13 +723,13 @@ select:focus {
   align-self: center;
 }
 .play-hint:hover,
-.play-hint:focus-visible { color: var(--fg); outline: none; }
+.play-hint:focus-visible { color: var(--text); outline: none; }
 .play-hint:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .shell-inner .dim,
 .shell-inner .status,
 .shell-inner .err {
-  text-shadow: 0 1px 10px #04060c, 0 0 18px #04060c;
+  text-shadow: 0 1px 10px var(--bg), 0 0 18px var(--bg);
 }
 .settings-form {
   width: min(22rem, 100%);
@@ -938,13 +758,13 @@ select:focus {
   gap: 0;
   margin: 24px auto;
   padding: 4px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(9, 14, 24, 0.7);
+  background: rgb(var(--bg-rgb) / 0.7);
 }
 .tabs button {
   background: none;
-  color: var(--fg-dim);
+  color: var(--muted);
   border: 0;
   border-radius: 999px;
   padding: 10px 22px;
@@ -954,8 +774,8 @@ select:focus {
   font-weight: 600;
 }
 .tabs button.on {
-  color: #06101f;
-  background: var(--blue-050);
+  color: var(--on-red);
+  background: var(--red);
   border-bottom-color: transparent;
 }
 
@@ -963,7 +783,7 @@ select:focus {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  background: rgba(4, 6, 12, 0.88);
+  background: rgb(var(--bg-rgb) / 0.88);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -975,8 +795,8 @@ select:focus {
   margin: 8px 0 20px;
 }
 .stat-tile {
-  background: rgba(4, 6, 12, 0.88);
-  border: 1px solid var(--edge);
+  background: rgb(var(--bg-rgb) / 0.88);
+  border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px 16px;
   text-align: left;
@@ -991,7 +811,7 @@ select:focus {
 .stat-tile span {
   display: block;
   margin-top: 6px;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.82rem;
 }
 .stat-songs-title {
@@ -1034,7 +854,7 @@ select:focus {
 }
 .ready-meta p {
   margin: 0;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.92rem;
 }
 .ready-chips {
@@ -1048,25 +868,25 @@ select:focus {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid var(--edge);
-  background: rgba(9, 14, 24, 0.7);
+  border: 1px solid var(--line);
+  background: rgb(var(--bg-rgb) / 0.7);
   font-size: 0.82rem;
-  color: var(--fg-dim);
+  color: var(--muted);
 }
 .ready-chip.on {
-  color: var(--fg);
-  border-color: var(--blue-300);
-  box-shadow: 0 0 16px rgba(79, 151, 245, 0.35);
+  color: var(--text);
+  border-color: var(--red);
+  box-shadow: 0 0 16px rgb(var(--ice-rgb) / 0.35);
 }
 .ready-chip i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--fg-faint);
+  background: var(--muted);
 }
 .ready-chip.on i {
-  background: var(--blue-200);
-  box-shadow: 0 0 8px rgba(168, 208, 255, 0.9);
+  background: var(--red);
+  box-shadow: 0 0 8px rgb(var(--ice-rgb) / 0.9);
 }
 
 .room-code-bar {
@@ -1087,10 +907,10 @@ select:focus {
 }
 .song-pick select {
   width: 100%;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 10px 14px;
-  background: rgba(9, 14, 24, 0.7);
+  background: rgb(var(--bg-rgb) / 0.7);
 }
 .training .lyrics,
 .training .pitch-guide { width: 100%; }
@@ -1099,7 +919,7 @@ select:focus {
 /* Score breakdown — live HUD and results. Green / yellow / red fill. */
 .score-break .who {
   margin: 0 0 2px;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1108,12 +928,12 @@ select:focus {
   margin: 0 0 10px;
   font-variant-numeric: tabular-nums;
   line-height: 0.95;
-  color: var(--fg);
+  color: var(--text);
 }
-.score-break.band-good .overall { color: var(--score-good); }
-.score-break.band-mid .overall { color: var(--warning); }
-.score-break.band-bad .overall { color: var(--danger); }
-.score-break.pending .overall { color: var(--fg-faint); }
+.score-break.band-good .overall { color: var(--ice); }
+.score-break.band-mid .overall { color: var(--ice); }
+.score-break.band-bad .overall { color: var(--red-text); }
+.score-break.pending .overall { color: var(--muted); }
 .score-meter { margin: 6px 0 0; }
 .score-meter-row {
   display: flex;
@@ -1121,30 +941,30 @@ select:focus {
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-dim);
+  color: var(--muted);
   margin-bottom: 3px;
 }
 .score-meter-row span:last-child {
   font-variant-numeric: tabular-nums;
-  color: var(--fg);
+  color: var(--text);
 }
 .score-meter-track {
   height: 8px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
   overflow: hidden;
 }
 .score-meter-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--score-fill, var(--accent));
-  box-shadow: 0 0 12px color-mix(in srgb, var(--score-fill, var(--accent)) 55%, transparent);
+  background: var(--score-fill, var(--ice));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--score-fill, var(--ice)) 55%, transparent);
   transition: width 180ms ease;
 }
-.score-meter.band-good { --score-fill: var(--score-good); }
-.score-meter.band-mid { --score-fill: var(--warning); }
-.score-meter.band-bad { --score-fill: var(--danger); }
+.score-meter.band-good { --score-fill: var(--ice); }
+.score-meter.band-mid { --score-fill: var(--ice); }
+.score-meter.band-bad { --score-fill: var(--red-text); }
 
 .live-scores {
   display: grid;
@@ -1172,7 +992,7 @@ select:focus {
   font-size: 0.68rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--fg-dim);
+  color: var(--muted);
 }
 .slim-score .overall {
   margin: 0;
@@ -1180,15 +1000,15 @@ select:focus {
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.slim-score.band-good .overall { color: var(--score-good); }
-.slim-score.band-mid .overall { color: var(--warning); }
-.slim-score.band-bad .overall { color: var(--danger); }
-.slim-score.pending .overall { color: var(--fg-faint); }
+.slim-score.band-good .overall { color: var(--ice); }
+.slim-score.band-mid .overall { color: var(--ice); }
+.slim-score.band-bad .overall { color: var(--red-text); }
+.slim-score.pending .overall { color: var(--muted); }
 .slim-score .score-meter-track { height: 5px; }
-.slim-score.band-good .score-meter-track span { background: var(--score-good); }
-.slim-score.band-mid .score-meter-track span { background: var(--warning); }
-.slim-score.band-bad .score-meter-track span { background: var(--danger); }
-.slim-score.singing .who { color: var(--score-good); }
+.slim-score.band-good .score-meter-track span { background: var(--ice); }
+.slim-score.band-mid .score-meter-track span { background: var(--ice); }
+.slim-score.band-bad .score-meter-track span { background: var(--red-text); }
+.slim-score.singing .who { color: var(--ice); }
 .slim-subs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1200,7 +1020,7 @@ select:focus {
   font-size: 0.62rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-dim);
+  color: var(--muted);
   margin-bottom: 2px;
 }
 .slim-sub .score-meter-track { height: 3px; }
@@ -1216,19 +1036,19 @@ select:focus {
 }
 
 .scoring-wait { text-align: center; max-width: 420px; }
-.scoring-copy { margin: 0 0 16px; color: var(--fg-dim); }
+.scoring-copy { margin: 0 0 16px; color: var(--muted); }
 .scoring-track {
   height: 10px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
   overflow: hidden;
 }
 .scoring-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--blue-300);
-  box-shadow: 0 0 16px rgba(121, 180, 255, 0.55);
+  background: var(--ice);
+  box-shadow: 0 0 16px rgb(var(--ice-rgb) / 0.55);
   transition: width 80ms linear;
 }
 
@@ -1350,24 +1170,24 @@ select:focus {
 .hero-rule-line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(168, 208, 255, 0.55));
-  box-shadow: 0 0 10px rgba(79, 151, 245, 0.4);
+  background: linear-gradient(90deg, transparent, rgb(var(--ice-rgb) / 0.55));
+  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 0.4);
 }
 /* Second line mirrors the first so the fade runs outward from the bead. */
 .hero-rule-line + .hero-rule-dot + .hero-rule-line {
-  background: linear-gradient(90deg, rgba(168, 208, 255, 0.55), transparent);
+  background: linear-gradient(90deg, rgb(var(--ice-rgb) / 0.55), transparent);
 }
 .hero-rule-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--blue-050);
-  box-shadow: 0 0 10px rgba(168, 208, 255, 0.95), 0 0 22px rgba(79, 151, 245, 0.7);
+  background: var(--ice);
+  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 0.95), 0 0 22px rgb(var(--ice-rgb) / 0.7);
 }
 
 .home-pitch {
   margin: -4px 0 22px;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 1.05rem;
   letter-spacing: 0.02em;
   max-width: 26rem;
@@ -1387,7 +1207,7 @@ select:focus {
   align-items: center;
   gap: 6px;
   width: 100%;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 13px;
   letter-spacing: 0.02em;
 }
@@ -1410,7 +1230,7 @@ select:focus {
   width: min(22rem, 100%);
   margin-top: 28px;
   padding-top: 22px;
-  border-top: 1px solid color-mix(in srgb, var(--edge) 80%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
 }
 
 .home-mode {
@@ -1421,10 +1241,10 @@ select:focus {
   gap: 3px;
   min-height: 52px;
   padding: 10px 12px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(12, 19, 32, 0.55);
-  color: var(--fg);
+  background: rgb(var(--surface-rgb) / 0.55);
+  color: var(--text);
   text-decoration: none;
   text-align: center;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -1433,9 +1253,9 @@ select:focus {
 .home-mode:hover,
 .home-mode:focus-visible {
   outline: none;
-  color: var(--fg);
-  border-color: var(--blue-300);
-  background: rgba(18, 28, 46, 0.9);
+  color: var(--text);
+  border-color: var(--red);
+  background: rgb(var(--surface-rgb) / 0.9);
   box-shadow: var(--glow-soft);
 }
 
@@ -1447,7 +1267,7 @@ select:focus {
 }
 
 .home-mode-hint {
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   line-height: 1.2;
@@ -1461,14 +1281,14 @@ select:focus {
   margin-top: 40px;
 }
 .home-more a {
-  color: var(--fg-dim);
+  color: var(--muted);
   text-decoration: none;
   font-size: 13px;
   letter-spacing: 0.02em;
 }
 .home-more a:hover,
 .home-more a:focus-visible {
-  color: var(--fg);
+  color: var(--text);
   outline: none;
 }
 
@@ -1483,21 +1303,21 @@ select:focus {
 .home-simple .voice-wave {
   -webkit-mask-image: linear-gradient(
     90deg,
-    #000 0%,
-    #000 24%,
+    var(--mask-on) 0%,
+    var(--mask-on) 24%,
     transparent 39%,
     transparent 61%,
-    #000 76%,
-    #000 100%
+    var(--mask-on) 76%,
+    var(--mask-on) 100%
   );
   mask-image: linear-gradient(
     90deg,
-    #000 0%,
-    #000 24%,
+    var(--mask-on) 0%,
+    var(--mask-on) 24%,
     transparent 39%,
     transparent 61%,
-    #000 76%,
-    #000 100%
+    var(--mask-on) 76%,
+    var(--mask-on) 100%
   );
 }
 
@@ -1652,7 +1472,7 @@ select:focus {
     overflow: auto;
     padding: 20px 16px calc(16px + env(safe-area-inset-bottom, 0px));
     border-radius: 18px;
-    background: var(--ink);
+    background: var(--bg);
   }
   .results h2 { font-size: 1.85rem; }
   .results .score-break .overall { font-size: 2.4rem; }
@@ -1972,10 +1792,10 @@ select:focus {
   min-width: 0;
   min-height: 132px;
   padding: 18px 16px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(12, 19, 32, 0.55);
-  color: var(--fg);
+  background: rgb(var(--surface-rgb) / 0.55);
+  color: var(--text);
   text-align: center;
   text-decoration: none;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -1983,26 +1803,27 @@ select:focus {
 .mode-card:hover,
 .mode-card:focus-visible {
   outline: none;
-  color: var(--fg);
-  border-color: var(--blue-300);
-  background: rgba(18, 28, 46, 0.9);
+  color: var(--text);
+  border-color: var(--red);
+  background: rgb(var(--surface-rgb) / 0.9);
   box-shadow: var(--glow-soft);
   transform: translateY(-2px);
 }
 .mode-card-label {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
+  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-size: 2.3rem;
   letter-spacing: 0.04em;
   line-height: 1;
 }
 .mode-card-hint {
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.3;
 }
 .mode-private {
   margin: 22px auto 0;
-  color: var(--fg-dim);
+  color: var(--muted);
   font-size: 0.92rem;
   text-align: center;
 }
@@ -2034,9 +1855,9 @@ select:focus {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  border: 1px solid var(--edge);
-  background: rgb(0 0 0 / 0.62);
-  color: var(--fg);
+  border: 1px solid var(--line);
+  background: rgb(var(--bg-rgb) / 0.62);
+  color: var(--text);
   font-size: 1.3rem;
   line-height: 1;
   backdrop-filter: blur(6px);
@@ -2044,7 +1865,7 @@ select:focus {
 .stage .tile-menu-btn span { transform: translateY(-0.22em); }
 .stage .tile-menu-btn:hover:not(:disabled),
 .stage .tile-menu-btn:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--red);
   box-shadow: var(--glow-hard);
   outline: none;
 }
@@ -2062,7 +1883,7 @@ select:focus {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
   backdrop-filter: blur(10px);
 }
 .safety-sheet {
@@ -2070,88 +1891,89 @@ select:focus {
   max-height: calc(100dvh - 40px);
   overflow: auto;
   padding: 20px 20px 16px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
   box-shadow: var(--glow-soft);
-  color: var(--fg);
-  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  color: var(--text);
+  font-family: var(--font-body);
 }
 .safety-kicker {
   margin: 0 0 2px;
-  color: var(--accent);
+  color: var(--ice);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .safety-title {
   margin: 0 0 14px;
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-display);
+  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-size: 2rem;
   font-weight: 400;
   letter-spacing: 0.03em;
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
-.safety-body { margin: 0 0 4px; color: var(--fg-dim); }
-.safety-fine { margin: 12px 0 0; color: var(--fg-dim); font-size: 0.82rem; }
+.safety-body { margin: 0 0 4px; color: var(--muted); }
+.safety-fine { margin: 12px 0 0; color: var(--muted); font-size: 0.82rem; }
 .safety-actions { display: grid; gap: 8px; }
 .safety-row {
   display: grid;
   gap: 2px;
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 12px;
   background: var(--surface-2);
-  color: var(--fg);
+  color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 .safety-row strong { font-weight: 600; }
-.safety-row span { color: var(--fg-dim); font-size: 0.82rem; }
-.safety-row.danger strong { color: var(--danger); }
+.safety-row span { color: var(--muted); font-size: 0.82rem; }
+.safety-row.danger strong { color: var(--red-text); }
 .safety-row:hover:not(:disabled),
-.safety-row:focus-visible { border-color: var(--accent); outline: none; }
+.safety-row:focus-visible { border-color: var(--ice); outline: none; }
 .safety-row:disabled { opacity: 0.5; cursor: not-allowed; }
 .safety-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .safety-chip {
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
-  color: var(--fg-dim);
+  color: var(--muted);
   font: inherit;
   font-size: 0.88rem;
   cursor: pointer;
 }
 .safety-chip:hover,
-.safety-chip:focus-visible { color: var(--fg); border-color: var(--accent); outline: none; }
+.safety-chip:focus-visible { color: var(--text); border-color: var(--ice); outline: none; }
 .safety-chip.on {
-  border-color: var(--blue-200);
-  background: var(--blue-200);
-  color: var(--ink);
+  border-color: var(--red);
+  background: var(--red);
+  color: var(--bg);
 }
-.safety-note { display: grid; gap: 6px; margin-bottom: 12px; color: var(--fg-dim); font-size: 0.88rem; }
-.safety-note em { color: var(--fg-faint); font-style: normal; }
+.safety-note { display: grid; gap: 6px; margin-bottom: 12px; color: var(--muted); font-size: 0.88rem; }
+.safety-note em { color: var(--muted); font-style: normal; }
 .safety-note textarea {
   min-height: 64px;
   padding: 10px 12px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--ink-2);
-  color: var(--fg);
+  background: var(--bg);
+  color: var(--text);
   font: inherit;
   font-size: 16px;
   resize: vertical;
 }
-.safety-note textarea:focus { border-color: var(--accent); outline: none; }
-.safety-note small { justify-self: end; color: var(--fg-faint); font-size: 0.72rem; }
+.safety-note textarea:focus { border-color: var(--ice); outline: none; }
+.safety-note small { justify-self: end; color: var(--muted); font-size: 0.72rem; }
 .safety-check { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; cursor: pointer; }
-.safety-check input { width: 18px; height: 18px; accent-color: var(--blue-300); }
-.safety-error { margin: 10px 0 0; color: var(--danger); font-size: 0.88rem; }
+.safety-check input { width: 18px; height: 18px; accent-color: var(--ice); }
+.safety-error { margin: 10px 0 0; color: var(--red-text); font-size: 0.88rem; }
 .safety-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .safety-primary,
 .safety-ghost {
@@ -2165,14 +1987,14 @@ select:focus {
   text-decoration: none;
   cursor: pointer;
 }
-.safety-primary { border: 1px solid var(--blue-300); background: var(--blue-300); color: var(--ink); }
-.safety-primary.danger { border-color: var(--danger); background: var(--danger); }
+.safety-primary { border: 1px solid var(--ice); background: var(--ice); color: var(--bg); }
+.safety-primary.danger { border-color: var(--red-text); background: var(--red-text); }
 .safety-primary:hover:not(:disabled),
 .safety-primary:focus-visible { box-shadow: var(--glow-hard); outline: none; }
 .safety-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-.safety-ghost { border: 1px solid var(--edge); background: transparent; color: var(--fg-dim); }
+.safety-ghost { border: 1px solid var(--line); background: transparent; color: var(--muted); }
 .safety-ghost:hover:not(:disabled),
-.safety-ghost:focus-visible { border-color: var(--accent); color: var(--fg); outline: none; }
+.safety-ghost:focus-visible { border-color: var(--ice); color: var(--text); outline: none; }
 
 @media (max-width: 560px) {
   .stage .tile-menu-btn { top: 0.35rem; right: 0.35rem; width: 2.5rem; height: 2.5rem; }

@@ -30,7 +30,7 @@ export default function CountdownOverlay({
       className="countdown-veil"
       role="status"
       aria-live="assertive"
-      style={{ background: `rgb(4 6 12 / ${veil})` }}
+      style={{ background: `rgb(var(--bg-rgb) / ${veil})` }}
     >
       {phase === "swap" ? <p className="countdown-kicker">Same chorus</p> : null}
       <p className="countdown-headline">

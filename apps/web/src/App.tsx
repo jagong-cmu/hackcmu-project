@@ -15,6 +15,7 @@ import { Training } from "./training/Training.tsx";
 import { RoomProvider } from "./rooms/RoomProvider.tsx";
 import Stage from "./stage/Stage.tsx";
 import { AnalyticsRoot } from "./analytics/AnalyticsRoot.tsx";
+import { RouteAmbient } from "./ui/Ambient.tsx";
 import { DeviceCheck } from "./onboarding/DeviceCheck.tsx";
 import { DeviceCheckGate } from "./onboarding/DeviceCheckGate.tsx";
 import { VoiceCheck } from "./onboarding/VoiceCheck.tsx";
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AnalyticsRoot />
+      <RouteAmbient />
       <RoomProvider><AuthProvider>
         <Routes>
           <Route path="/" element={<Home />} />

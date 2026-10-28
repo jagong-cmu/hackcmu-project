@@ -25,7 +25,7 @@
 }
 .google-btn svg {
   flex: none;
-  background: #fff;
+  background: #fff; /* Google's sign-in mark sits on white (brand rule) */
   border-radius: 50%;
   padding: 2px;
   box-sizing: content-box;
@@ -38,7 +38,7 @@
   width: min(22rem, 100%);
   margin: 0 auto 24px;
   padding-top: 16px;
-  border-top: 1px solid var(--edge-soft);
+  border-top: 1px solid var(--line-soft);
   text-align: left;
 }
 .settings-account .dim {
@@ -73,7 +73,7 @@
 .gis-holder[hidden] { display: none; }
 .gis-pending {
   align-items: center;
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 999px;
   font-size: 0.85rem;
 }
@@ -83,7 +83,7 @@
   border: 0;
   background: none;
   padding: 2px 4px;
-  color: var(--fg-faint);
+  color: var(--muted);
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
@@ -91,4 +91,4 @@
   text-underline-offset: 2px;
 }
 .gis-alt:hover,
-.gis-alt:focus-visible { color: var(--fg); }
+.gis-alt:focus-visible { color: var(--text); }

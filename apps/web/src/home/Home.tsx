@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Bloom } from "../theme/Bloom.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { ModeButton } from "./ModeButton.tsx";
 import { capture } from "../analytics/posthog.ts";
@@ -28,7 +27,6 @@ export function Home() {
 
   return (
     <main className="home-simple bloom-page">
-      <Bloom />
       <VoiceWave />
 
       <nav className="home-nav">
