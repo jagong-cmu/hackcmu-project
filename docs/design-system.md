@@ -141,14 +141,13 @@ All files are under `apps/web/public/images/`, exported at 2× their display siz
 
 | Constant | File | Shown at |
 |---|---|---|
-| `Images.heroHome` / `heroHome1x` | `hero-home.webp` (2752w) / `hero-home-1600.webp` | Home, right 58%, as a `srcset`; the CSS mask fades it into `--bg` on the left |
-| `Images.heroRanked` / `heroRanked1x` (also `Duet`, `Training`, `Chaos`, `Room`, `Leaderboard`, `Settings`) | `hero-<mode>.webp` (2752w) / `hero-<mode>-1600.webp` | per-mode heroes, same framing as `hero-home`; Home doesn't swap to them yet |
-| `Images.mode.ranked / duet / training / chaos / room` | `mode-<name>.webp`, 240×240 | Home, under the description (120px) |
+| `Images.heroHome` / `heroHome1x` | `hero-home.webp` (2752w) / `hero-home-1600.webp` | Home, right 58%, as a `srcset`; the CSS mask fades it into `--bg` on the left and along the bottom (key hints) |
+| `Images.heroRanked` / `heroRanked1x` (also `Duet`, `Training`, `Chaos`, `Room`, `Leaderboard`, `Settings`) | `hero-<mode>.webp` (2752w) / `hero-<mode>-1600.webp` | Home: the hero follows the menu selection (`home/HomeHero.tsx`, 2-layer crossfade over `--dur-slow`); missing files fall back to `hero-home`. Under 900px Home always shows `hero-home`, dimmed |
+| `Images.mode.ranked / duet / training / chaos / room` | `mode-<name>.webp`, 240×240 | Unused since Home switched to per-mode heroes |
 | `Images.art[0..5]`, `artFor(songId)` | `art-01.webp` … `art-06.webp`, 96×96 | Training song grid (48px), lazy |
 | `Images.stageBg` | `stage-bg.webp` | Behind the singing view at 30%, mounted by `MachineStage` |
 | `Images.og` | `og.png`, 1200×630 | `og:image` and `twitter:image` in `index.html` |
 
-There is no leaderboard art yet. Add `mode.leaderboard` when the file exists; until then the Home slot shows nothing and requests nothing.
 
 **Backgrounds must be exactly `#05070D`.** Generated art comes back with a slightly lighter backdrop that shows as a box on the page. Fix the file rather than the CSS: pull the backdrop to `#05070D` and feather the outer edge into it. Never use blend modes.
 
