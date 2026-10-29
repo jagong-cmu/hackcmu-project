@@ -19,16 +19,20 @@ const SCORE_COUNTDOWN_SEC = 6;
 const CountUpMs = 800;
 
 function Breakdown({ card }: { card: ScoreCard }) {
+  const rows: [string, number][] = [["Pitch", card.pitch], ["Tone", card.tone]];
   return (
     <dl className="km-res-break">
-      <div>
-        <dt className="t-label">Pitch</dt>
-        <dd><Digits value={card.silence ? "--" : `${card.pitch}%`} /></dd>
-      </div>
-      <div>
-        <dt className="t-label">Tone</dt>
-        <dd><Digits value={card.silence ? "--" : `${card.tone}%`} /></dd>
-      </div>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt className="t-label">{label}</dt>
+          <dd>
+            <span className="km-res-meter" aria-hidden="true">
+              <i style={{ width: `${card.silence ? 0 : Math.max(0, Math.min(100, value))}%` }} />
+            </span>
+            <Digits value={card.silence ? "--" : `${value}%`} />
+          </dd>
+        </div>
+      ))}
     </dl>
   );
 }
@@ -67,21 +71,12 @@ export function ScoringWait() {
   return (
     <div className="modal-scrim results-scrim">
       <div className="results scoring-wait booth-wait" role="status" aria-live="polite">
-        <div className="booth" aria-hidden="true">
-          <span className="booth-sweep" />
-          <span className="booth-ring" />
-          <span className="booth-ring" />
-          <span className="booth-ring" />
-          <div className="booth-eq">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
+        <span className="booth-dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        <p className="t-label">Your take</p>
         <h2 id="results-title">Scoring</h2>
         <p className="scoring-copy" key={copy}>
           {copy}
@@ -312,7 +307,7 @@ export function ResultsModal({
   return (
     <div className="modal-scrim results-scrim">
       <div
-        className={`results results-show km-results band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""}`}
+        className={`results results-show km-results band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""} ${versus && shared == null ? "is-versus" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="results-title"
