@@ -28,9 +28,9 @@ export function parseLrc(src: string): LrcLine[] {
   return lines.sort((a, b) => a.timeSec - b.timeSec);
 }
 
-export function lineAt(lines: LrcLine[], timeSec: number): { current: LrcLine | null; next: LrcLine | null } {
-  let current: LrcLine | null = null;
-  let next: LrcLine | null = null;
+export function lineAt<L extends LrcLine>(lines: L[], timeSec: number): { current: L | null; next: L | null } {
+  let current: L | null = null;
+  let next: L | null = null;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].timeSec <= timeSec) current = lines[i];
     else {

@@ -1,10 +1,11 @@
-"""Command line: extract, batch, evaluate, review."""
+"""Command line: extract, batch, align, evaluate, review."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
+import shutil
 import sys
 from pathlib import Path
 
@@ -16,13 +17,15 @@ AUDIO = (".mp3", ".wav", ".flac", ".m4a", ".ogg")
 log = logging.getLogger("note_extraction")
 
 
-def load_config(path: str | None, tracker: str | None) -> dict:
+def load_config(path: str | None, tracker: str | None, aligner: str | None = None) -> dict:
     p = Path(path) if path else TOOL_ROOT / "config.yaml"
     if not p.exists():
         raise SystemExit(f"config not found: {p}")
     cfg = yaml.safe_load(p.read_text())
     if tracker:
         cfg["pitch"]["tracker"] = tracker
+    if aligner:
+        cfg["lyrics"]["aligner"] = aligner
     return cfg
 
 
@@ -30,6 +33,7 @@ def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--config", help="config.yaml to use (default: the one next to this tool)")
     p.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"])
     p.add_argument("--tracker", choices=["rmvpe", "crepe", "pyin"], help="overrides config pitch.tracker")
+    p.add_argument("--aligner", choices=["whisperx", "stable-ts"], help="overrides config lyrics.aligner")
     p.add_argument("--force", action="store_true", help="re-run every stage and overwrite reviewed notes")
     p.add_argument("-q", "--quiet", action="store_true")
 
@@ -37,7 +41,7 @@ def _common(p: argparse.ArgumentParser) -> None:
 def _run_job(job: Job, args) -> dict:
     from .pitch import resolve_device
 
-    cfg = load_config(args.config, args.tracker)
+    cfg = load_config(args.config, args.tracker, args.aligner)
     device = resolve_device(args.device)
     log.info("== %s (%s, tracker %s)", job.id, device, cfg["pitch"]["tracker"])
     res = run(job, cfg, device, force=args.force)
@@ -101,13 +105,16 @@ def _jobs_from_dir(root: Path, out_root: Path) -> list[Job]:
     return jobs
 
 
-def cmd_batch(args) -> None:
+def _jobs(args) -> list[Job]:
     src, out_root = Path(args.input), Path(args.out)
     if not src.exists():
         raise SystemExit(f"not found: {src}")
     jobs = _jobs_from_manifest(src, out_root) if src.suffix in (".yaml", ".yml") else _jobs_from_dir(src, out_root)
-    if args.only:
-        jobs = [j for j in jobs if j.id in args.only]
+    return [j for j in jobs if j.id in args.only] if args.only else jobs
+
+
+def cmd_batch(args) -> None:
+    jobs = _jobs(args)
     failed = []
     for i, job in enumerate(jobs, 1):
         if (job.out / "melody.json").exists() and not args.force and not args.rerun:
@@ -120,6 +127,31 @@ def cmd_batch(args) -> None:
         except SystemExit as e:
             log.error("%s failed: %s", job.id, e)
             failed.append(job.id)
+    if failed:
+        raise SystemExit(f"failed: {', '.join(failed)}")
+
+
+def cmd_align(args) -> None:
+    """Re-align every song and put its words.json on the site. Cached stages stay cached,
+    so this re-runs only the aligner (when its config or code changed) and the export."""
+    site_root = Path(args.site_root)
+    failed, flagged = [], {}
+    for i, job in enumerate(_jobs(args), 1):
+        log.info("[%d] %s", i, job.id)
+        try:
+            flagged[job.id] = _run_job(job, args)["flagged_words"]
+        except SystemExit as e:
+            log.error("%s failed: %s", job.id, e)
+            failed.append(job.id)
+            continue
+        if (site_root / job.id).is_dir():
+            shutil.copyfile(job.out / "words.json", site_root / job.id / "words.json")
+            log.info("%s: wrote %s", job.id, site_root / job.id / "words.json")
+    for sid, ws in flagged.items():
+        print(f"\n{sid}: {len(ws)} flagged word(s) (see {Path(args.out) / sid / 'align_report.md'})")
+        for w in ws:
+            score = "-" if w["score"] is None else f"{w['score']:.2f}"
+            print(f"  {w['start']:8.2f}s  {w['text']:<14} score {score:<5} {', '.join(w['flags'])}  | {w['line']}")
     if failed:
         raise SystemExit(f"failed: {', '.join(failed)}")
 
@@ -141,7 +173,7 @@ def cmd_benchmark(args) -> None:
     from .benchmark import run_benchmark
     from .pitch import resolve_device
 
-    print(run_benchmark(load_config(args.config, args.tracker), resolve_device(args.device), sweep=args.sweep))
+    print(run_benchmark(load_config(args.config, args.tracker, args.aligner), resolve_device(args.device), sweep=args.sweep))
 
 
 def cmd_review(args) -> None:
@@ -177,6 +209,15 @@ def main(argv=None) -> None:
     b.add_argument("--rerun", action="store_true", help="run songs whose outputs exist (cached stages stay cached)")
     _common(b)
     b.set_defaults(fn=cmd_batch)
+
+    a = sub.add_parser("align", help="re-align every song's lyrics and write words.json into the site")
+    a.add_argument("input", help="manifest .yaml or a folder of songs (as for batch)")
+    a.add_argument("--out", required=True)
+    a.add_argument("--only", nargs="*", help="song ids to run")
+    a.add_argument("--site-root", default=str(TOOL_ROOT.parents[1] / "apps" / "web" / "public" / "songs"),
+                   help="site songs folder; words.json goes to <site-root>/<id>/ when that folder exists")
+    _common(a)
+    a.set_defaults(fn=cmd_align)
 
     v = sub.add_parser("evaluate", help="compare with reference note files")
     v.add_argument("--pred", action="append", required=True, help="output dir, melody.json or UltraStar .txt")

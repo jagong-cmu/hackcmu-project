@@ -11,6 +11,12 @@ import { LegalLinks } from "../legal/LegalLinks.tsx";
 import { Button } from "../ui/Button.tsx";
 import "./pages.css";
 import { safeNextPath } from "../lib/safeNext.ts";
+import {
+  getLyricOffsetMs,
+  LyricOffsetMaxMs,
+  LyricOffsetStepMs,
+  setLyricOffsetMs,
+} from "../lyrics/lyricClock.ts";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -20,6 +26,7 @@ export function Settings() {
   const [name, setName] = useState(getDisplayName());
   const [mongo, setMongo] = useState<boolean | null>(null);
   const [msg, setMsg] = useState("");
+  const [lyricOffset, setLyricOffset] = useState(String(getLyricOffsetMs()));
   const { mode, user } = useAuth();
   // Names belong to accounts: nothing to edit until you are signed in.
   const canName = mode === "dev-guest" || (mode === "accounts" && Boolean(user));
@@ -76,6 +83,28 @@ export function Settings() {
         <section className="pg-group">
           <h2 className="t-label">Devices</h2>
           <DeviceCheckLink next="/settings" />
+        </section>
+        <section className="pg-group">
+          <h2 className="t-label">Lyric timing</h2>
+          <label className="pg-field">
+            <span className="t-label">Lyric offset (ms) on this device</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              step={LyricOffsetStepMs}
+              min={-LyricOffsetMaxMs}
+              max={LyricOffsetMaxMs}
+              value={lyricOffset}
+              onChange={(e) => {
+                setLyricOffset(e.target.value);
+                if (Number.isFinite(e.target.valueAsNumber)) setLyricOffsetMs(e.target.valueAsNumber);
+              }}
+              onBlur={() => setLyricOffset(String(getLyricOffsetMs()))}
+            />
+          </label>
+          <p className="dim">
+            Lyrics ahead of the music? Raise it. Bluetooth headphones usually need +150 to +250.
+          </p>
         </section>
         <section className="pg-group">
           <h2 className="t-label">Connection</h2>

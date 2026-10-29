@@ -1,9 +1,11 @@
 import { PitchDetector } from "pitchy";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
+import { MaxDriftSec, singWindow, songById, type MelodyFile, type RoomState } from "@karaoke/shared";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
+import { lyricTime } from "../lyrics/lyricClock.ts";
+import type { WordsFile } from "../lyrics/words.ts";
 import { cueAt, duetSeat, singingNow, windowsForSeat } from "../lyrics/duetParts.ts";
 import { parseLrc } from "../lyrics/parseLrc.ts";
 import { inLeadIn, melodyFrom, singFromOf } from "../lyrics/leadIn.ts";
@@ -99,7 +101,9 @@ export function StageLyrics() {
   const { clockPlay } = useRoom();
   const [lrc, setLrc] = useState("");
   const [lrcFailed, setLrcFailed] = useState(false);
+  const [words, setWords] = useState<WordsFile | null>(null);
   const [t, setT] = useState(0);
+  const [lyricT, setLyricT] = useState(0);
   const running =
     room?.status === "countdown" ||
     room?.status === "turnA" ||
@@ -149,7 +153,9 @@ export function StageLyrics() {
     setLrcFailed(false);
     void loadSongPack(id)
       .then((pack) => {
-        if (!cancelled) setLrc(pack.lrc);
+        if (cancelled) return;
+        setLrc(pack.lrc);
+        setWords(pack.words);
       })
       .catch(() => {
         if (!cancelled) setLrcFailed(true);
@@ -163,7 +169,16 @@ export function StageLyrics() {
     if (!running) return;
     let raf = 0;
     const tick = () => {
-      setT(displayPlayhead(clockPlayRef.current, roomRef.current, audioRef.current));
+      const clockT = displayPlayhead(clockPlayRef.current, roomRef.current, audioRef.current);
+      const audio = audioRef.current;
+      // Lyrics follow what is heard: the track itself once it plays in step with
+      // the shared clock (the sync re-seeks past MaxDriftSec), else the clock.
+      const heard =
+        audio && !audio.paused && Math.abs(audio.currentTime - clockT) <= 2 * MaxDriftSec
+          ? audio.currentTime
+          : clockT;
+      setT(clockT);
+      setLyricT(lyricTime(heard, sharedAudioContext()));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -196,7 +211,8 @@ export function StageLyrics() {
   return (
     <LyricsOverlay
       lrc={lines}
-      currentTime={t}
+      words={words}
+      currentTime={lyricT}
       singFromSec={running ? singFromSec : null}
       duet={
         duetOn && room

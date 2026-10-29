@@ -18,13 +18,13 @@ from pathlib import Path
 
 import numpy as np
 
-from . import export, lyrics, pitch, sanity, segment, separate, tuning
+from . import export, lyrics, pitch, sanity, segment, separate, tuning, words
 from .notes import Note, load_notes, save_notes
 
 log = logging.getLogger(__name__)
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 # Bump when a stage's code changes in a way that should invalidate old caches.
-CODE_VERSION = {"isolate": 1, "pitch": 2, "curve": 2, "segment": 2, "lyrics": 1}
+CODE_VERSION = {"isolate": 1, "pitch": 2, "curve": 2, "segment": 2, "lyrics": 2}
 
 
 @dataclass
@@ -149,6 +149,9 @@ def run(job: Job, cfg: dict, device: str, force: bool = False) -> dict:
     _stage(job, "lyrics", k5, [w / "notes.lyrics.json", w / "lyrics.json"], do_lyrics, force)
     notes, _ = load_notes(w / "notes.lyrics.json")
     lyr = json.loads((w / "lyrics.json").read_text())
+    # Word highlight timings refine against the segmented notes, before syllables split them.
+    site_words = words.to_site(words.refine(lyr["words"], load_notes(w / "notes.segment.json")[0], cfg["words"]),
+                               lyr["lines"], job.site_offset_sec, cfg["lyrics"]["aligner"])
 
     # Stage 6: export (cheap, always runs) -----------------------------------
     t = time.perf_counter()
@@ -172,6 +175,10 @@ def run(job: Job, cfg: dict, device: str, force: bool = False) -> dict:
     else:
         save_notes(current, notes, meta)
     write_outputs(out, notes, meta)
+    export.write_json(out / "words.json", site_words)
+    (out / "align_report.md").write_text(words.report_md(site_words, job.title or job.id))
+    if job.site_dir:
+        export.write_json(Path(job.site_dir) / "words.json", site_words)
 
     rep = sanity.report(notes, curve, {**cv, "bleed_share": pr["bleed_share"], "warnings": iso["warnings"],
                                        "lyrics": lyr}, cfg["sanity"])
@@ -194,7 +201,8 @@ def run(job: Job, cfg: dict, device: str, force: bool = False) -> dict:
             shutil.copyfile(w / name, out / name)
     job.timings["export"] = round(time.perf_counter() - t, 2)
     (w / "last_run.json").write_text(json.dumps({"timings": job.timings}))
-    return {"notes": len(notes), "summary": rep["summary"], "timings": job.timings}
+    return {"notes": len(notes), "summary": rep["summary"], "timings": job.timings,
+            "flagged_words": words.flagged(site_words)}
 
 
 def write_outputs(out: Path, notes: list[Note], meta: dict) -> list[Path]:

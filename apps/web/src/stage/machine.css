@@ -227,6 +227,27 @@
 .km-machine .km-lyrics .lyrics-now.lyrics-soon { color: rgb(var(--text-rgb) / 0.55); }
 .km-machine .km-lyrics .lyric-word.sung { color: var(--red-text); }
 .km-machine .km-lyrics .duet-them .lyric-word.sung { color: var(--blue-text); }
+/* The word being sung fills left to right; --p (0..1) is set per frame. */
+.km-machine .km-lyrics .lyric-word.filling {
+  --fill: var(--red-text);
+  background: linear-gradient(90deg, var(--fill) calc(var(--p) * 100%), rgb(var(--text-rgb) / 0.55) 0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.km-machine .km-lyrics .duet-them .lyric-word.filling { --fill: var(--blue-text); }
+.lyric-debug {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 9999;
+  margin: 0;
+  padding: 6px 8px;
+  font: 12px/1.35 ui-monospace, monospace;
+  color: #fff;
+  background: rgb(0 0 0 / 0.75);
+  pointer-events: none;
+}
 .km-machine .km-lyrics .lyrics-next {
   margin: 0;
   font-family: var(--font-body);

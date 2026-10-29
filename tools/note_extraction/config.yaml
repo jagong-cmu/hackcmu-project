@@ -99,6 +99,28 @@ lyrics:
   # A pause at least this long between words starts a new lyric line when the
   # lyrics carry no line structure of their own.
   phrase_gap_sec: 0.6
+  # Forced aligner for known lyrics (--aligner overrides). whisperx: wav2vec2
+  # alignment inside each LRC line's window (needs line times). stable-ts:
+  # aligns the whole text at once, so it also works on plain lyrics, but on the
+  # test clip it starts words after a pause 0.4-0.55 s early (tests/test_align_clip.py);
+  # check its align_report and the words by ear before shipping its output.
+  aligner: whisperx
+  # Each LRC line is aligned inside its own window, widened this much on both
+  # sides: LRC times are often a few hundred ms off, and a word outside its
+  # window cannot be found at all.
+  line_pad_sec: 1.0
+
+words:
+  # words.json (the site's word-by-word highlight) refines the aligned words
+  # against the notes. Cheap; changing these never re-runs the aligner.
+  # A word's start snaps to a note onset at most this far away.
+  snap_sec: 0.08
+  # Flagged in align_report.md for checking by ear: aligner confidence below
+  # this (WhisperX: mean character probability; stable-ts: word probability)...
+  low_score: 0.4
+  # ...and words shorter or longer than these.
+  min_word_sec: 0.06
+  max_word_sec: 4.0
 
 export:
   # Site melody.json frame rate. Must match what the site's MelodyFile uses.

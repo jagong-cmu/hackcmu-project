@@ -1,4 +1,5 @@
 import { SONGS, type MelodyFile, type SongMeta } from "@karaoke/shared";
+import type { WordsFile } from "../lyrics/words.ts";
 
 export type ReadySong = SongMeta & { ready: boolean };
 
@@ -47,15 +48,18 @@ export async function loadSongPack(id: string): Promise<{
   meta: SongMeta;
   melody: MelodyFile;
   lrc: string;
+  /** Word timings for the highlight; null until the song has been aligned. */
+  words: WordsFile | null;
   audioUrl: string;
 }> {
   const base = `/songs/${id}`;
-  const [meta, melody, lrc] = await Promise.all([
+  const [meta, melody, lrc, words] = await Promise.all([
     readJson<SongMeta>(`${base}/meta.json`),
     readJson<MelodyFile>(`${base}/melody.json`),
     readText(`${base}/lyrics.lrc`),
+    readJson<WordsFile>(`${base}/words.json`).catch(() => null),
   ]);
-  return { meta, melody, lrc, audioUrl: `${base}/instrumental.mp3` };
+  return { meta, melody, lrc, words, audioUrl: `${base}/instrumental.mp3` };
 }
 
 async function readJson<T>(url: string): Promise<T> {

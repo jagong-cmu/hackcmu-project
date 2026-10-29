@@ -1,4 +1,4 @@
-"""Stage 5: word timings (WhisperX), syllables (pyphen), and syllable -> note assignment."""
+"""Stage 5: word timings (forced alignment: WhisperX or stable-ts), syllables (pyphen), and syllable -> note assignment."""
 
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ class Word:
     start: float
     end: float
     line: int
+    # Aligner confidence 0..1; None when the word could not be aligned and was spread between neighbours.
+    score: float | None = None
 
 
 def parse_lyrics(path: Path, lrc_offset_sec: float = 0.0) -> list[Line]:
@@ -66,19 +68,32 @@ def _whisperx_words(vocals: Path, lines: list[Line], cfg: dict, device: str, tra
                                     language=cfg["language"], vad_method="silero")
         segments = model.transcribe(audio, batch_size=8, language=cfg["language"])["segments"]
     else:
+        # One window per LRC line, widened on both sides: LRC times are often a few
+        # hundred ms off, and a word outside its window cannot be found at all.
+        pad = cfg["line_pad_sec"]
         segments = []
         for i, ln in enumerate(lines):
             nxt = lines[i + 1].start if i + 1 < len(lines) else None
-            end = min(nxt if nxt is not None else dur, ln.start + 12, dur)
-            segments.append({"text": ln.text, "start": max(0.0, ln.start), "end": max(end, ln.start + 0.5)})
+            end = min((nxt if nxt is not None else dur) + pad, ln.start + 12, dur)
+            segments.append({"text": ln.text, "start": max(0.0, ln.start - pad), "end": max(end, ln.start + 0.5)})
     align_model, meta = whisperx.load_align_model(language_code=cfg["language"], device=dev)
     result = whisperx.align(segments, align_model, meta, audio, dev, return_char_alignments=False)
     words = []
     for seg in result["segments"]:
         for w in seg.get("words", []):
-            words.append({"text": w["word"], "start": w.get("start"), "end": w.get("end")})
+            words.append({"text": w["word"], "start": w.get("start"), "end": w.get("end"), "score": w.get("score")})
     _fill_missing_times(words)
     return words
+
+
+def _stable_ts_words(vocals: Path, lines: list[Line], cfg: dict, device: str) -> list[dict]:
+    """stable-ts forced alignment of the whole lyric text; needs no line times."""
+    import stable_whisper
+
+    model = stable_whisper.load_model(cfg["whisper_model"], device="cuda" if device == "cuda" else "cpu")
+    result = model.align(str(vocals), "\n".join(ln.text for ln in lines), language=cfg["language"])
+    return [{"text": w.word.strip(), "start": w.start, "end": w.end, "score": w.probability}
+            for w in result.all_words()]
 
 
 def _fill_missing_times(words: list[dict]) -> None:
@@ -88,6 +103,7 @@ def _fill_missing_times(words: list[dict]) -> None:
             prev = next((words[j]["end"] for j in range(i - 1, -1, -1) if words[j]["end"] is not None), 0.0)
             nxt = next((words[j]["start"] for j in range(i + 1, len(words)) if words[j]["start"] is not None), prev + 0.3)
             w["start"], w["end"] = prev, max(prev + 0.05, nxt)
+            w["score"] = None
 
 
 def transfer_times(lines: list[Line], heard: list[dict]) -> list[Word]:
@@ -96,16 +112,17 @@ def transfer_times(lines: list[Line], heard: list[dict]) -> list[Word]:
     given = [(t, li) for li, ln in enumerate(lines) for t in ln.text.split()]
     a = [_norm(t) for t, _ in given]
     b = [_norm(h["text"]) for h in heard]
-    times: list[tuple[float, float] | None] = [None] * len(given)
+    times: list[tuple[float, float, float | None] | None] = [None] * len(given)
     for blk in difflib.SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks():
         for k in range(blk.size):
             h = heard[blk.b + k]
-            times[blk.a + k] = (h["start"], h["end"])
+            times[blk.a + k] = (h["start"], h["end"], h.get("score"))
     out: list[Word] = []
     i = 0
     while i < len(given):
         if times[i] is not None:
-            out.append(Word(given[i][0], *times[i], given[i][1]))
+            s, e, score = times[i]
+            out.append(Word(given[i][0], s, e, given[i][1], score))
             i += 1
             continue
         j = i
@@ -123,10 +140,16 @@ def transfer_times(lines: list[Line], heard: list[dict]) -> list[Word]:
 
 
 def word_timings(vocals: Path, lines: list[Line], cfg: dict, device: str) -> tuple[list[Word], bool]:
-    """(words, auto_generated). Timed lines (LRC) are force-aligned; plain lines are
-    matched onto a transcript; no lines means the transcript is the lyrics."""
+    """(words, auto_generated). Known lyrics are force-aligned: per LRC line with
+    WhisperX, or as one text with stable-ts (cfg aligner). Plain lines under
+    WhisperX are matched onto a transcript; no lines means the transcript is the lyrics."""
+    if lines and cfg["aligner"] == "stable-ts":
+        return transfer_times(lines, _stable_ts_words(vocals, lines, cfg, device)), False
     if lines and all(ln.start is not None for ln in lines):
         return transfer_times(lines, _whisperx_words(vocals, lines, cfg, device, transcribe=False)), False
+    if lines:
+        log.warning("lyrics have no line times: WhisperX can only match them onto a transcript. "
+                    "--aligner stable-ts force-aligns plain lyrics.")
     heard = _whisperx_words(vocals, lines, cfg, device, transcribe=True)
     if lines:
         return transfer_times(lines, heard), False

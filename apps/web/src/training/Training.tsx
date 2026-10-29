@@ -15,6 +15,8 @@ import type { LayersModel } from "@tensorflow/tfjs";
 import { getClientId, getDisplayName, validName } from "../home/identity.ts";
 import { authHeaders } from "../auth/supabase.ts";
 import { LyricsOverlay } from "../lyrics/LyricsOverlay.tsx";
+import { lyricTime } from "../lyrics/lyricClock.ts";
+import type { WordsFile } from "../lyrics/words.ts";
 import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts";
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
@@ -65,6 +67,7 @@ export function Training() {
   const [meta, setMeta] = useState<SongMeta | null>(null);
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [lrc, setLrc] = useState("");
+  const [words, setWords] = useState<WordsFile | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [status, setStatus] = useState("Pick a song, then Start.");
   const [running, setRunning] = useState(false);
@@ -98,6 +101,8 @@ export function Training() {
 
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement>(null);
+  /** The take's running AudioContext: its output delay corrects the lyric clock. */
+  const outCtxRef = useRef<AudioContext | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const framesRef = useRef<PitchFrame[]>([]);
   const rafRef = useRef<number>(0);
@@ -140,6 +145,7 @@ export function Training() {
       setMeta(null);
       setMelody(null);
       setLrc("");
+      setWords(null);
       setAudioUrl("");
       return;
     }
@@ -149,6 +155,7 @@ export function Training() {
         setMeta(pack.meta);
         setMelody(pack.melody);
         setLrc(pack.lrc);
+        setWords(pack.words);
         setAudioUrl(pack.audioUrl);
       })
       .catch(() => {
@@ -156,6 +163,7 @@ export function Training() {
         setMeta(null);
         setMelody(null);
         setLrc("");
+        setWords(null);
         setAudioUrl("");
         setStatus("Could not load that song.");
       });
@@ -271,6 +279,7 @@ export function Training() {
     // playback tap, no adaptive canceller.
     const ctx = new AudioContext();
     await ctx.resume();
+    outCtxRef.current = ctx;
     const src = ctx.createMediaStreamSource(stream);
     const analyser = pitchAnalyser(ctx, src, PITCH_FFT);
     const buf = new Float32Array(PITCH_FFT);
@@ -578,7 +587,8 @@ export function Training() {
             lyrics={
               <LyricsOverlay
                 lrc={lrc}
-                currentTime={playhead}
+                words={words}
+                currentTime={lyricTime(playhead, outCtxRef.current)}
                 singFromSec={leadInActive ? trainingClip?.anchorSec : null}
               />
             }

@@ -8,8 +8,9 @@ never touches the website's dependencies.
 ```
 audio (mix or stem) ─▶ 1 isolate ─▶ 2 pitch ─▶ 3 tuning ─▶ 4 segment ─▶ 5 lyrics ─▶ 6 export
                        Demucs       RMVPE      A440 grid   notes        WhisperX     melody.json
-                                    (CREPE,    + octave    (vibrato,    + pyphen     song.txt
-                                     pYIN)       repair     glides)                   sanity, debug
+                                    (CREPE,    + octave    (vibrato,    forced       song.txt
+                                     pYIN)       repair     glides)     alignment,   words.json
+                                                                        + pyphen     sanity, debug
 ```
 
 ## Setup
@@ -20,7 +21,7 @@ Python 3.12 (3.13+ is not supported by the torch/whisperx stack yet), ffmpeg on 
 cd tools/note_extraction
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest          # 19 tests, no models needed
+.venv/bin/python -m pytest          # pure tests need no models; test_align_clip downloads the aligner and needs macOS `say`
 ```
 
 Models download on first use and are cached: RMVPE weights (~180 MB) into
@@ -51,6 +52,11 @@ M3 Pro a 4-minute song takes ~15 s from a stem and ~50 s from a full mix.
 ./ne batch songs_in/ --out out/ --rerun   # run them anyway (cached stages stay cached)
 ./ne batch songs.yaml --out out/ --force  # redo every stage
 
+# Re-align every song's lyrics and write words.json (the site's word-by-word
+# highlight) into apps/web/public/songs/<id>/. Prints every flagged word.
+./ne align songs.yaml --out out/
+./ne align songs.yaml --out out/ --only creep --aligner stable-ts
+
 # Compare with reference note files (UltraStar .txt or site melody.json)
 ./ne evaluate --pred out/song-name/ --ref reference/song-name.txt [--pred ... --ref ...]
 
@@ -62,6 +68,7 @@ M3 Pro a 4-minute song takes ~15 s from a stem and ~50 s from a full mix.
 ```
 
 Common flags: `--device auto|cpu|cuda|mps`, `--tracker rmvpe|crepe|pyin`,
+`--aligner whisperx|stable-ts` (stable-ts: `.venv/bin/pip install stable-ts`),
 `--config my.yaml`, `--force`, `-q`. Each stage logs its time; failures say what
 is missing (ffmpeg, a GPU you asked for, a model download).
 
@@ -122,6 +129,8 @@ LRC lyrics are assumed to be timed to the site's track (the site's own
 | `song.txt` | UltraStar 1.1.0. `#BPM:1200` (beat = 15/1200 s = 12.5 ms), `#GAP` in ms on the karaoke track, pitch relative to C4 = 0, `-` line breaks, `~` held syllables, `#AUDIO` and `#MP3`. |
 | `notes.json` | current notes (start/end s on the source timeline, MIDI, syllable, line_break, flags) + metadata. The review tool edits this. |
 | `notes.auto.json` | the pipeline's output, never edited, for re-diffing. A re-run never overwrites a reviewed `notes.json` unless `--force`. |
+| `words.json` | **site format**: one entry per lyric line, each word's `start`/`end` on the karaoke timeline, aligner `score`, `notes` (each note's span when the word is sung over several) and `flags`. Starts are snapped to a note onset within `words.snap_sec`. Also written to `--site-dir`, and by `./ne align`. |
+| `align_report.md` | words to check by ear: low aligner confidence, untimed, shorter than 60 ms or longer than 4 s. |
 | `sanity.json`, `sanity.md` | flags, per-section review scores, summary. |
 | `debug.json` | raw f0, confidence, voiced flags, corrected MIDI curve, tuning, octave fixes, every parameter used, inputs. |
 | `vocals.wav`, `instrumental.wav` | the vocal used (mono 16-bit) and, when separated, the backing. |
@@ -147,6 +156,8 @@ Every threshold is there with a comment. The ones that matter most:
 | `segmentation.min_note_sec` / `merge_gap_sec` | 80 ms / 80 ms | drop blips; merge same-pitch fragments. |
 | `segmentation.onset_dip_db` | 8 | a loudness dip this deep splits a repeated same-pitch note (a consonant). 0 = off. |
 | `segmentation.glide_*` | 8 st/s, 0.2 s, 1.5 st | slides at least this fast, long and wide become flagged runs of short notes; shorter scoops stay with their target note. |
+| `lyrics.aligner` | whisperx | forced alignment of the known lyrics: WhisperX's wav2vec2 inside each LRC line's window (± `line_pad_sec`), or stable-ts over the whole text (works without line times). |
+| `words.*` | 80 ms, 0.4, 60 ms, 4 s | onset snap, then the align report's flag thresholds. Never re-runs the aligner. |
 | `lyrics.whisper_model` | small | only used when lyrics have no timestamps. |
 | `sanity.*` | | plausible range 36-88, octave-jump limit, section length. |
 

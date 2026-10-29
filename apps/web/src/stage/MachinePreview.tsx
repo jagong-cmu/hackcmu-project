@@ -34,7 +34,7 @@ export function MachinePreview() {
   const params = new URLSearchParams(window.location.search);
   const ranked = params.get("machine") === "ranked";
   const voice = params.get("voice") ?? "on";
-  const [pack, setPack] = useState<{ meta: SongMeta; melody: MelodyFile; lrc: string } | null>(null);
+  const [pack, setPack] = useState<Awaited<ReturnType<typeof loadSongPack>> | null>(null);
   const [t, setT] = useState(0);
   const [combo, setCombo] = useState(0);
 
@@ -80,7 +80,7 @@ export function MachinePreview() {
                 <PitchMeter melody={pack.melody} playheadSec={t} liveHz={liveHz} liveClarity={0.97} liveRms={0.05} onCombo={setCombo} />
               </div>
             }
-            lyrics={<LyricsOverlay lrc={pack.lrc} currentTime={t} />}
+            lyrics={<LyricsOverlay lrc={pack.lrc} words={pack.words} currentTime={t} />}
             lock={you.pitch}
           />
           {ranked ? <ScorePanel side="them" name="Alex" camera={<CamOff name="Alex" />} card={null} combo={0} /> : <span />}
