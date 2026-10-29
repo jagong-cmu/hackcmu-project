@@ -49,10 +49,11 @@ button, input, select { font: inherit; }
 .quiet h1,
 .page-head h1,
 .shell-inner h1 {
-  font-size: calc(var(--fs-score) * 1.5);
+  font-size: var(--fs-title);
+  letter-spacing: var(--tr-title);
   margin: 48px 0 8px;
   color: var(--text);
-  line-height: 0.95;
+  line-height: 1.05;
 }
 .tag { margin: 0 0 8px; color: var(--muted); max-width: 24rem; }
 

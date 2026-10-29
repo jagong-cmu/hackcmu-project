@@ -100,7 +100,7 @@ select:focus {
   letter-spacing: 0.02em;
 }
 .page-head .back:hover { color: var(--text); }
-.page-head .back::before { content: "← "; }
+.page-head .back::before { content: "←\00a0"; } /* nbsp: the phone rule makes .back inline-flex, which drops a plain trailing space */
 
 /*
  * One meter treatment on every page. The canvas paints --surface (--surface
@@ -152,7 +152,7 @@ select:focus {
 .shell > .page-head {
   position: absolute;
   top: 26px;
-  left: 40px;
+  left: max(40px, calc(50% - 40rem)); /* ultra-wide: stay near the centred column */
   z-index: 2;
   align-items: flex-start;
   text-align: left;
@@ -184,10 +184,10 @@ select:focus {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 52px;
-  padding: 14px 28px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  min-height: 2.75rem;
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--red);
+  border-radius: var(--r-md);
   background: var(--red);
   color: var(--on-red);
   font: inherit;
@@ -199,47 +199,32 @@ select:focus {
   text-decoration: none;
   width: 100%;
   max-width: 22rem;
-  transition: box-shadow 160ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
 }
-.cta:hover,
-.cta:focus-visible {
-  box-shadow: var(--glow-hard);
-  transform: translateY(-1px);
+.cta:hover:not(:disabled) {
   background: var(--red-hi);
+  border-color: var(--red-hi);
   color: var(--on-red);
 }
 .cta-ghost {
-  background: rgb(var(--surface-rgb) / 0.72);
+  background: var(--surface);
   color: var(--text);
   border-color: var(--line);
 }
-.cta-ghost:hover,
-.cta-ghost:focus-visible {
-  background: rgb(var(--surface-rgb) / 0.95);
+.cta-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
   color: var(--text);
-  border-color: var(--red);
+  border-color: var(--line-strong);
 }
 .cta:disabled {
   opacity: 0.38;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-}
-
-.cta.is-on {
-  background: var(--red);
-  color: var(--on-red);
-  box-shadow: var(--glow-hard);
-  cursor: default;
-}
-.cta.is-on:disabled {
-  opacity: 1;
-}
-.cta.is-on:hover,
-.cta.is-on:focus-visible {
-  background: var(--red);
-  color: var(--on-red);
-  transform: none;
 }
 
 .play-choices {
@@ -270,29 +255,29 @@ select:focus {
   margin: 18px auto 0;
   padding: 5px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgb(var(--bg-rgb) / 0.45);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 .mode-pick button {
   min-width: 0;
   padding: 9px 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .mode-pick button:hover,
 .mode-pick button:focus-visible {
   color: var(--text);
 }
+/* The room's mode, not something of yours: ice, not red. */
 .mode-pick button.on {
-  background: var(--red);
-  color: var(--on-red);
-  box-shadow: var(--glow-hard);
+  background: var(--ice);
+  color: var(--bg);
 }
 .mode-pick-blurb {
   margin: 10px auto 0;
