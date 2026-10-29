@@ -12,7 +12,7 @@ import { eloDelta } from "../../../../server/src/elo.ts";
 import { Button } from "../ui/Button.tsx";
 import { Digits } from "../ui/Digits.tsx";
 import { Img } from "../ui/Img.tsx";
-import { KeyHint } from "../ui/KeyHints.tsx";
+import { KeyHintBar } from "../ui/KeyHints.tsx";
 import { artFor } from "../ui/assets.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
 import { PITCH_FFT } from "../scoring/cancelPlayback.ts";
@@ -148,9 +148,7 @@ export function RankedSearching({
           <Button variant="secondary" onClick={onLeave}>
             Leave queue
           </Button>
-          <span className="rw-keys">
-            <KeyHint keys={["Esc"]} label="Leave queue" />
-          </span>
+          <KeyHintBar hints={[{ keys: ["Esc"], label: "Leave queue" }]} />
         </>
       }
     />
@@ -464,10 +462,11 @@ function Shell({
     <div className={`rw${matched ? " rw-matched" : ""}${leaving ? " rw-leaving" : ""}`}>
       <header className="rw-head">
         <div>
+          <h1 className="t-title">Ranked</h1>
+          {/* Under the title, like every PageShell page. */}
           <Link className="rw-home" to="/" onClick={onHome}>
             ← Home
           </Link>
-          <h1 className="t-title">Ranked</h1>
           {matched ? <p className="t-label rw-found" role="status">Match found</p> : null}
         </div>
         {timer != null ? (
