@@ -3,8 +3,7 @@
 * { box-sizing: border-box; }
 
 /* :where keeps the old 0,1,1 weight; ui-btn (shared Button) styles itself. */
-:where(.stage) button:not(.ui-btn),
-.landing button {
+:where(.stage) button:not(.ui-btn) {
   font: inherit;
   padding: 0.6rem 1rem;
   border-radius: 10px;
@@ -13,15 +12,11 @@
   color: var(--text);
   cursor: pointer;
 }
-:where(.stage) button:not(.ui-btn):hover:not(:disabled),
-.landing button:hover:not(:disabled) { border-color: var(--ice); }
-:where(.stage) button:not(.ui-btn):disabled,
-.landing button:disabled { opacity: 0.45; cursor: not-allowed; }
-.stage button.primary,
-.landing button.primary { background: var(--ice); border-color: var(--ice); font-weight: 600; }
+:where(.stage) button:not(.ui-btn):hover:not(:disabled) { border-color: var(--ice); }
+:where(.stage) button:not(.ui-btn):disabled { opacity: 0.45; cursor: not-allowed; }
+.stage button.primary { background: var(--ice); border-color: var(--ice); font-weight: 600; }
 
-.stage input,
-.landing input {
+.stage input {
   font: inherit;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
@@ -30,21 +25,6 @@
   color: var(--text);
 }
 
-.landing {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 3rem 1.25rem;
-  display: grid;
-  gap: 1.25rem;
-}
-.landing h1 { margin: 0; font-size: 1.9rem; letter-spacing: -0.02em; }
-.landing .note {
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  border-left: 2px solid var(--line-soft);
-  padding-left: 0.75rem;
-}
 .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
 
 .stage { display: grid; gap: 1rem; padding: 1rem; min-height: 100vh; }
@@ -123,27 +103,6 @@
 .stage-alerts:not(:has(p)) { display: none; }
 .stage-alerts p { margin: 0; }
 
-.stage-arena {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0.55rem 0.7rem;
-  align-items: stretch;
-}
-.stage-arena > .stage-cam:first-of-type {
-  grid-column: 1;
-  grid-row: 1;
-}
-.stage-arena > .stage-board {
-  grid-column: 1 / -1;
-  grid-row: 2;
-}
-.stage-arena > .stage-cam:last-of-type {
-  grid-column: 2;
-  grid-row: 1;
-}
 .stage-cam {
   display: flex;
   min-width: 0;
@@ -159,16 +118,7 @@
   aspect-ratio: auto;
   border-radius: 12px;
 }
-.stage-board {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  min-width: 0;
-  min-height: 0;
-  height: auto;
-  max-height: 100%;
-  gap: 0.4rem;
-}
+
 .stage-fit .lyrics {
   min-height: 3.4rem;
   margin: 0;
@@ -271,24 +221,6 @@
 @media (prefers-reduced-motion: reduce) {
   .hit-callout { animation: none; opacity: 1; }
 }
-.timer-compact {
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.2;
-  flex-shrink: 0;
-  text-align: center;
-}
-.timer-compact.ghost { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
-.timer-compact.timer-count {
-  font-family: var(--font-display);
-  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: clamp(2.6rem, 8vw, 4.2rem);
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  line-height: 0.9;
-  font-variant-numeric: tabular-nums;
-}
-.timer-compact .bar { height: 3px; margin-top: 4px; }
 
 .stage-chaos {
   flex: 1;
@@ -431,13 +363,7 @@
   padding-top: 4.5rem;
   animation: callout-flash 1.4s ease forwards;
 }
-.callout-kicker {
-  margin: 0;
-  color: var(--ice);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-size: 0.82rem;
-}
+
 .callout-count,
 .callout-title {
   margin: 0;
@@ -565,11 +491,7 @@
 .timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }
 .timer .bar { height: 4px; background: var(--line-soft); border-radius: 999px; overflow: hidden; }
 .timer .bar span { display: block; height: 100%; background: var(--ice); }
-.timer.timer-compact {
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
+
 .stage.stage-fit button.cta {
   padding: 14px 28px;
   font-size: 1.05rem;
@@ -579,7 +501,7 @@
   border: 0;
   font-weight: 600;
 }
-.stage.stage-fit button.cta-lg { padding: 10px 24px; font-size: 1.05rem; }
+
 .stage.stage-fit button.cta.is-on {
   background: var(--red);
   color: var(--on-red);

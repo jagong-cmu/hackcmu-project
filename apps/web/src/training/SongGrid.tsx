@@ -88,21 +88,14 @@ export function SongGrid({
     [songs, ranges, onStart],
   );
 
-  // SelectableList keeps its own index and has no initial-selection prop, so
-  // restore the remembered song by focusing its cell once the list exists.
-  useEffect(() => {
-    if (!songs.length) return;
-    document.querySelector<HTMLElement>(`.song-grid [data-song-id="${CSS.escape(selectedId)}"]`)?.closest("button")?.focus({ preventScroll: false });
-    // Once per catalog load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songs.length > 0]);
-
   return (
     <SelectableList
       className="song-grid"
       label="Songs"
       columns={columns}
       items={items}
+      initialId={selectedId}
+      autoFocus
       onBack={onBack}
       onSelectionChange={(it) => onSelect(it.id)}
     />

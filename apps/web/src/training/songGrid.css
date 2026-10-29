@@ -3,7 +3,6 @@
 .song-grid .sl-list { gap: var(--sp-2) var(--sp-4); }
 
 .song-grid .sl-item {
-  width: 100%; /* SelectableList only stretches items when columns > 1 */ 
   position: relative;
   padding: var(--sp-2) var(--sp-3) var(--sp-2) calc(var(--sp-3) + 0.5em);
   border-radius: var(--r-md);

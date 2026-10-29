@@ -28,7 +28,7 @@ Derived roles, also in `tokens.css` and built only from the colours above:
 - `--on-red`: white, the only text colour allowed on `--red`.
 - `--red-hi`: primary button hover. It deepens rather than lightens, so the white text stays AA.
 - `--you` (`--red`) and `--them` (`--blue`).
-- `--*-rgb` channels for alpha variants, e.g. `rgb(var(--ice-rgb) / 0.1)`.
+- `--*-rgb` channels for alpha variants, e.g. `rgb(var(--ice-rgb) / 0.1)`. There is one for every base colour except `--red-text` and `--blue-text`, including `--muted-rgb`.
 
 **Rules**
 - **Red = you. Blue = them / coming up.** Never decorative, never for "danger", "live" or "selected" when the thing isn't yours. If either side can be in a state (e.g. "live"), use `--ice` or the singer's own colour (`--feed-side`).
@@ -105,11 +105,9 @@ All Krona One roles are uppercase with line-height 1.05.
 - `<Ambient />` (`ui/Ambient.tsx`) is the only decoration: two static radial gradients, a blue one at 20% top-right and a red one at 15% low.
   - It has `home` and `game` variants.
   - It is mounted once, app-wide, by `RouteAmbient` in `App.tsx`. `/room/*` and `/training` get `game`. Screens do not mount their own.
-- **Removed:**
-  - The animated, blurred "Bloom" light field (`theme/Bloom.tsx` and its CSS).
-  - The spark particles. `.sparks`, `.lyric-sparks` and `.score-burst` are hidden in `theme/theme.css`. Their components (`ModeButton`, `LyricSparks`, `ScoreBurst`) still render empty spans; the owning session can delete them.
+- **Removed:** the animated, blurred "Bloom" light field and the spark particles (`.sparks`, `.lyric-sparks`, `.score-burst`), components and CSS both.
 - **Kept:** the `VoiceWave` waveform canvas (`theme/VoiceWave.tsx`). It is recoloured to `--ice` and `--text` through `palette()`, and capped at 25% opacity (12% for `.quiet`) in `theme.css`. Don't raise it.
-- **Not yet removed:** a few `backdrop-filter: blur()` rules remain on legacy panels and overlays (`index.css`, `theme/theme.css`, `legal/legal.css`). The owning session should drop them when restyling.
+- No `backdrop-filter` anywhere. Scrims use `--scrim`, panels `--surface`.
 
 ## Focus
 
@@ -122,19 +120,20 @@ The one exception is `SelectableList`, where focus and selection are the same th
 | Component | Use |
 |---|---|
 | `Button` | `<Button variant="primary" \| "secondary" \| "ghost" disabled>`. Primary is solid red with white Hanken 600, one per screen. Secondary is a `--line` outline on `--surface`. Hover, focus-visible (2px `--red-text` outline, 3px offset) and active (1px press) are built in. Styles are `.ui-btn` in `ui/ui.css`. The prefix keeps it clear of the legacy `.btn` text-link style and the `.cta` buttons, which were recoloured but not restyled. |
-| `KeyHint`, `KeyHintBar` | `<KeyHintBar hints={[{ keys: ["Esc"], label: "Back" }]} />` is the footer row, fixed bottom-right. Without `hints` it shows the menu set (↑↓ Move, Enter Select, Esc Back). It is hidden under 600px, since phones have no keys. `<KeyHint>` is one keycap plus a label, for inline use. |
-| `SelectableList` | Keyboard-first list or grid (details below). Nothing uses it yet: it is there for Session A's menu and Session B's song grid. |
+| `KeyHint`, `KeyHintBar` | `<KeyHintBar hints={[{ keys: ["Esc"], label: "Back" }]} />` is the footer row, fixed bottom-right. Inside the singing view the legacy `.stage.stage-fit > *` rule makes children `position: relative`; `machine.css` puts the bar back to `fixed` for `.km-page`, so do the same for any other `stage-fit` page. Without `hints` it shows the menu set (↑↓ Move, Enter Select, Esc Back). It is hidden under 600px, since phones have no keys. `<KeyHint>` is one keycap plus a label, for inline use. |
+| `SelectableList` | Keyboard-first list or grid (details below). Used by the Home menu and the Training song grid. |
 | `Panel` | `<Panel>` is `--surface`, a `--line` border, `--r-lg` and `--sp-5` padding. Don't nest Panels. |
 | `Digits` | `<Digits value={87} />` puts each digit in a fixed 1ch cell (the width of "0", the widest digit in both faces), so scores and timers don't jiggle. It inherits font and colour, so pair it with `.t-score` or `.t-num`. Screen readers get the plain string. |
 | `Img` | `<Img src={Images.mode.ranked} alt="" />`. If the file is missing or fails to load it renders **nothing**: no placeholder, no broken icon. Layouts must not depend on images being present. |
 | `Ambient` | See Background. |
 
 **`SelectableList`**
-- Props are `items` (`{ id, label, desc?, secondary?, disabled?, content?, onActivate }`), `label` (its accessible name), `columns` (1 = vertical menu, more than 1 = grid), `onSelectionChange`, `onBack` and `className`.
+- Props are `items` (`{ id, label, desc?, secondary?, disabled?, content?, onActivate }`), `label` (its accessible name), `columns` (1 = vertical menu, more than 1 = grid), `initialId` (start on this item, e.g. the remembered one), `autoFocus` (focus the selected item once the items exist), `onSelectionChange`, `onBack` and `className`.
 - Arrows move: a vertical list wraps, a grid moves in 2D and stops at the edges. Disabled items are skipped. Enter/Space activates, and Esc calls `onBack`.
 - Hovering also selects, so mouse and keyboard never disagree.
 - One red triangle slides between rows (transform only, `--dur` with `--ease`).
-- Pass `content` to render a grid cell's own markup. The navigation logic is a pure function in `ui/menuNav.ts`, which has tests.
+- Pass `content` to render a grid cell's own markup. Grid cells and `content` rows fill their track; plain labels stay text-width, so hovering empty space beside a menu item does not select it.
+- The triangle is sized from the item's font (`0.42em`). Override `.your-list .sl-mark { width; height }` for a different size. The navigation logic is a pure function in `ui/menuNav.ts`, which has tests.
 
 ## Assets (`apps/web/src/ui/assets.ts`)
 

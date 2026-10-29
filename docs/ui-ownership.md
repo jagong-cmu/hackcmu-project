@@ -36,7 +36,7 @@ Paths are relative to `apps/web/src/` unless noted. A file not listed belongs to
 | File | What |
 |---|---|
 | `home/Home.tsx` | home screen (title, Play, top nav links) |
-| `home/ModeSelect.tsx`, `home/ModeButton.tsx` | mode picker (`/play`) and its mode buttons. `ModeButton` renders the retired `.sparks` span, which is now hidden, so A can delete it. |
+| `home/ModeSelect.tsx`, `home/ModeButton.tsx` | mode picker (`/play`) and its mode buttons. |
 | `home/Play.tsx` | mode queue page and private-room create / room-code join (`/play/:mode`) |
 | `home/Settings.tsx`, `home/identity.ts` | settings, display name |
 | `leaderboard/Leaderboard.tsx` | leaderboard |
@@ -66,8 +66,8 @@ Paths are relative to `apps/web/src/` unless noted. A file not listed belongs to
 | `media/VideoGrid.tsx` | camera/video tiles |
 | `scoring/PitchMeter.tsx` | pitch lane (canvas). **Shared with B's Training; C owns it.** |
 | `scoring/HitCallout.tsx`, `scoring/ScoreBars.tsx` | hit callouts, live score HUD. **Shared with Training; C owns them.** |
-| `lyrics/LyricsOverlay.tsx`, `lyrics/LyricSparks.tsx`, `lyrics/duetParts.ts`, `lyrics/leadIn.ts`, `lyrics/parseLrc.ts`, `lyrics/index.ts` | lyrics. **Shared with Training; C owns them.** `LyricSparks` renders the retired `.lyric-sparks`, which is now hidden. |
-| `results/ResultsModal.tsx`, `results/results.css`, `results/ShareSheet.tsx`, `results/ScoreBurst.tsx`, `results/ResultsPreview.tsx`, `results/ReelPreview.tsx` | results screen and share sheet. **`ResultsModal` is shared with Training; C owns it.** `ScoreBurst` is a retired particle effect, now hidden. |
+| `lyrics/LyricsOverlay.tsx`, `lyrics/duetParts.ts`, `lyrics/leadIn.ts`, `lyrics/parseLrc.ts`, `lyrics/index.ts` | lyrics. **Shared with Training; C owns them.** |
+| `results/ResultsModal.tsx`, `results/results.css`, `results/ShareSheet.tsx`, `results/ResultsPreview.tsx`, `results/ReelPreview.tsx` | results screen and share sheet. **`ResultsModal` is shared with Training; C owns it.** |
 | `results/cardPaint.ts`, `composeShareImage.ts`, `matchMoment.ts`, `stageFrame.ts`, `reelOutro.ts`, `matchReel.ts`, `reelResults.ts`, `coachLine.ts`, `useCountUp.ts`, `useMatchMoment.ts`, `index.ts` | share card and match video painters. In `cardPaint.ts`, the palette constant block must keep matching `tokens.css`; the test enforces it. |
 
 ## Files two screens share (the one owner is in **bold**)

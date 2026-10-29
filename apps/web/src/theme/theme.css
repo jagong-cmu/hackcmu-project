@@ -8,90 +8,21 @@
 .bloom-page { position: relative; }
 .bloom-page > *:not(.bloom) { position: relative; z-index: 1; }
 
-/* Particles are retired (design-system.md: no grain, scanlines or particles). */
-.sparks, .lyric-sparks, .score-burst { display: none; }
-
-/* ----------------------------------------------------------------- chrome -- */
-
-/* `·—( label )—·` rule, the badge above a section heading. */
-.eyebrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 0 0 18px;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-.eyebrow::before,
-.eyebrow::after {
-  content: "";
-  height: 1px;
-  width: clamp(40px, 9vw, 110px);
-  background: linear-gradient(90deg, transparent, var(--line));
-}
-.eyebrow::after { background: linear-gradient(90deg, var(--line), transparent); }
-.eyebrow .eyebrow-pill {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 5px 14px;
-  background: rgb(var(--surface-rgb) / 0.7);
-  white-space: nowrap;
-}
-
-/* Glass card. */
 .card {
-  background: linear-gradient(180deg, rgb(var(--surface-rgb) / 0.72), rgb(var(--bg-rgb) / 0.72));
+  background: var(--surface);
   border: 1px solid var(--line-soft);
   border-radius: 18px;
   padding: 18px;
-  backdrop-filter: blur(12px);
-}
-
-/* Small white pill, the one loud control on a dark page. */
-.pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--red);
-  color: var(--on-red);
-  border: 0;
-  border-radius: 999px;
-  padding: 9px 18px;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  cursor: pointer;
-  text-decoration: none;
-  line-height: 1;
-  transition: box-shadow 160ms ease, transform 160ms ease;
-}
-.pill-btn:hover,
-.pill-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--glow-hard);
-  transform: translateY(-1px);
 }
 
 /* Emphasis underlines: a lit edge rather than a flat rule. */
-.modes button:hover,
-.modes button:focus-visible,
-.text-btn:hover,
-.text-btn:focus-visible,
+
 .btn:hover,
 .btn:focus-visible,
 .btn.gold:hover,
-.tabs button.on,
-.demo-code:hover,
-.demo-code:focus-visible {
+.tabs button.on {
   border-bottom-color: var(--red);
   outline: none;
-}
-.modes button:hover,
-.modes button:focus-visible {
-  text-shadow: 0 0 34px rgb(var(--ice-rgb) / 0.55);
 }
 
 input:focus,
@@ -120,24 +51,6 @@ select:focus {
     0 0 130px rgb(var(--ice-rgb) / 0.45);
 }
 
-.bloom-page > .home-nav,
-.home-nav {
-  position: absolute;
-  top: 26px;
-  right: 40px;
-  z-index: 2;
-  display: flex;
-  gap: 22px;
-  align-items: center;
-}
-.home-nav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-.home-nav a:hover { color: var(--text); }
-
 .home-hero {
   flex: 1;
   display: flex;
@@ -148,7 +61,7 @@ select:focus {
   min-height: 0;
   text-align: center;
 }
-.home-hero .eyebrow { margin: 14px 0 22px; }
+
 .home-hero::before {
   content: "";
   position: absolute;
@@ -161,80 +74,6 @@ select:focus {
     rgb(var(--bg-rgb) / 0.44) 44%,
     transparent 76%
   );
-}
-
-/* Centred over the bloom, not left-aligned as in the old editorial layout. */
-.home-hero .modes {
-  flex: none;
-  align-items: center;
-  gap: 0;
-}
-.home-hero .modes button {
-  text-align: center;
-  font-size: clamp(2.4rem, 5.4vw, 4rem);
-  line-height: 1.02;
-  transition: text-shadow 200ms ease, border-color 200ms ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 10px;
-}
-/*
- * Sits off the right edge of the word and only on hover. Underneath the label
- * it read as a permanent subtitle and competed with the mode names; beside it,
- * it is an answer to "what is this one" asked by pointing at it.
- */
-.mode-sub {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--font-body);
-  font-size: 0.88rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: lowercase;
-  line-height: 1.2;
-  color: var(--muted);
-  text-shadow: none;
-}
-
-.mode-hint {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  margin-left: 64px;
-  white-space: nowrap;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: lowercase;
-  line-height: 1.2;
-  color: var(--ice);
-  text-shadow: 0 0 18px rgb(var(--ice-rgb) / 0.6);
-  opacity: 0;
-  /* Slides in from the word rather than appearing in place. */
-  transform: translate(-20px, -50%);
-  transition: opacity 220ms ease, transform 220ms ease;
-  pointer-events: none;
-}
-.modes button.mode:hover .mode-hint,
-.modes button.mode:focus-visible .mode-hint {
-  opacity: 1;
-  transform: translate(0, -50%);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mode-hint { transition: opacity 220ms ease; transform: translate(0, -50%); }
-}
-
-/* Narrow windows have no room beside the word, and a nowrap absolute box
-   there would push horizontal scroll. */
-@media (max-width: 900px) {
-  .mode-hint { display: none; }
-}
-
-@media (max-width: 720px) {
-  .home-hero .modes button { font-size: clamp(2.5rem, 11vw, 3.5rem); }
 }
 
 /* At nav size the blurred corona disappears, so the mark is drawn crisply. */
@@ -256,82 +95,12 @@ select:focus {
 .aria-orb.mark .aria-rim { box-shadow: none; }
 .aria-orb.mark.is-idle { opacity: 1; }
 
-/* ---------------------------------------------------------------- sparks --
- * Hovering a mode throws light off its left and right edges. The spans are
- * rendered once and animated by CSS; spawning nodes per hover churns the DOM
- * for no gain.
- */
-.modes button.mode { position: relative; }
-
-.sparks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.sparks i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 1), 0 0 22px rgb(var(--ice-rgb) / 0.6);
-  opacity: 0;
-}
-.modes button.mode:hover .sparks i,
-.modes button.mode:focus-visible .sparks i {
-  animation: mode-spark 2.6s ease-out var(--pd, 0s) infinite;
-}
-
-/* Lit almost immediately, then held bright most of the way out — fading early
-   is what left the edge looking empty between beats. */
-@keyframes mode-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  6%   { opacity: 1; transform: translate(calc(var(--dx) * 0.06), calc(var(--dy) * 0.06)) scale(1); }
-  62%  { opacity: 0.92; transform: translate(calc(var(--dx) * 0.66), calc(var(--dy) * 0.66)) scale(0.8); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .modes button.mode:hover .sparks i,
-  .modes button.mode:focus-visible .sparks i { animation: none; }
-}
-
-/* ---------------------------------------------------------------- lyrics --
- * The live line is the thing the singer is actually reading, so it gets the
- * only lit treatment on the screen: a pool of light behind it and sparks
- * lifting off it. Everything around it stays dim so the eye lands here.
- */
+/* ---------------------------------------------------------------- lyrics -- */
 .lyrics {
   position: relative;
   isolation: isolate;
 }
 
-/* Pool of light behind the live line. */
-.lyrics::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  width: min(92%, 46rem);
-  height: 5.5rem;
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 50%,
-    rgb(var(--ice-rgb) / 0.22) 0%,
-    rgb(var(--ice-rgb) / 0.10) 45%,
-    transparent 76%
-  );
-  filter: blur(18px);
-  /* Off unless a line is actually live: during an instrumental gap the overlay
-     shows a rest glyph or a dim preview, and lighting those means nothing. */
-  opacity: 0;
-  transition: opacity 260ms ease;
-}
-.lyrics:has(.lyrics-now:not(.lyrics-soon))::before { opacity: 1; }
-.lyrics-duet::before { top: 50%; }
 
 .lyrics-now {
   color: var(--text);
@@ -355,30 +124,6 @@ select:focus {
   max-width: 100%;
 }
 
-.lyric-sparks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.lyric-sparks i {
-  position: absolute;
-  width: var(--ps, 3px);
-  height: var(--ps, 3px);
-  margin-left: calc(var(--ps, 3px) / -2);
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 9px rgb(var(--ice-rgb) / 0.95), 0 0 20px rgb(var(--ice-rgb) / 0.55);
-  opacity: 0;
-  animation: lyric-spark 2.2s ease-out var(--pd, 0s) infinite;
-}
-
-@keyframes lyric-spark {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
-  10%  { opacity: 0.95; transform: translate(calc(var(--dx) * 0.1), calc(var(--dy) * 0.1)) scale(1); }
-  65%  { opacity: 0.7; transform: translate(calc(var(--dx) * 0.68), calc(var(--dy) * 0.68)) scale(0.75); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
-}
-
 /* Count-in dots pick up the accent rather than the old gold. */
 .lyrics-count .dot { background: var(--ice); box-shadow: 0 0 8px rgb(var(--ice-rgb) / 0.7); }
 .lyrics-count .dot.spent { background: var(--muted); box-shadow: none; }
@@ -398,10 +143,6 @@ select:focus {
   text-shadow: 0 0 12px rgb(var(--ice-rgb) / 0.5);
 }
 .hit-okay { color: var(--muted); text-shadow: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .lyric-sparks i { animation: none; }
-}
 
 /* ------------------------------------------------------------ page heads --
  * Title in the upper left, the way back underneath it. The old .row-head put
@@ -439,13 +180,11 @@ select:focus {
   border: 1px solid var(--line-soft);
   border-radius: 14px;
   overflow: hidden;
-  backdrop-filter: blur(3px);
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
 }
-
 
 /* ---------------------------------------------------------- voice wave -- */
 
@@ -555,11 +294,7 @@ select:focus {
   transform: none;
   box-shadow: none;
 }
-.cta-lg {
-  min-height: 64px;
-  font-size: 1.15rem;
-  max-width: 26rem;
-}
+
 .cta.is-on {
   background: var(--red);
   color: var(--on-red);
@@ -576,35 +311,6 @@ select:focus {
   transform: none;
 }
 
-.code-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  align-items: stretch;
-  margin-top: 4px;
-}
-.code-form input {
-  flex: none;
-  width: 100%;
-  min-width: 0;
-  text-align: center;
-  font-size: 1.35rem;
-  letter-spacing: 0.28em;
-  font-family: var(--font-display);
-  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgb(var(--bg-rgb) / 0.45);
-}
-.code-form .cta {
-  width: 100%;
-  max-width: none;
-  flex: none;
-  padding: 14px 22px;
-}
-
 .play-choices {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -613,30 +319,7 @@ select:focus {
   margin-top: 36px;
   text-align: left;
 }
-.play-choice {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  padding: 28px 24px 24px;
-  min-height: 280px;
-}
-.play-choice h2 {
-  font-family: var(--font-display);
-  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 2rem;
-  letter-spacing: 0.04em;
-  font-weight: 400;
-  margin: 0;
-  text-align: center;
-}
-.play-choice p {
-  margin: 0;
-  color: var(--muted);
-  text-align: center;
-  flex: 1;
-}
-.play-choice .cta { max-width: none; margin-top: 4px; }
+
 .play-waiting {
   grid-column: 1 / -1;
   min-height: 220px;
@@ -701,42 +384,14 @@ select:focus {
   margin-top: 14px;
   gap: 14px;
 }
-.play-page .play-choice {
-  min-height: 0;
-  padding: 16px 18px 14px;
-  gap: 8px;
-}
-.play-page .play-choice h2 { font-size: 1.7rem; }
-.play-page .play-choice p { font-size: 0.92rem; }
+
 .play-page .play-waiting { min-height: 0; padding: 20px 18px; }
-.play-hint {
-  margin-top: 8px;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.92rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  align-self: center;
-}
-.play-hint:hover,
-.play-hint:focus-visible { color: var(--text); outline: none; }
-.play-hint:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .shell-inner .dim,
 .shell-inner .status,
 .shell-inner .err {
   text-shadow: 0 1px 10px var(--bg), 0 0 18px var(--bg);
 }
-.settings-form {
-  width: min(22rem, 100%);
-  margin: 36px auto;
-  text-align: left;
-}
-.settings-form .cta { max-width: none; }
 
 .ctas {
   display: flex;
@@ -777,47 +432,6 @@ select:focus {
   color: var(--on-red);
   background: var(--red);
   border-bottom-color: transparent;
-}
-
-.board {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  background: rgb(var(--bg-rgb) / 0.88);
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 8px 0 20px;
-}
-.stat-tile {
-  background: rgb(var(--bg-rgb) / 0.88);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 18px 16px;
-  text-align: left;
-}
-.stat-tile strong {
-  display: block;
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-}
-.stat-tile span {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-.stat-songs-title {
-  margin: 28px 0 12px;
-  font-size: 1.05rem;
-  font-weight: 600;
 }
 
 .result-actions {
@@ -896,25 +510,6 @@ select:focus {
 .room-code-bar button {
   border-radius: 999px;
 }
-
-.training .lyrics,
-.training .pitch-guide { width: 100%; }
-.training .pitch-guide { margin: 12px 0 8px; }
-.song-pick {
-  width: min(28rem, 100%);
-  margin: 8px auto 20px;
-  text-align: left;
-}
-.song-pick select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 14px;
-  background: rgb(var(--bg-rgb) / 0.7);
-}
-.training .lyrics,
-.training .pitch-guide { width: 100%; }
-.training .pitch-guide { margin: 12px 0 8px; }
 
 /* Score breakdown — live HUD and results. Green / yellow / red fill. */
 .score-break .who {
@@ -1054,7 +649,7 @@ select:focus {
 
 .results { max-width: 560px; }
 .results .score-break .overall { font-size: 2.8rem; }
-.results .score-row { margin-bottom: 8px; }
+
 .results .score-meter { margin-top: 6px; }
 .modal-scrim .results {
   padding: 20px 22px 18px;
@@ -1068,257 +663,11 @@ select:focus {
 
 @media (max-width: 760px) {
   .play-choices { grid-template-columns: 1fr; }
-  .play-choice { min-height: 0; }
+
   .play-page .play-choices { gap: 10px; }
-  .code-form { flex-direction: column; }
+
   .shell > .back { left: 20px; top: 20px; }
   .ready-meta { align-items: center; text-align: center; }
-}
-
-/* ------------------------------------------------- training: one screen --
- * Everything fits the viewport; the page never scrolls. The pitch staff takes
- * whatever is left after the fixed-size rows, so the layout absorbs a taller
- * or shorter window instead of pushing a scrollbar.
- */
-.page.shell.training {
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  padding-bottom: 14px;
-}
-.training .shell-inner {
-  /* Clears the absolutely-positioned page head. */
-  margin: 104px auto 0;
-  height: calc(100dvh - 118px);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: min(62rem, 100%);
-}
-.training .tag { margin: 0 0 2px; }
-.training .song-pick { flex: none; margin: 0; }
-
-/* The lyric block keeps its own space; the staff takes the remainder. */
-.training .lyrics {
-  flex: none;
-  min-height: 5.2rem;
-  margin: 2px 0;
-}
-.training .pitch-stage {
-  flex: 1 1 auto;
-  /* .shell-inner centres its children, so without this the staff shrinks to
-     its content width instead of filling the column. */
-  width: 100%;
-  align-self: stretch;
-  /* A floor: flex: 1 with min-height 0 let it flatten to nothing on a short
-     window, which is worse than trimming a row elsewhere. */
-  min-height: 170px;
-  display: flex;
-}
-.training .pitch-guide {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 0;
-  margin: 0;
-}
-
-/* Secondary rows shrink so the staff keeps the room. */
-.training .stage-self { flex: none; flex-direction: row; align-items: center; gap: 10px; }
-.training .stage-self video,
-.training .avatar-tile { width: 108px; height: 66px; border-radius: 10px; }
-.training .stage-self p { margin: 0; font-size: 0.85rem; }
-.training .status { flex: none; margin: 0; font-size: 0.85rem; }
-.training .ctas { flex: none; margin: 2px 0 0; }
-
-/* The ribbon draws down the middle of its canvas, which on this page is the
-   top edge of the staff. Drop it so it runs behind the staff instead. */
-.training .voice-wave { transform: translateY(13%); }
-
-/* Shorter windows: give the staff a floor and let the rest compress. */
-/* Shorter windows: trim the fixed rows, never the staff. */
-@media (max-height: 820px) {
-  .training .shell-inner { margin-top: 84px; height: calc(100dvh - 96px); gap: 4px; }
-  .training .lyrics { min-height: 3.4rem; margin: 0; }
-  .training .lyrics-now { font-size: clamp(1.5rem, 3.4vw, 2.4rem); }
-  .training .lyrics-next { font-size: 0.95rem; }
-  .training .stage-self video,
-  .training .avatar-tile { width: 84px; height: 52px; }
-  .training .tag { display: none; }
-  .training .voice-wave { transform: translateY(11%); }
-}
-
-/* Very short: the camera tile is the least load-bearing thing on the page. */
-@media (max-height: 680px) {
-  .training .stage-self { display: none; }
-  .training .lyrics { min-height: 2.8rem; }
-}
-
-/* ---------------------------------------------------------- hero rule --
- * Replaces the "Sing head to head" pill under the wordmark: a lit line with a
- * bead at its centre. The pill was a second piece of copy competing with the
- * mode names directly under it.
- */
-.hero-rule {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin: 16px 0 26px;
-  width: min(30rem, 62vw);
-}
-.hero-rule-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(var(--ice-rgb) / 0.55));
-  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 0.4);
-}
-/* Second line mirrors the first so the fade runs outward from the bead. */
-.hero-rule-line + .hero-rule-dot + .hero-rule-line {
-  background: linear-gradient(90deg, rgb(var(--ice-rgb) / 0.55), transparent);
-}
-.hero-rule-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--ice);
-  box-shadow: 0 0 10px rgb(var(--ice-rgb) / 0.95), 0 0 22px rgb(var(--ice-rgb) / 0.7);
-}
-
-.home-pitch {
-  margin: -4px 0 22px;
-  color: var(--muted);
-  font-size: 1.05rem;
-  letter-spacing: 0.02em;
-  max-width: 26rem;
-  line-height: 1.4;
-}
-
-.home-go {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(20rem, 100%);
-}
-.home-name {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  color: var(--muted);
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-.home-name input {
-  width: 100%;
-  text-align: center;
-  font-size: 1.15rem;
-  letter-spacing: 0.04em;
-}
-.home-name-err {
-  margin: 0;
-  font-size: 0.88rem;
-}
-.home-play { margin-top: 10px; }
-
-.home-modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  width: min(22rem, 100%);
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-}
-
-.home-mode {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-height: 52px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgb(var(--surface-rgb) / 0.55);
-  color: var(--text);
-  text-decoration: none;
-  text-align: center;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-
-.home-mode:hover,
-.home-mode:focus-visible {
-  outline: none;
-  color: var(--text);
-  border-color: var(--red);
-  background: rgb(var(--surface-rgb) / 0.9);
-  box-shadow: var(--glow-soft);
-}
-
-.home-mode-label {
-  font-size: 1.02rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
-
-.home-mode-hint {
-  color: var(--muted);
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-}
-
-.home-more {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 22px;
-  margin-top: 40px;
-}
-.home-more a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-.home-more a:hover,
-.home-more a:focus-visible {
-  color: var(--text);
-  outline: none;
-}
-
-/*
- * Home: the ribbon runs straight through the mode names, and no amount of
- * dimming fixes light sitting directly behind type. Mask out the centre column
- * so it enters from the left, disappears behind the text, and re-emerges on
- * the right. The soft shoulders keep it from reading as a hard cut.
- *
- * Not applied on Training, where the wave behind the staff is deliberate.
- */
-.home-simple .voice-wave {
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    var(--mask-on) 0%,
-    var(--mask-on) 24%,
-    transparent 39%,
-    transparent 61%,
-    var(--mask-on) 76%,
-    var(--mask-on) 100%
-  );
-  mask-image: linear-gradient(
-    90deg,
-    var(--mask-on) 0%,
-    var(--mask-on) 24%,
-    transparent 39%,
-    transparent 61%,
-    var(--mask-on) 76%,
-    var(--mask-on) 100%
-  );
 }
 
 /* -------------------------------------------------------------- phone --
@@ -1327,8 +676,7 @@ select:focus {
  * in-flow headers, stacked actions, and a stage that still fits 100dvh.
  */
 @media (max-width: 760px) {
-  .page,
-  .home-simple {
+  .page {
     padding:
       calc(14px + env(safe-area-inset-top, 0px))
       calc(16px + env(safe-area-inset-right, 0px))
@@ -1336,43 +684,11 @@ select:focus {
       calc(16px + env(safe-area-inset-left, 0px));
   }
 
-  .home-nav {
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-    gap: 8px;
-  }
-  .home-nav a {
-    min-height: 44px;
-    padding: 0 8px;
-    display: inline-flex;
-    align-items: center;
-    font-size: 14px;
-  }
-
   .wordmark {
     font-size: clamp(2.8rem, 14vw, 4.2rem);
     letter-spacing: 0.18em;
     text-indent: 0.18em;
   }
-  .hero-rule {
-    width: min(18rem, 78vw);
-    margin: 10px 0 16px;
-    gap: 10px;
-  }
-  .home-pitch {
-    margin: 0 0 16px;
-    font-size: 0.95rem;
-  }
-  .home-modes { margin-top: 18px; padding-top: 16px; gap: 8px; }
-  .home-mode { min-height: 48px; }
-  .home-mode-label { font-size: 0.95rem; }
-  .home-more { margin-top: 24px; }
-  .home-hero .eyebrow { margin: 8px 0 14px; }
-  .home-hero .modes button {
-    font-size: clamp(2.1rem, 10vw, 2.8rem);
-    padding-bottom: 6px;
-  }
-  .mode-hint { font-size: 0.78rem; }
 
   /* Title sits in the column so content isn't shoved under a 150px spacer. */
   .shell > .page-head {
@@ -1409,15 +725,10 @@ select:focus {
     margin-top: 16px;
     gap: 12px;
   }
-  .play-choice {
-    padding: 18px 16px 16px;
-    gap: 8px;
-  }
-  .play-choice h2 { font-size: 1.65rem; }
+
   .play-waiting { min-height: 0; }
 
-  .cta,
-  .cta-lg {
+  .cta {
     max-width: none;
     min-height: 48px;
     font-size: 1rem;
@@ -1430,11 +741,6 @@ select:focus {
 
   input, select, textarea { font-size: 16px; }
 
-  .settings-form {
-    width: 100%;
-    margin: 16px auto 20px;
-  }
-
   .tabs {
     width: 100%;
     justify-content: center;
@@ -1443,18 +749,6 @@ select:focus {
   .tabs button {
     flex: 1 1 auto;
     padding: 10px 12px;
-    font-size: 0.88rem;
-  }
-  .board {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .board th, .board td {
-    padding: 10px 8px;
     font-size: 0.88rem;
   }
 
@@ -1476,53 +770,10 @@ select:focus {
   }
   .results h2 { font-size: 1.85rem; }
   .results .score-break .overall { font-size: 2.4rem; }
-  .score-row.split { gap: 12px; }
 
   .lyrics-now { font-size: clamp(1.45rem, 7.2vw, 2.3rem); }
   .lyrics { min-height: 4.2rem; }
   .lyric-line { overflow-wrap: anywhere; }
-
-  /* Training: same one-screen idea as desktop, but the title is in flow
-     and the three actions stay on screen instead of clipping. */
-  .page.shell.training {
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .training .shell-inner {
-    flex: 1 1 auto;
-    margin: 0;
-    height: auto;
-    min-height: 0;
-    gap: 8px;
-    width: 100%;
-    overflow: hidden;
-  }
-  .training .tag { display: none; }
-  .training .stage-self { display: none; }
-  .training .lyrics { min-height: 3.2rem; margin: 0; }
-  .training .pitch-stage { min-height: 140px; }
-  .training .status { font-size: 0.8rem; }
-  .training .ctas {
-    position: static;
-    margin: 4px 0 0;
-    padding: 0;
-    background: none;
-    flex-wrap: nowrap;
-    justify-content: stretch;
-    gap: 8px;
-  }
-  .training .ctas .cta {
-    flex: 1 1 0;
-    width: auto;
-    min-width: 0;
-    max-width: none;
-    min-height: 46px;
-    padding: 10px 8px;
-    font-size: 0.88rem;
-  }
 
   /* Stage: one phone viewport. Cams stay a short strip; lyrics + staff
      take the rest so the singer never has to scroll mid-song. */
@@ -1553,17 +804,7 @@ select:focus {
   }
   .stage-top strong { font-size: 0.88rem; }
   .stage-song { font-size: 0.75rem; flex-basis: 100%; }
-  .stage-arena {
-    flex: 1 1 auto;
-    min-height: 0;
-    gap: 0.4rem 0.45rem;
-    grid-template-rows: minmax(92px, 18vh) minmax(0, 1fr);
-  }
-  /* Lobby has no staff, so the face cams can keep the room. */
-  .stage-arena:not(:has(.pitch-guide)) {
-    grid-template-rows: minmax(140px, 1fr) auto;
-  }
-  .stage-board { gap: 0.25rem; min-height: 0; }
+
   .stage-fit .lyrics {
     min-height: 3.1rem;
     padding: 0;
@@ -1585,9 +826,7 @@ select:focus {
     width: 100%;
   }
   .stage-dock .cta,
-  .stage-dock .cta-lg,
-  .stage.stage-fit button.cta,
-  .stage.stage-fit button.cta-lg {
+  .stage.stage-fit button.cta {
     width: 100%;
     min-width: 0;
     min-height: 48px;
@@ -1612,8 +851,7 @@ select:focus {
 
 @media (max-width: 760px) and (max-height: 720px) {
   .play-choices { margin-top: 8px; gap: 10px; }
-  .play-choice { padding: 14px 14px 12px; }
-  .play-choice h2 { font-size: 1.5rem; }
+
   .page-head h1,
   .shell-inner h1 { font-size: clamp(1.85rem, 10vw, 2.4rem); }
   html:has(.play-page),
@@ -1631,8 +869,7 @@ select:focus {
 
 /* Short windows: landscape phones (often >760px wide) and squat desktops. */
 @media (max-height: 540px) {
-  .page,
-  .home-simple {
+  .page {
     overflow-y: auto;
     padding:
       calc(8px + env(safe-area-inset-top, 0px))
@@ -1640,30 +877,12 @@ select:focus {
       calc(8px + env(safe-area-inset-bottom, 0px))
       calc(16px + env(safe-area-inset-left, 0px));
   }
-  .home-nav {
-    top: calc(6px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-  }
+
   .wordmark {
     font-size: clamp(2rem, 9vh, 3.2rem);
     letter-spacing: 0.16em;
     text-indent: 0.16em;
   }
-  .hero-rule { width: min(22rem, 50vw); margin: 6px 0 10px; }
-  .home-pitch { margin: 0 0 10px; font-size: 0.88rem; }
-  .home-go { gap: 4px; }
-  .home-play { margin-top: 2px; }
-  .home-modes { margin-top: 10px; padding-top: 10px; gap: 6px; }
-  .home-mode { min-height: 40px; padding: 6px 8px; border-radius: 10px; }
-  .home-mode-label { font-size: 0.88rem; }
-  .home-mode-hint { font-size: 0.7rem; }
-  .home-more { margin-top: 12px; gap: 6px 14px; }
-  .home-hero .eyebrow { margin: 4px 0 8px; }
-  .home-hero .modes button {
-    font-size: clamp(1.45rem, 8vh, 2.2rem);
-    padding-bottom: 2px;
-  }
-  .mode-hint { font-size: 0.7rem; }
 
   .shell { align-items: stretch; }
   .shell > .page-head {
@@ -1683,49 +902,6 @@ select:focus {
   .shell-inner,
   .shell-inner.wide { margin: 0; width: 100%; }
 
-  .page.shell.training {
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-    align-items: stretch;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .training .shell-inner {
-    flex: 1 1 auto;
-    margin: 0;
-    height: auto;
-    min-height: 0;
-    gap: 2px;
-    overflow: hidden;
-  }
-  .training .tag,
-  .training .stage-self { display: none; }
-  .training .song-pick { margin: 0; }
-  .training .song-pick select { padding: 6px 10px; }
-  .training .lyrics { min-height: 0; margin: 0; }
-  .training .lyrics-now { font-size: clamp(1.05rem, 4.5vh, 1.45rem); }
-  .training .lyrics-next { display: none; }
-  .training .pitch-stage { min-height: 0; }
-  .training .status { font-size: 0.75rem; }
-  .training .ctas {
-    position: static;
-    flex: none;
-    flex-wrap: nowrap;
-    gap: 8px;
-    margin: 2px 0 0;
-    padding: 0;
-    background: none;
-  }
-  .training .ctas .cta {
-    flex: 1;
-    width: auto;
-    max-width: none;
-    min-height: 40px;
-    font-size: 0.82rem;
-    padding: 8px 8px;
-  }
-
   .stage,
   .stage.stage-fit {
     min-height: 100dvh;
@@ -1742,16 +918,7 @@ select:focus {
       calc(10px + env(safe-area-inset-left, 0px));
   }
   .stage-top { flex-wrap: wrap; gap: 0.3rem 0.7rem; }
-  .stage-arena {
-    flex: 1 1 auto;
-    min-height: 0;
-    grid-template-columns: minmax(88px, 18vw) minmax(0, 1fr) minmax(88px, 18vw);
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0.4rem 0.5rem;
-  }
-  .stage-arena > .stage-cam:first-of-type { grid-column: 1; grid-row: 1; }
-  .stage-arena > .stage-board { grid-column: 2; grid-row: 1; }
-  .stage-arena > .stage-cam:last-of-type { grid-column: 3; grid-row: 1; }
+
   .stage-fit .lyrics { min-height: 2.6rem; }
   .stage-fit .lyrics-now { font-size: clamp(1.2rem, 4.8vw, 2rem); }
   .stage-fit .pitch-guide {
@@ -1763,8 +930,7 @@ select:focus {
     flex-wrap: nowrap;
     gap: 10px 14px;
   }
-  .stage-dock .cta,
-  .stage-dock .cta-lg {
+  .stage-dock .cta {
     width: auto;
     min-width: 10rem;
     min-height: 42px;
@@ -1860,7 +1026,6 @@ select:focus {
   color: var(--text);
   font-size: 1.3rem;
   line-height: 1;
-  backdrop-filter: blur(6px);
 }
 .stage .tile-menu-btn span { transform: translateY(-0.22em); }
 .stage .tile-menu-btn:hover:not(:disabled),
@@ -1883,8 +1048,7 @@ select:focus {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--scrim);
 }
 .safety-sheet {
   width: min(440px, 100%);

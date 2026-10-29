@@ -20,11 +20,17 @@ export function palette(): Palette {
   const css = getComputedStyle(document.documentElement);
   const read = (name: string) => css.getPropertyValue(name).trim();
   const line = read("--line-rgb");
+  const channels = new Map<string, string>();
+  const channel = (name: string) => {
+    let v = channels.get(name);
+    if (v == null) channels.set(name, (v = read(`--${name}`)));
+    return v;
+  };
   cached = {
     bg: read("--surface"),
     fg: read("--text"),
     ink: (alpha: number) => `rgb(${line} / ${alpha})`,
-    tone: (channel: string, alpha: number) => `rgb(${read(`--${channel}`)} / ${alpha})`,
+    tone: (name: string, alpha: number) => `rgb(${channel(name)} / ${alpha})`,
     accent: read("--red"),
   };
   return cached;

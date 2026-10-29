@@ -47,11 +47,6 @@
 }
 .settings-account .cta { max-width: none; }
 
-.home-account {
-  margin: 0;
-  font-size: 0.82rem;
-}
-
 /* Google Identity Services button (preferred flow). Google draws it in an
  * iframe; we only size the slot so the page doesn't jump while it loads. */
 .gis-wrap {

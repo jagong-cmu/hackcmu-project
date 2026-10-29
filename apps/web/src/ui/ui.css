@@ -83,7 +83,8 @@
 /* Focus and selection are the same thing here (roving tabindex), so the red
    triangle plus the bright text is the focus indicator; no second ring. */
 .sl-item:focus-visible { outline: none; }
-.sl-grid .sl-item { width: 100%; }
+/* Grid cells and custom-content rows fill their track; plain menu labels stay text-width. */
+.sl-grid .sl-item, .sl-item.is-custom { width: 100%; }
 
 /* The one red triangle. It sits at the selected item's left edge (set from
    SelectableList) and slides; reduced motion makes the move instant. */

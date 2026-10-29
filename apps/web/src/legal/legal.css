@@ -16,8 +16,7 @@
   padding: 28px 32px 32px;
   border: 1px solid var(--line-soft);
   border-radius: 18px;
-  background: rgb(var(--bg-rgb) / 0.82);
-  backdrop-filter: blur(6px);
+  background: var(--surface);
   color: rgb(var(--text-rgb) / 0.9);
   font-size: 1rem;
   line-height: 1.68;
@@ -111,9 +110,4 @@
 .auth-legal a { color: var(--muted); text-underline-offset: 2px; }
 .auth-legal a:hover { color: var(--text); }
 
-.home-legal {
-  position: relative;
-  z-index: 2;
-  margin-top: 18px;
-}
 .settings-legal { margin-top: 28px; }

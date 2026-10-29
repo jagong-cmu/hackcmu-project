@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { capture } from "../analytics/posthog.ts";
 import { useAuth } from "../auth/AuthProvider.tsx";
@@ -65,17 +65,10 @@ export function Home() {
     return ENTRIES.some((e) => e.id === s) ? s! : ENTRIES[0]!.id;
   }, []);
   const [selected, setSelected] = useState<string>(startId);
-  const root = useRef<HTMLElement>(null);
-  const ready = useRef(false);
 
   useEffect(() => {
     introPlayed = true;
-    // SelectableList always starts on its first item; focusing the remembered
-    // one moves the selection there (see docs/followups-A.md).
-    const i = ENTRIES.findIndex((e) => e.id === startId);
-    root.current?.querySelectorAll<HTMLButtonElement>(".sl-item")[i]?.focus({ preventScroll: true });
-    ready.current = true;
-  }, [startId]);
+  }, []);
 
   function go(e: Entry) {
     capture("mode selected", { mode: e.id, via: "home" });
@@ -93,7 +86,7 @@ export function Home() {
   const current = ENTRIES.find((e) => e.id === selected) ?? ENTRIES[0]!;
 
   return (
-    <main ref={root} className={`home-menu${intro ? " is-intro" : ""}`}>
+    <main className={`home-menu${intro ? " is-intro" : ""}`}>
       <Img className="home-hero" src={Images.heroHome} alt="" />
       <Link to="/stats" className="home-stats">
         Stats
@@ -105,9 +98,11 @@ export function Home() {
           className="home-list"
           label="Main menu"
           items={items}
+          initialId={startId}
+          autoFocus
           onSelectionChange={(it) => {
             setSelected(it.id);
-            if (ready.current) remember(it.id);
+            remember(it.id);
           }}
         />
         <div className="home-desc">

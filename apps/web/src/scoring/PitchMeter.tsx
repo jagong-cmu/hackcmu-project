@@ -90,7 +90,7 @@ function colors(): Colors {
     red: p.tone("red-rgb", 1),
     redGlow: p.tone("red-rgb", 0.7),
     ice: p.tone("ice-rgb", 1),
-    muted: getComputedStyle(document.documentElement).getPropertyValue("--muted").trim(),
+    muted: p.tone("muted-rgb", 0.3),
     line: p.ink(0.2),
     white: p.tone("text-rgb", 1),
   };
@@ -279,11 +279,9 @@ function paint(
         ctx.fill();
         ctx.shadowBlur = 0;
       } else {
-        ctx.globalAlpha = 0.3;
         ctx.fillStyle = c.muted;
         pill(ctx, x1, y, x2 - x1, noteH, r);
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
     } else if (run.startSec <= t) {
       // Being sung: the sung part shows hit (red) or not (muted), the rest is still to come.
@@ -294,10 +292,7 @@ function paint(
       ctx.fillStyle = c.blue;
       ctx.fillRect(playX, y, x2 - playX, noteH);
       if (hitSoFar) ctx.fillStyle = c.red;
-      else {
-        ctx.fillStyle = c.muted;
-        ctx.globalAlpha = 0.3;
-      }
+      else ctx.fillStyle = c.muted;
       ctx.fillRect(x1, y, playX - x1, noteH);
       ctx.restore();
     } else {

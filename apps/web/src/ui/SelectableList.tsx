@@ -27,6 +27,8 @@ export function SelectableList({
   label,
   columns = 1,
   className = "",
+  initialId,
+  autoFocus = false,
   onSelectionChange,
   onBack,
 }: {
@@ -35,14 +37,33 @@ export function SelectableList({
   label: string;
   columns?: number;
   className?: string;
+  /** Starts here instead of the first enabled item (e.g. the remembered choice). */
+  initialId?: string;
+  /** Focus the selected item once the items exist, so the arrows work straight away. */
+  autoFocus?: boolean;
   onSelectionChange?: (item: ListItem) => void;
   onBack?: () => void;
 }) {
-  const [index, setIndex] = useState(() => Math.max(0, items.findIndex((it) => !it.disabled)));
+  const start = () => {
+    const i = items.findIndex((it) => it.id === initialId && !it.disabled);
+    return i >= 0 ? i : Math.max(0, items.findIndex((it) => !it.disabled));
+  };
+  const [index, setIndex] = useState(start);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const navRef = useRef<HTMLElement>(null);
   const markRef = useRef<HTMLSpanElement>(null);
   const disabled = new Set(items.flatMap((it, i) => (it.disabled ? [i] : [])));
+
+  // Items can arrive after mount (a loaded catalogue): start there once they do.
+  const hasItems = items.length > 0;
+  useEffect(() => {
+    if (!hasItems) return;
+    const i = start();
+    setIndex(i);
+    if (autoFocus) refs.current[i]?.focus({ preventScroll: true });
+    // Once, when the items first exist.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasItems]);
 
   useEffect(() => {
     const it = items[index];
@@ -94,7 +115,7 @@ export function SelectableList({
             refs.current[i] = el;
           }}
           type="button"
-          className={`sl-item${it.secondary ? " is-secondary" : ""}`}
+          className={`sl-item${it.secondary ? " is-secondary" : ""}${it.content ? " is-custom" : ""}`}
           data-selected={i === index ? "true" : "false"}
           aria-current={i === index ? "true" : undefined}
           disabled={it.disabled}

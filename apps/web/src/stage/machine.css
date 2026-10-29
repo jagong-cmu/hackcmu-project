@@ -183,7 +183,6 @@
   border: 0;
   border-radius: 0;
   background: none;
-  backdrop-filter: none;
 }
 .km-machine .km-lanes .hit-callout {
   top: 8%;

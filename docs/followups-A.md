@@ -1,7 +1,0 @@
-# Followups from Session A
-
-1. **`ui/SelectableList.tsx`: add an `initialId` (or `initialIndex`) prop.** The list always starts on its first enabled item. Home remembers the last mode, so for now it focuses that item after mount (`home/Home.tsx`, first `useEffect`). Delete that effect once the prop exists.
-2. **`ui/ui.css`: key hints over the hero image.** `.key-hints` and Home's Stats link are `--muted` text and sit on top of the hero image's right side. Once `hero-home.webp` exists, check contrast there; a small `--shade` chip behind the hints may be needed.
-3. **Legacy rules to delete once A's screens no longer use them** (`index.css`, `theme/theme.css`): `.home-simple`, `.home-nav`, `.home-hero`, `.home-pitch`, `.home-go`, `.home-legal`, `.modes`, `.mode-sub`, `.sparks` (all Home markup that was removed); `.mode-card*`, `.card`, `.code-form`, `.settings-form`, `.board`, `.tabs`, `.stat-grid`, `.stat-tile`, `.stat-songs-title` (Settings, Leaderboard, Stats and the room-code page now use `.pg-*` in `home/pages.css`). Check `.card`, `.tabs`, `.board` and `.cta` for other users before deleting.
-4. **Ambient glow on Home** is barely visible at 1280x800. Fine if intended; otherwise raise it in `ui/Ambient.tsx`.
-5. **Leaderboard "your row"** matches by display name (rows carry no player id). Two players with the same name would both highlight. A `isMe` flag or `clientId` on `/api/leaderboard/*` rows would fix it (server, not A's).
