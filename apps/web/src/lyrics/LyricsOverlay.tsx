@@ -1,5 +1,4 @@
 import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
-import { LyricSparks } from "./LyricSparks.tsx";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
 import { formatCountdown } from "../stage/formatCountdown.ts";
 import { anchorLine, inLeadIn } from "./leadIn.ts";
@@ -26,6 +25,32 @@ type Props = {
 const MAX_LINE_SEC = 7;
 /** How early the count-in appears before the next line. */
 const COUNTDOWN_SEC = 4;
+
+/**
+ * The current line with its sung part filled. LRC only times whole lines, so
+ * each word's start is spread over the line's span by its share of the
+ * characters: an estimate, not word timing. Keyed by line so it fades in fresh.
+ */
+function SungLine({ line, next, t }: { line: LrcLine; next: LrcLine | null; t: number }) {
+  const end = Math.min(next?.timeSec ?? line.timeSec + MAX_LINE_SEC, line.timeSec + MAX_LINE_SEC);
+  const span = Math.max(0.1, end - line.timeSec);
+  const words = line.text.split(/\s+/).filter(Boolean);
+  const total = words.reduce((n, w) => n + w.length, 0) || 1;
+  let before = 0;
+  return (
+    <span className="lyric-line">
+      {words.map((w, i) => {
+        const lit = t >= line.timeSec + (span * before) / total;
+        before += w.length;
+        return (
+          <span key={i} className={lit ? "lyric-word sung" : "lyric-word"}>
+            {w}{" "}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 function LeadIn({
   line,
   wait,
@@ -38,7 +63,7 @@ function LeadIn({
   const beats = Math.max(1, Math.min(4, Math.ceil(wait)));
   return (
     <div className="lyrics lyrics-leadin">
-      <p className="lyrics-cue leadin" aria-live="polite">
+      <p className="lyrics-cue leadin">
         Get ready · lyrics in {Math.max(1, Math.ceil(wait))}
       </p>
       <p className="lyrics-now lyrics-soon">
@@ -74,6 +99,7 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
       <div className="lyrics lyrics-duet">
         <p className={`lyrics-cue ${now.kind}`}>{now.text}</p>
         <p
+          key={cue.current?.timeSec ?? "wait"}
           className={[
             "lyrics-now",
             cue.waiting || now.kind === "wait" ? "lyrics-soon" : "",
@@ -84,13 +110,14 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
             .filter(Boolean)
             .join(" ")}
         >
-          <span className="lyric-line">
-            {cue.waiting ? "·" : (cue.current?.text ?? "·")}
-            {singing && cue.current ? <LyricSparks key={cue.current.timeSec} /> : null}
-          </span>
+          {singing && cue.current ? (
+            <SungLine line={cue.current} next={cue.next} t={currentTime} />
+          ) : (
+            <span className="lyric-line">{cue.waiting ? "·" : (cue.current?.text ?? "·")}</span>
+          )}
         </p>
         {upcoming ? (
-          <p className={`lyrics-next ${nextWho?.kind ?? ""}`}>
+          <p key={upcoming.timeSec} className={`lyrics-next ${nextWho?.kind ?? ""}`}>
             <span className="who">{nextWho?.text}</span>
             <span className="next-line">{upcoming.text}</span>
           </p>
@@ -117,8 +144,8 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
       const beats = Math.max(1, Math.ceil(wait));
       return (
         <div className="lyrics">
-          <p className="lyrics-now lyrics-soon">{next.text}</p>
-          <p className="lyrics-count" aria-live="off">
+          <p key={next.timeSec} className="lyrics-now lyrics-soon">{next.text}</p>
+          <p className="lyrics-count" aria-hidden="true">
             {[4, 3, 2, 1].map((n) => (
               <span key={n} className={n <= beats ? "dot" : "dot spent"} />
             ))}
@@ -130,20 +157,17 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
     return (
       <div className="lyrics">
         <p className="lyrics-rest">♪</p>
-        <p className="lyrics-next">{next.text}</p>
+        <p key={next.timeSec} className="lyrics-next">{next.text}</p>
       </div>
     );
   }
 
   return (
     <div className="lyrics">
-      <p className="lyrics-now">
-        <span className="lyric-line">
-          {current?.text ?? "·"}
-          {current ? <LyricSparks key={current.timeSec} /> : null}
-        </span>
+      <p key={current?.timeSec ?? "none"} className="lyrics-now">
+        {current ? <SungLine line={current} next={next} t={currentTime} /> : <span className="lyric-line">·</span>}
       </p>
-      <p className="lyrics-next">{next?.text ?? ""}</p>
+      <p key={next?.timeSec ?? "end"} className="lyrics-next">{next?.text ?? ""}</p>
     </div>
   );
 }

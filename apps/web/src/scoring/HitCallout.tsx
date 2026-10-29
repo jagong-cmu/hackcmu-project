@@ -27,7 +27,7 @@ export function HitCallout({ grade }: { grade: HitGrade | null }) {
 
   if (!shown) return null;
   return (
-    <p key={shown.id} className={`hit-callout hit-${shown.grade}`} role="status">
+    <p key={shown.id} className={`hit-callout hit-${shown.grade}`} aria-hidden="true">
       {hitLabel(shown.grade)}
     </p>
   );

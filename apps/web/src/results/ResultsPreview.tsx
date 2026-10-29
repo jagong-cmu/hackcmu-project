@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ResultsModal, ScoringWait } from "./ResultsModal.tsx";
 import { seedPreviewMoment } from "./matchMoment.ts";
 import { ReelOutroPreview, ReelRunPreview } from "./ReelPreview.tsx";
+import { MachinePreview } from "../stage/MachinePreview.tsx";
 
 const MOCK: ScoreCard = {
   overall: 87,
@@ -29,11 +30,13 @@ const MOCK_THEM: ScoreCard = {
  * ?friendly=1 for an unrated private-room match.
  * ?outro=ranked (or loss/draw/duet/solo/forfeit) for the match-video outro,
  * ?reel=1 to record a fake match end to end.
+ * ?machine=ranked|training for the singing view (see MachinePreview).
  */
 export function ResultsPreview() {
   const params = new URLSearchParams(window.location.search);
   if (params.has("outro")) return <ReelOutroPreview />;
   if (params.has("reel")) return <ReelRunPreview />;
+  if (params.has("machine")) return <MachinePreview />;
   return <ResultsCardPreview />;
 }
 
@@ -82,6 +85,7 @@ function ResultsCardPreview() {
       songArtist="Coldplay"
       onHome={() => navigate("/")}
       onRematch={() => navigate("/")}
+      onPickSong={() => navigate("/")}
     />
   );
 }

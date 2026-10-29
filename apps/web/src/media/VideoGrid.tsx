@@ -76,7 +76,11 @@ function Tile({
         muted={isLocal}
         style={isLocal ? { transform: "scaleX(-1)" } : undefined}
       />
-      {!cameraOn && <div className="placeholder">camera off</div>}
+      {!cameraOn && (
+        <div className="placeholder cam-initial" aria-label="Camera off">
+          {(participant.name || participant.identity).trim()[0]?.toUpperCase() ?? "?"}
+        </div>
+      )}
       {cue ? <div className={singing || cue === "together" ? "cam-cue on" : "cam-cue"}>{cue}</div> : null}
       <div className="name">
         {participant.name || participant.identity}
@@ -95,7 +99,7 @@ function RemoteAudio({ participant }: { participant: Participant }) {
 function EmptyTile({ label }: { label: string }) {
   return (
     <div className="tile">
-      <div className="placeholder">{label}</div>
+      <div className={label.length === 1 ? "placeholder cam-initial" : "placeholder"}>{label}</div>
     </div>
   );
 }
