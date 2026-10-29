@@ -14,7 +14,8 @@ const HEROES: Record<string, Hero> = {
   leaderboard: hero(Images.heroLeaderboard1x, Images.heroLeaderboard),
   settings: hero(Images.heroSettings1x, Images.heroSettings),
 };
-const SIZES = "(max-width: 899px) 100vw, 58vw";
+// object-fit: cover on a tall box scales by height, so the drawn width is at least 179vh (1600/893).
+const SIZES = "(max-width: 899px) 100vw, max(58vw, 179vh)";
 const DEBOUNCE_MS = 120;
 
 /** Below 900px the hero is a dim backdrop: always hero-home, nothing else loaded. */
