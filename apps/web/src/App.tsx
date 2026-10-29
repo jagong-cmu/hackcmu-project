@@ -1,26 +1,29 @@
 /**
  * Thin router only. Do not put logic here (TECHNICAL_PRD §4).
  */
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Home } from "./home/Home.tsx";
-import { Play } from "./home/Play.tsx";
 import { Settings } from "./home/Settings.tsx";
 import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
 import { ArenaStats } from "./leaderboard/ArenaStats.tsx";
-import { PitchTest } from "./training/PitchTest.tsx";
-import { SyncLyrics } from "./training/SyncLyrics.tsx";
-import { ResultsPreview } from "./results/ResultsPreview.tsx";
-import { Training } from "./training/Training.tsx";
 import { RoomProvider } from "./rooms/RoomProvider.tsx";
-import Stage from "./stage/Stage.tsx";
 import { AnalyticsRoot } from "./analytics/AnalyticsRoot.tsx";
 import { RouteAmbient } from "./ui/Ambient.tsx";
-import { DeviceCheck } from "./onboarding/DeviceCheck.tsx";
 import { DeviceCheckGate } from "./onboarding/DeviceCheckGate.tsx";
-import { VoiceCheck } from "./onboarding/VoiceCheck.tsx";
 import { AuthProvider, RequireAuth } from "./auth/AuthProvider.tsx";
 import { SignIn } from "./auth/SignIn.tsx";
 import { PrivacyPolicy, TermsOfService } from "./legal/LegalPage.tsx";
+
+// Heavy routes load on demand so Home doesn't ship TensorFlow (CREPE) and LiveKit.
+const Play = lazy(() => import("./home/Play.tsx").then((m) => ({ default: m.Play })));
+const Training = lazy(() => import("./training/Training.tsx").then((m) => ({ default: m.Training })));
+const DeviceCheck = lazy(() => import("./onboarding/DeviceCheck.tsx").then((m) => ({ default: m.DeviceCheck })));
+const VoiceCheck = lazy(() => import("./onboarding/VoiceCheck.tsx").then((m) => ({ default: m.VoiceCheck })));
+const Stage = lazy(() => import("./stage/Stage.tsx"));
+const ResultsPreview = lazy(() => import("./results/ResultsPreview.tsx").then((m) => ({ default: m.ResultsPreview })));
+const SyncLyrics = lazy(() => import("./training/SyncLyrics.tsx").then((m) => ({ default: m.SyncLyrics })));
+const PitchTest = lazy(() => import("./training/PitchTest.tsx").then((m) => ({ default: m.PitchTest })));
 
 export default function App() {
   return (
@@ -28,6 +31,8 @@ export default function App() {
       <AnalyticsRoot />
       <RouteAmbient />
       <RoomProvider><AuthProvider>
+        {/* Flat --bg while a route chunk loads: nothing to flash. */}
+        <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
@@ -53,6 +58,7 @@ export default function App() {
           <Route path="/room/:code" element={<RequireAuth><DeviceCheckGate><Stage /></DeviceCheckGate></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </AuthProvider></RoomProvider>
     </BrowserRouter>
   );
