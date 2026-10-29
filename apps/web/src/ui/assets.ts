@@ -9,6 +9,21 @@ export const Images = {
   /** 2752px wide; heroHome1x is 1600px. Use both as a srcset. */
   heroHome: `${dir}/hero-home.webp`,
   heroHome1x: `${dir}/hero-home-1600.webp`,
+  /** Per-mode heroes, same sizes as heroHome. */
+  heroRanked: `${dir}/hero-ranked.webp`,
+  heroRanked1x: `${dir}/hero-ranked-1600.webp`,
+  heroDuet: `${dir}/hero-duet.webp`,
+  heroDuet1x: `${dir}/hero-duet-1600.webp`,
+  heroTraining: `${dir}/hero-training.webp`,
+  heroTraining1x: `${dir}/hero-training-1600.webp`,
+  heroChaos: `${dir}/hero-chaos.webp`,
+  heroChaos1x: `${dir}/hero-chaos-1600.webp`,
+  heroRoom: `${dir}/hero-room.webp`,
+  heroRoom1x: `${dir}/hero-room-1600.webp`,
+  heroLeaderboard: `${dir}/hero-leaderboard.webp`,
+  heroLeaderboard1x: `${dir}/hero-leaderboard-1600.webp`,
+  heroSettings: `${dir}/hero-settings.webp`,
+  heroSettings1x: `${dir}/hero-settings-1600.webp`,
   mode: {
     ranked: `${dir}/mode-ranked.webp`,
     duet: `${dir}/mode-duet.webp`,
