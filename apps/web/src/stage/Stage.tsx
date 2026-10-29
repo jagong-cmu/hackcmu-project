@@ -481,7 +481,7 @@ export default function Stage() {
           </MachineStage>
         )}
 
-        {!isChaos && !showResults && (
+        {!isChaos && !showResults && (inLobby || room?.status === "countdown") && (
           <div className="stage-dock">
             <div className="ready-meta">
               <p>{waitingHint}</p>

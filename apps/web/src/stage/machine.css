@@ -446,6 +446,12 @@
 
 /* The legacy `.stage-fit > *` rule makes children relative; the hint bar stays fixed. */
 .stage.stage-fit.km-page > .key-hints { position: fixed; }
+/* Same for the turn guide: pinned bottom-centre instead of pushed below the fold.
+   Stacked layouts scroll, so there it sits in the flow under the panels. */
+.stage.stage-fit.km-page > .turn-guide { position: fixed; top: auto; bottom: var(--sp-4); }
+@media (max-width: 899px) {
+  .stage.stage-fit.km-page > .turn-guide { position: relative; bottom: auto; left: auto; transform: none; margin: var(--sp-4) auto; }
+}
 
 /* ---- stacked (phones, small tablets) ------------------------------------ */
 
