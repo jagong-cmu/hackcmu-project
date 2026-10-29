@@ -24,6 +24,21 @@ export const Images = {
   heroLeaderboard1x: `${dir}/hero-leaderboard-1600.webp`,
   heroSettings: `${dir}/hero-settings.webp`,
   heroSettings1x: `${dir}/hero-settings-1600.webp`,
+  /**
+   * Fraction of each hero's width where its subject's leftmost pixel sits
+   * (measured from the files, rounded down ~1%). Everything left of it is
+   * empty backdrop that the home screen may crop or fade.
+   */
+  heroSubjectStart: {
+    home: 0.59,
+    ranked: 0.53,
+    duet: 0.59,
+    training: 0.59,
+    chaos: 0.46,
+    room: 0.59,
+    leaderboard: 0.46,
+    settings: 0.59,
+  },
   mode: {
     ranked: `${dir}/mode-ranked.webp`,
     duet: `${dir}/mode-duet.webp`,

@@ -1,21 +1,24 @@
 import { useEffect, useRef } from "react";
 import { Images } from "../ui/assets.ts";
 
-type Hero = { src: string; srcSet: string };
-const hero = (x1: string, x2: string): Hero => ({ src: x1, srcSet: `${x1} 1600w, ${x2} 2752w` });
+/** `start` is the subject's left edge as a fraction of the width; homeMenu.css sizes the layer from it. */
+type Hero = { src: string; srcSet: string; start: number };
+const hero = (x1: string, x2: string, start: number): Hero => ({ src: x1, srcSet: `${x1} 1600w, ${x2} 2752w`, start });
 
-const HOME = hero(Images.heroHome1x, Images.heroHome);
+const S = Images.heroSubjectStart;
+const HOME = hero(Images.heroHome1x, Images.heroHome, S.home);
 const HEROES: Record<string, Hero> = {
-  ranked: hero(Images.heroRanked1x, Images.heroRanked),
-  duet: hero(Images.heroDuet1x, Images.heroDuet),
-  training: hero(Images.heroTraining1x, Images.heroTraining),
-  chaos: hero(Images.heroChaos1x, Images.heroChaos),
-  room: hero(Images.heroRoom1x, Images.heroRoom),
-  leaderboard: hero(Images.heroLeaderboard1x, Images.heroLeaderboard),
-  settings: hero(Images.heroSettings1x, Images.heroSettings),
+  ranked: hero(Images.heroRanked1x, Images.heroRanked, S.ranked),
+  duet: hero(Images.heroDuet1x, Images.heroDuet, S.duet),
+  training: hero(Images.heroTraining1x, Images.heroTraining, S.training),
+  chaos: hero(Images.heroChaos1x, Images.heroChaos, S.chaos),
+  room: hero(Images.heroRoom1x, Images.heroRoom, S.room),
+  leaderboard: hero(Images.heroLeaderboard1x, Images.heroLeaderboard, S.leaderboard),
+  settings: hero(Images.heroSettings1x, Images.heroSettings, S.settings),
 };
-// object-fit: cover on a tall box scales by height, so the drawn width is at least 179vh (1600/893).
-const SIZES = "(max-width: 899px) 100vw, max(58vw, 179vh)";
+const setStart = (el: HTMLImageElement, h: Hero) => el.style.setProperty("--start", String(h.start));
+// The image is at most full viewport height, so it is drawn at most 179vh wide (1600/893).
+const SIZES = "(max-width: 899px) 100vw, 179vh";
 const DEBOUNCE_MS = 120;
 
 /** Below 900px the hero is a dim backdrop: always hero-home, nothing else loaded. */
@@ -59,6 +62,7 @@ export function HomeHero({ id }: { id: string | undefined }) {
     let front = 0;
     let target = initial;
     let anim: Animation | null = null;
+    let out: Animation | null = null;
     let busy = false;
 
     async function pump() {
@@ -75,27 +79,35 @@ export function HomeHero({ id }: { id: string | undefined }) {
           if (shown[back] !== h) {
             el.srcset = h.srcSet;
             el.src = h.src;
+            setStart(el, h);
             shown[back] = h;
             await el.decode().catch(() => {});
             if (t !== target) continue;
           }
           el.hidden = false;
           el.style.zIndex = "1";
-          imgs[front]!.style.zIndex = "0";
+          const old = imgs[front]!;
+          old.style.zIndex = "0";
           front = back;
           const css = getComputedStyle(el);
           const ms = parseFloat(css.getPropertyValue("--dur-slow")) || 0; // 0 under reduced motion
-          if (!ms) continue;
-          anim = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: css.getPropertyValue("--ease").trim() || "ease", fill: "backwards" });
-          await anim.finished.catch(() => {});
-          if (anim.playbackRate < 0) {
-            // Reversed back to zero: the layer underneath is the front again.
-            el.style.zIndex = "0";
-            imgs[1 - front]!.style.zIndex = "1";
-            front = 1 - front;
+          if (ms) {
+            // The old layer fades out too: layers can differ in size, so the new one may not cover it.
+            const opts = { duration: ms, easing: css.getPropertyValue("--ease").trim() || "ease" };
+            anim = el.animate([{ opacity: 0 }, { opacity: 1 }], { ...opts, fill: "backwards" });
+            out = old.animate([{ opacity: 1 }, { opacity: 0 }], { ...opts, fill: "forwards" });
+            await anim.finished.catch(() => {});
+            if (anim.playbackRate < 0) {
+              // Reversed back to zero: the layer underneath is the front again.
+              el.style.zIndex = "0";
+              old.style.zIndex = "1";
+              front = 1 - front;
+            }
+            anim.cancel();
+            out.cancel();
+            anim = out = null;
           }
-          anim.cancel();
-          anim = null;
+          imgs[1 - front]!.hidden = true;
         }
       } catch {
         /* hero-home itself is missing: keep whatever is showing */
@@ -108,7 +120,10 @@ export function HomeHero({ id }: { id: string | undefined }) {
       want(h) {
         target = h;
         // Mid-fade: going back to the image underneath reverses the fade; returning to the incoming one resumes it.
-        if (anim && (h === shown[1 - front]) === anim.playbackRate > 0 && (h === shown[1 - front] || h === shown[front])) anim.reverse();
+        if (anim && (h === shown[1 - front]) === anim.playbackRate > 0 && (h === shown[1 - front] || h === shown[front])) {
+          anim.reverse();
+          out?.reverse();
+        }
         void pump();
       },
       failed() {
@@ -119,11 +134,13 @@ export function HomeHero({ id }: { id: string | undefined }) {
           shown[0] = HOME;
           el.srcset = HOME.srcSet;
           el.src = HOME.src;
+          setStart(el, HOME);
         }
       },
     };
     return () => {
       anim?.cancel();
+      out?.cancel();
       ctl.current = null;
     };
     // Set up once; the layers are driven imperatively from here on.
@@ -147,7 +164,7 @@ export function HomeHero({ id }: { id: string | undefined }) {
         alt=""
         // React 18 doesn't know fetchPriority; the lowercase attribute passes straight through.
         {...{ fetchpriority: "high" }}
-        style={{ zIndex: 1 }}
+        style={{ zIndex: 1, "--start": initial.start } as React.CSSProperties}
         onLoad={() => {
           if (warmed) return;
           warmed = true;

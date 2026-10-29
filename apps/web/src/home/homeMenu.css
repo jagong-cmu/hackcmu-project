@@ -13,27 +13,38 @@
   --home-gutter: calc(var(--home-fs) * 1.1);
 }
 
-/* Right half: hero image fading into --bg so the menu text stays readable.
-   Two stacked layers crossfade on selection (HomeHero.tsx). Missing files
-   render nothing, leaving only the Ambient glow. */
+/* Hero: the area right of the menu column, fading into --bg from its left
+   edge so it never sits under menu text. Two stacked layers crossfade on
+   selection (HomeHero.tsx). Missing files render nothing, leaving only the
+   Ambient glow. */
 .home-menu .home-hero {
+  --hero-fade: 6rem;
   position: absolute;
-  inset: 0 0 0 auto;
+  inset: 0 0 0 calc(clamp(var(--sp-6), 9.375vw, 7.5rem) + 34rem);
   z-index: -1;
-  width: 58%;
-  /* Left fade for the menu; bottom fade keeps the key hints AA over bright floors (hero-room). */
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 55%), linear-gradient(to top, transparent 0, black 9rem);
+  container-type: size;
+  /* Bottom fade keeps the key hints AA over bright floors (hero-room); short so it stays under the subjects' feet. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black var(--hero-fade)), linear-gradient(to top, transparent 0, black 4rem);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent 0%, black 55%), linear-gradient(to top, transparent 0, black 9rem);
+  mask-image: linear-gradient(to right, transparent 0, black var(--hero-fade)), linear-gradient(to top, transparent 0, black 4rem);
   mask-composite: intersect;
   pointer-events: none;
 }
+/* Pinned right and bottom so only the empty left side is ever cropped. Full
+   height unless the subject (from --start, set per image) plus the fade would
+   not fit the width; then it shrinks instead. 1.7917 = 1600/893. */
 .home-menu .home-hero img {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  right: 0;
+  bottom: 0;
+  height: min(100%, (100cqw - var(--hero-fade)) / (1.7917 * (1 - var(--start, 0.46))));
+  width: auto;
+  aspect-ratio: 1600 / 893;
+  /* Own fade so a shrunk image has no hard left or top edge; it ends before the subject. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black calc(var(--start, 0.46) * 100% - 2%)), linear-gradient(to bottom, transparent 0, black 8%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 0, black calc(var(--start, 0.46) * 100% - 2%)), linear-gradient(to bottom, transparent 0, black 8%);
+  mask-composite: intersect;
 }
 
 .home-menu .home-col { width: min(34rem, 100%); }
@@ -110,7 +121,7 @@
 @media (max-width: 899px) {
   .home-menu { padding-inline: var(--sp-5); align-items: flex-start; padding-top: var(--sp-8); }
   .home-menu .home-col { width: 100%; }
-  .home-menu .home-hero { inset: 0; width: 100%; opacity: 0.25; -webkit-mask-image: none; mask-image: none; }
+  .home-menu .home-hero { inset: 0; opacity: 0.25; -webkit-mask-image: none; mask-image: none; --hero-fade: 0px; }
   .home-menu { --home-fs: 26px; }
   .home-menu .home-foot { left: var(--sp-5); }
 }
