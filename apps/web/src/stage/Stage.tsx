@@ -335,7 +335,14 @@ export default function Stage() {
       >
         <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
-          <Link to="/" onClick={() => roomLeave()}>
+          {/* Same confirm as Esc: a stray click mid-match can forfeit. */}
+          <Link
+            to="/"
+            onClick={(e) => {
+              if (!window.confirm(`Leave the room? (${leaveSuffix(leaveEffect)})`)) e.preventDefault();
+              else roomLeave();
+            }}
+          >
             ← Leave
           </Link>
           <strong>{loungeName ?? `Room ${code}`}</strong>
