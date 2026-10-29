@@ -69,10 +69,8 @@ main.training .shell-inner .tag {
 
 main.training .song-collapse ~ .err { margin: 0; }
 
-/* Singing area, in the order it had before. */
-main.training .lyrics { align-self: stretch; text-align: center; }
-main.training .pitch-stage { min-height: 120px; }
-main.training .stage-self { align-self: flex-start; }
+/* The machine scales to whatever height the grid leaves it. */
+main.training .km-fit { min-height: 260px; }
 
 .train-actions {
   display: flex;
@@ -107,12 +105,8 @@ main.training .stage-self { align-self: flex-start; }
 @media (min-width: 760px) and (min-height: 700px) {
   main.page.shell.training { height: 100dvh; overflow-x: hidden; overflow-y: auto; }
   main.training .shell-inner { flex: 1 1 auto; min-height: 0; }
-  main.training .pitch-stage { flex: 1 1 0; min-height: 100px; }
-  main.training.is-singing .pitch-stage { min-height: 0; }
 }
 main.training.is-singing .tag { display: none; }
 
 main.page.shell.training.is-singing { padding-bottom: var(--sp-4); }
 
-/* No camera feed until a take starts, so the empty tile is just dead height. */
-main.training:not(.is-singing) .stage-self { display: none; }

@@ -19,7 +19,7 @@ import { loadCatalog, loadSongPack, type ReadySong } from "../scoring/catalog.ts
 import { HitCallout } from "../scoring/HitCallout.tsx";
 import { gradeLive } from "../scoring/hitGrade.ts";
 import { PitchMeter } from "../scoring/PitchMeter.tsx";
-import { LiveScoreHud, type ScoreBits } from "../scoring/ScoreBars.tsx";
+import type { ScoreBits } from "../scoring/ScoreBars.tsx";
 import { ResultsModal, ScoringWait } from "../results/ResultsModal.tsx";
 import { useMatchMomentCapture } from "../results/useMatchMoment.ts";
 import { holdMatchReel, stopMatchReel } from "../results/matchReel.ts";
@@ -34,6 +34,9 @@ import { PageShell } from "../theme/PageShell.tsx";
 import { Button } from "../ui/Button.tsx";
 import { KeyHintBar, type Hint } from "../ui/KeyHints.tsx";
 import { SongGrid } from "./SongGrid.tsx";
+import { KaraokeMachine, MachineStage, ScorePanel } from "../stage/KaraokeMachine.tsx";
+import { mmss, ProgressBar } from "../stage/ClipTimer.tsx";
+import { Digits } from "../ui/Digits.tsx";
 import "./training.css";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
 import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
@@ -77,6 +80,7 @@ export function Training() {
   const [scoring, setScoring] = useState(false);
   const [countMs, setCountMs] = useState<number | null>(null);
   const [camDenied, setCamDenied] = useState(false);
+  const [combo, setCombo] = useState(0);
   const [previewing, setPreviewing] = useState(false);
   const [clipKey, setClipKey] = useState("");
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
@@ -494,6 +498,9 @@ export function Training() {
   });
 
   const readySongs = songs.filter((s) => s.ready);
+  const youName = getDisplayName() || "You";
+  const elapsed = trainingClip && singing ? Math.max(0, playhead - trainingClip.startSec) : 0;
+  const total = trainingClip?.durationSec ?? meta?.clipDurationSec ?? 0;
   const nameOk = validName(getDisplayName());
 
   return (
@@ -523,30 +530,60 @@ export function Training() {
       {!nameOk ? <p className="err">Set a display name in Settings first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
 
-      <LyricsOverlay
-        lrc={lrc}
-        currentTime={playhead}
-        singFromSec={leadInActive ? trainingClip?.anchorSec : null}
-      />
-      <div className="pitch-stage">
-        <PitchMeter
-          melody={guideMelody}
-          playheadSec={playhead}
-          liveHz={liveHz}
-          liveClarity={liveClarity}
-          liveRms={liveRms}
-          voiceProfile={voiceProfile}
+      <MachineStage>
+        <div className="km-row">
+          <ScorePanel
+            side="you"
+            name={youName}
+            card={liveCard}
+            combo={combo}
+            camera={
+              <div className="stage-cam">
+                <div className="tile">
+                  {camDenied ? (
+                    <div className="placeholder cam-initial">{youName[0]}</div>
+                  ) : (
+                    <video ref={videoRef} muted playsInline />
+                  )}
+                </div>
+              </div>
+            }
+          />
+          <KaraokeMachine
+            title={meta?.title ?? "Training"}
+            label="Training"
+            time={<Digits value={`${mmss(elapsed)} / ${mmss(total)}`} />}
+            lanes={
+              <div className="pitch-stage">
+                <PitchMeter
+                  melody={guideMelody}
+                  playheadSec={playhead}
+                  liveHz={liveHz}
+                  liveClarity={liveClarity}
+                  liveRms={liveRms}
+                  voiceProfile={voiceProfile}
+                  onCombo={setCombo}
+                />
+                {running ? <HitCallout grade={gradeLive(guideMelody, playhead, liveHz)} /> : null}
+              </div>
+            }
+            lyrics={
+              <LyricsOverlay
+                lrc={lrc}
+                currentTime={playhead}
+                singFromSec={leadInActive ? trainingClip?.anchorSec : null}
+              />
+            }
+            lock={liveCard?.pitch ?? null}
+          />
+          <span />
+        </div>
+        <ProgressBar
+          label={meta ? `${meta.title} · ${meta.artist}` : "Training"}
+          elapsedSec={elapsed}
+          durationSec={total}
         />
-        {running ? <HitCallout grade={gradeLive(guideMelody, playhead, liveHz)} /> : null}
-        {running ? (
-          <LiveScoreHud left={{ name: getDisplayName() || "You", card: liveCard, singing: true }} />
-        ) : null}
-      </div>
-
-      <div className="stage-self">
-        {camDenied ? <div className="avatar-tile">camera off</div> : <video ref={videoRef} muted playsInline />}
-        <p>{getDisplayName() || "You"}</p>
-      </div>
+      </MachineStage>
 
       <audio ref={audioRef} className="instrumental" preload="auto" />
 
@@ -575,7 +612,7 @@ export function Training() {
       {card ? (
         <ResultsModal
           you={card}
-          youName={getDisplayName() || "You"}
+          youName={youName}
           songTitle={meta?.title}
           songArtist={meta?.artist}
           onHome={() => navigate("/")}
@@ -583,6 +620,12 @@ export function Training() {
             setCard(null);
             setLiveCard(null);
             setPlayhead(0);
+          }}
+          onPickSong={() => {
+            setCard(null);
+            setLiveCard(null);
+            setPlayhead(0);
+            document.querySelector<HTMLElement>('.song-grid .sl-item[tabindex="0"]')?.focus();
           }}
         />
       ) : null}
