@@ -325,7 +325,14 @@ export default function Stage() {
   return (
     <StageContext.Provider value={stageValue}>
       {/* Their ranked turn: the lyric fill and progress are theirs, so blue. */}
-      <div className={`stage stage-fit km-page${room?.mode === "ranked" && themSinging ? " is-their-turn" : ""}`}>
+      {/* From room state, not LiveKit: it must hold with cameras off too. */}
+      <div
+        className={`stage stage-fit km-page${
+          room?.mode === "ranked" && (room.status === "turnA" || room.status === "turnB") && room.activeSingerId !== me?.id
+            ? " is-their-turn"
+            : ""
+        }`}
+      >
         <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
           <Link to="/" onClick={() => roomLeave()}>
