@@ -69,6 +69,8 @@ main.training .shell-inner .tag {
 
 main.training .song-collapse ~ .err { margin: 0; }
 
+main.training:not(.is-singing) .km-stage-bg { display: none; }
+
 /* The machine scales to whatever height the grid leaves it. */
 main.training .km-fit { min-height: 260px; }
 

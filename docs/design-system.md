@@ -137,15 +137,19 @@ The one exception is `SelectableList`, where focus and selection are the same th
 
 ## Assets (`apps/web/src/ui/assets.ts`)
 
-All files are under `apps/web/public/images/`. **None exist yet**, and everything must work without them. Render them only through `<Img>`.
+All files are under `apps/web/public/images/`, exported at 2× their display size. Everything must still work without them: render them only through `<Img>`, and give every `<Img>` a `width` and `height`.
 
-| Constant | File |
-|---|---|
-| `Images.heroHome` | `hero-home.webp` |
-| `Images.mode.ranked / duet / training / chaos / room / leaderboard` | `mode-<name>.webp` |
-| `Images.art[0..5]`, `artFor(songId)` | `art-01.webp` … `art-06.webp`, fallback song art (stable per song) |
-| `Images.stageBg` | `stage-bg.webp` (optional) |
-| `Images.og` | `og.png` (`index.html` still points `og:image` at `/brand/social/`) |
+| Constant | File | Shown at |
+|---|---|---|
+| `Images.heroHome` / `heroHome1x` | `hero-home.webp` (2752w) / `hero-home-1600.webp` | Home, right 58%, as a `srcset`; the CSS mask fades it into `--bg` on the left |
+| `Images.mode.ranked / duet / training / chaos / room` | `mode-<name>.webp`, 240×240 | Home, under the description (120px) |
+| `Images.art[0..5]`, `artFor(songId)` | `art-01.webp` … `art-06.webp`, 96×96 | Training song grid (48px), lazy |
+| `Images.stageBg` | `stage-bg.webp` | Behind the singing view at 30%, mounted by `MachineStage` |
+| `Images.og` | `og.png`, 1200×630 | `og:image` and `twitter:image` in `index.html` |
+
+There is no leaderboard art yet. Add `mode.leaderboard` when the file exists; until then the Home slot shows nothing and requests nothing.
+
+**Backgrounds must be exactly `#05070D`.** Generated art comes back with a slightly lighter backdrop that shows as a box on the page. Fix the file rather than the CSS: pull the backdrop to `#05070D` and feather the outer edge into it. Never use blend modes.
 
 ## Note data (read-only for every session)
 

@@ -38,6 +38,17 @@
   min-height: 0;
   position: relative;
 }
+/* Optional backdrop behind the singing view only; kept well under the machine's brightness. */
+.km-stage-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.3;
+  pointer-events: none;
+}
 .km-stage {
   position: absolute;
   left: 50%;

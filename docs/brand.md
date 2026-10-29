@@ -79,10 +79,8 @@ Don't
 | `icon-192.png`, `icon-512.png` | px | PWA `any`; rounded tile with alpha corners. |
 | `icon-maskable-512.png` | 512×512 | PWA `maskable`; full bleed, mark inside the 80% safe circle. |
 | `site.webmanifest` | | name/short_name "Aria", theme + background `#04060c`. |
-| `social/og-image.png` | 1200×630 | Open Graph. |
-| `social/twitter-card.png` | 1200×600 | `summary_large_image`. |
 
-PNG render sources live in `src/` (`icons.html`, `og.html`, `twitter.html`). Open them at the stated size and screenshot the element to regenerate.
+The share image is `apps/web/public/images/og.png` (1200×630, the ARIA wordmark), used for both Open Graph and the Twitter card. Open them at the stated size and screenshot the element to regenerate.
 
 ## Wiring (in apps/web/index.html)
 
@@ -96,12 +94,13 @@ PNG render sources live in `src/` (`icons.html`, `og.html`, `twitter.html`). Ope
 <meta property="og:site_name" content="Aria">
 <meta property="og:title" content="Aria">
 <meta property="og:description" content="1v1 karaoke. Same chorus. They watch you.">
-<meta property="og:image" content="https://karaoke-arena.vercel.app/brand/social/og-image.png">
+<meta property="og:image" content="https://karaoke-arena.vercel.app/images/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Aria: 1v1 karaoke. Same chorus. They watch you.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Aria">
 <meta name="twitter:description" content="1v1 karaoke. Same chorus. They watch you.">
-<meta name="twitter:image" content="https://karaoke-arena.vercel.app/brand/social/twitter-card.png">
+<meta name="twitter:image" content="https://karaoke-arena.vercel.app/images/og.png">
+<meta name="twitter:image:alt" content="Aria: 1v1 karaoke. Same chorus. They watch you.">
 ```

@@ -7,6 +7,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Mode } from "@karaoke/shared";
 import { Digits } from "../ui/Digits.tsx";
+import { Images } from "../ui/assets.ts";
+import { Img } from "../ui/Img.tsx";
 import type { ScoreBits } from "../scoring/ScoreBars.tsx";
 import "./machine.css";
 
@@ -214,6 +216,7 @@ export function MachineStage({ children }: { children: ReactNode }) {
   }, []);
   return (
     <div className="km-fit" ref={boxRef}>
+      <Img className="km-stage-bg" src={Images.stageBg} alt="" width={1584} height={672} />
       <div className="km-stage" style={{ "--km-scale": scale } as React.CSSProperties}>
         {children}
       </div>

@@ -74,7 +74,7 @@ export function SongGrid({
               <span className="song-num t-num">{String(i + 1).padStart(3, "0")}</span>
               <span className="song-art" aria-hidden="true">
                 <span className="song-art-letter">{s.title.charAt(0)}</span>
-                <Img src={artFor(s.id)} alt="" />
+                <Img src={artFor(s.id)} alt="" width={96} height={96} loading="lazy" />
               </span>
               <span className="song-text">
                 <span className="song-title t-song">{s.title}</span>

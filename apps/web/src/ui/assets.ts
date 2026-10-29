@@ -1,19 +1,21 @@
 /**
- * Every image the UI may show, as paths under public/images/. None of these
- * files exist yet and the app must work without them: render them only
- * through <Img>, which shows nothing when a file is missing.
+ * Every image the UI may show, as paths under public/images/. The app must
+ * work without any of them: render them only through <Img>, which shows
+ * nothing when a file is missing. Files are exported at 2x their display size.
  */
 const dir = "/images";
 
 export const Images = {
+  /** 2752px wide; heroHome1x is 1600px. Use both as a srcset. */
   heroHome: `${dir}/hero-home.webp`,
+  heroHome1x: `${dir}/hero-home-1600.webp`,
   mode: {
     ranked: `${dir}/mode-ranked.webp`,
     duet: `${dir}/mode-duet.webp`,
     training: `${dir}/mode-training.webp`,
     chaos: `${dir}/mode-chaos.webp`,
     room: `${dir}/mode-room.webp`,
-    leaderboard: `${dir}/mode-leaderboard.webp`,
+    // No leaderboard art yet: add `leaderboard: `${dir}/mode-leaderboard.webp`` when the file exists.
   },
   /** Fallback song art, art-01 … art-06. */
   art: [1, 2, 3, 4, 5, 6].map((n) => `${dir}/art-0${n}.webp`),

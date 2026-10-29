@@ -87,7 +87,15 @@ export function Home() {
 
   return (
     <main className={`home-menu${intro ? " is-intro" : ""}`}>
-      <Img className="home-hero" src={Images.heroHome} alt="" />
+      <Img
+        className="home-hero"
+        src={Images.heroHome1x}
+        srcSet={`${Images.heroHome1x} 1600w, ${Images.heroHome} 2752w`}
+        sizes="(max-width: 899px) 100vw, 58vw"
+        width={1600}
+        height={893}
+        alt=""
+      />
       <Link to="/stats" className="home-stats">
         Stats
       </Link>
@@ -111,7 +119,7 @@ export function Home() {
           </p>
           <div className="home-illus" aria-hidden="true">
             {ENTRIES.filter((e) => e.id in Images.mode).map((e) => (
-              <Img key={e.id} src={Images.mode[e.id as keyof typeof Images.mode]} alt="" data-on={e.id === current.id} />
+              <Img key={e.id} src={Images.mode[e.id as keyof typeof Images.mode]} alt="" width={240} height={240} data-on={e.id === current.id} />
             ))}
           </div>
         </div>
