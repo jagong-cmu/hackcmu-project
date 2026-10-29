@@ -489,7 +489,7 @@ export default function Stage() {
               }}
               machine={(lock) => (
                 <KaraokeMachine
-                  title={song?.title ?? "Karaoke Arena"}
+                  title={song?.title ?? "Aria"}
                   label={machineLabel}
                   time={<ClipClock clockPlay={clockPlay} playAtUnixMs={room?.playAtUnixMs} />}
                   lanes={
