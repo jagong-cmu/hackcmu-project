@@ -226,7 +226,7 @@ input, textarea, select { caret-color: var(--red-text); }
 }
 
 /* Pressed: a 1px nudge, like .ui-btn. Zero specificity, so a component's own transform wins. */
-:where(button, [role="button"], a.cta, a.mode-card):active:not(:disabled) { transform: translateY(1px); }
+:where(button, [role="button"], a.cta):active:not(:disabled) { transform: translateY(1px); }
 
 /* Numerals in scores, clocks and tables line up. */
 .overall, time { font-variant-numeric: tabular-nums; }

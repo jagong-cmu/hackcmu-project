@@ -36,7 +36,7 @@ Paths are relative to `apps/web/src/` unless noted. A file not listed belongs to
 | File | What |
 |---|---|
 | `home/Home.tsx` | home screen (title, Play, top nav links) |
-| `home/ModeSelect.tsx`, `home/ModeButton.tsx` | mode picker (`/play`) and its mode buttons. |
+| `home/HomeHero.tsx` | Home hero image that follows the menu selection. `/play` redirects to Home (the old mode picker is gone). |
 | `home/Play.tsx` | mode queue page and private-room create / room-code join (`/play/:mode`) |
 | `home/Settings.tsx`, `home/identity.ts` | settings, display name |
 | `leaderboard/Leaderboard.tsx` | leaderboard |
@@ -72,7 +72,7 @@ Paths are relative to `apps/web/src/` unless noted. A file not listed belongs to
 
 ## Files two screens share (the one owner is in **bold**)
 
-- **`theme/PageShell.tsx` (A)**: used by Settings, `ModeSelect`, Play, Leaderboard, Stats, sign-in, legal, device and voice check, and by **B's Training and PitchTest**.
+- **`theme/PageShell.tsx` (A)**: used by Settings, Play, Leaderboard, Stats, sign-in, legal, device and voice check, and by **B's Training and PitchTest**.
 - **Owned by C, also rendered by B's Training:**
   - **`scoring/PitchMeter.tsx`**, **`scoring/ScoreBars.tsx`** and **`scoring/HitCallout.tsx`**
   - **`lyrics/LyricsOverlay.tsx`**

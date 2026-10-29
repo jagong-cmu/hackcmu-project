@@ -4,7 +4,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Home } from "./home/Home.tsx";
 import { Play } from "./home/Play.tsx";
-import { ModeSelect } from "./home/ModeSelect.tsx";
 import { Settings } from "./home/Settings.tsx";
 import { Leaderboard } from "./leaderboard/Leaderboard.tsx";
 import { ArenaStats } from "./leaderboard/ArenaStats.tsx";
@@ -35,7 +34,8 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/play" element={<RequireAuth><ModeSelect /></RequireAuth>} />
+          {/* Home is the mode picker now; leaving a queue and the device checks land here. */}
+          <Route path="/play" element={<Navigate to="/" replace />} />
           <Route path="/play/:mode" element={<RequireAuth><DeviceCheckGate><Play /></DeviceCheckGate></RequireAuth>} />
           <Route path="/check" element={<RequireAuth><DeviceCheck /></RequireAuth>} />
           <Route path="/check/voice" element={<RequireAuth><VoiceCheck /></RequireAuth>} />
