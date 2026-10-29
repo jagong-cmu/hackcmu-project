@@ -142,6 +142,7 @@ All files are under `apps/web/public/images/`, exported at 2× their display siz
 | Constant | File | Shown at |
 |---|---|---|
 | `Images.heroHome` / `heroHome1x` | `hero-home.webp` (2752w) / `hero-home-1600.webp` | Home, right 58%, as a `srcset`; the CSS mask fades it into `--bg` on the left |
+| `Images.heroRanked` / `heroRanked1x` (also `Duet`, `Training`, `Chaos`, `Room`, `Leaderboard`, `Settings`) | `hero-<mode>.webp` (2752w) / `hero-<mode>-1600.webp` | per-mode heroes, same framing as `hero-home`; Home doesn't swap to them yet |
 | `Images.mode.ranked / duet / training / chaos / room` | `mode-<name>.webp`, 240×240 | Home, under the description (120px) |
 | `Images.art[0..5]`, `artFor(songId)` | `art-01.webp` … `art-06.webp`, 96×96 | Training song grid (48px), lazy |
 | `Images.stageBg` | `stage-bg.webp` | Behind the singing view at 30%, mounted by `MachineStage` |
