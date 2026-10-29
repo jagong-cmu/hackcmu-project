@@ -344,7 +344,7 @@ export function VoiceCheck() {
                   </div>
                   <button
                     type="button"
-                    className={value != null ? "cta cta-ghost vc-step-btn" : "cta vc-step-btn"}
+                    className={isNext ? "cta vc-step-btn" : "cta cta-ghost vc-step-btn"} /* one red button: the step to do now */
                     disabled={!mic || active != null}
                     onClick={() => start(s.id)}
                   >

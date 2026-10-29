@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { capture } from "../analytics/posthog.ts";
 import { useAuth } from "../auth/AuthProvider.tsx";
 import { LegalLinks } from "../legal/LegalLinks.tsx";
-import { KeyHintBar } from "../ui/KeyHints.tsx";
+import { KeyHintBar, MenuHints } from "../ui/KeyHints.tsx";
 import { SelectableList, type ListItem } from "../ui/SelectableList.tsx";
 import { HomeHero } from "./HomeHero.tsx";
 import { getDisplayName, validName } from "./identity.ts";
@@ -112,7 +112,8 @@ export function Home() {
       <footer className="home-foot">
         <LegalLinks />
       </footer>
-      <KeyHintBar />
+      {/* Home is the top: no Esc. */}
+      <KeyHintBar hints={MenuHints.filter((h) => h.label !== "Back")} />
     </main>
   );
 }

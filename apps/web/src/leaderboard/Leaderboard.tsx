@@ -12,7 +12,7 @@ export function Leaderboard() {
   const [tab, setTab] = useState<"ranked" | "duet">("ranked");
   const [ranked, setRanked] = useState<RankedRow[]>([]);
   const [duet, setDuet] = useState<DuetRow[]>([]);
-  const [mongo, setMongo] = useState(true);
+  const [mongo, setMongo] = useState<boolean | null>(null); // null while loading
   const me = getDisplayName().trim().toLowerCase();
 
   useEffect(() => {
@@ -41,7 +41,9 @@ export function Leaderboard() {
   return (
     <PageShell title="Leaderboard" tag="Who’s been singing." wide quietWave className="pg-page">
       <div className="pg pg-wide">
-        {!mongo ? <p className="dim">Leaderboard is unavailable right now.</p> : null}
+        {mongo === false ? <p className="dim">Leaderboard is unavailable right now.</p> : null}
+        {mongo === false ? null : (
+        <>
         <div className="pg-tabs" role="tablist" aria-label="Leaderboard">
           {(["ranked", "duet"] as const).map((t) => (
             <button
@@ -73,7 +75,7 @@ export function Leaderboard() {
               {ranked.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="dim">
-                    No ranked matches yet.
+                    {mongo === null ? "Loading…" : "No ranked matches yet."}
                   </td>
                 </tr>
               ) : (
@@ -109,7 +111,7 @@ export function Leaderboard() {
               {duet.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="dim">
-                    No duet scores yet.
+                    {mongo === null ? "Loading…" : "No duet scores yet."}
                   </td>
                 </tr>
               ) : (
@@ -131,6 +133,8 @@ export function Leaderboard() {
               )}
             </tbody>
           </table>
+        )}
+        </>
         )}
       </div>
     </PageShell>

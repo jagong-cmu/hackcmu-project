@@ -82,17 +82,22 @@ export function ArenaStats() {
               .
             </p>
           ) : null}
-          {!stats?.mongo ? (
+          {/* Infrastructure notes are for us, not players. */}
+          {import.meta.env.DEV && !stats?.mongo ? (
             <p className="dim">Mongo is off, so these numbers reset when the server sleeps.</p>
           ) : null}
-          <p className="dim">
-            {stats?.posthog
-              ? "Pageviews and funnels also go to PostHog."
-              : "PostHog is not configured, so website traffic is only counted here."}
-          </p>
+          {import.meta.env.DEV ? (
+            <p className="dim">
+              {stats?.posthog
+                ? "Pageviews and funnels also go to PostHog."
+                : "PostHog is not configured, so website traffic is only counted here."}
+            </p>
+          ) : null}
         </>
       ) : null}
 
+      {stats ? (
+      <>
       <h2 className="t-label pg-h">Songs</h2>
       <table className="pg-table">
         <thead>
@@ -122,6 +127,8 @@ export function ArenaStats() {
           )}
         </tbody>
       </table>
+      </>
+      ) : null}
       </div>
     </PageShell>
   );

@@ -18,14 +18,6 @@ main.training .page-head h1 {
   line-height: 1.05;
   text-shadow: none;
 }
-main.training .page-head .back {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: var(--fs-body);
-  letter-spacing: normal;
-  color: var(--muted);
-}
-main.training .page-head .back:hover { color: var(--text); }
 
 main.training .shell-inner {
   width: min(80rem, 100%);
