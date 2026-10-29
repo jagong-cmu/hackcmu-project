@@ -324,8 +324,7 @@ export default function Stage() {
 
   return (
     <StageContext.Provider value={stageValue}>
-      {/* Their ranked turn: the lyric fill and progress are theirs, so blue. */}
-      {/* From room state, not LiveKit: it must hold with cameras off too. */}
+      {/* Their ranked turn: lyric fill and progress go blue. From room state, so it holds with cameras off. */}
       <div
         className={`stage stage-fit km-page${
           room?.mode === "ranked" && (room.status === "turnA" || room.status === "turnB") && room.activeSingerId !== me?.id
