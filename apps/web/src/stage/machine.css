@@ -24,10 +24,11 @@
   color: var(--muted);
 }
 .km-tab > span { transform: skewX(14deg); }
+/* The room's mode, not a choice of yours: ice, not red. */
 .km-tab.is-active {
-  background: var(--red);
-  border-color: var(--red);
-  color: var(--on-red);
+  background: rgb(var(--ice-rgb) / 0.12);
+  border-color: var(--ice);
+  color: var(--text);
 }
 
 /* ---- stage scaling ------------------------------------------------------ */
@@ -77,17 +78,6 @@
     0 34px 70px rgb(var(--bg-rgb) / 0.85);
 }
 /* The red glow on the floor under the machine. */
-.km-machine::after {
-  content: "";
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: -30px;
-  height: 36px;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgb(var(--red-rgb) / 0.3), transparent 72%);
-}
 .km-machine.no-lanes { height: auto; }
 
 .km-strip {
@@ -105,8 +95,8 @@
   border-radius: 50%;
   background: rgb(var(--line-rgb) / 0.3);
 }
-.km-led.red { background: var(--red); box-shadow: 0 0 6px rgb(var(--red-rgb) / 0.8); }
-.km-led.blue { background: var(--blue); box-shadow: 0 0 6px rgb(var(--blue-rgb) / 0.8); }
+/* Decorative, so never red or blue. */
+.km-led.on { background: var(--ice); box-shadow: 0 0 6px rgb(var(--ice-rgb) / 0.6); }
 
 .km-bezel {
   flex: 1;
@@ -127,8 +117,8 @@
   border-radius: 10px;
   background: var(--bg);
   box-shadow:
-    0 0 22px rgb(var(--blue-rgb) / 0.16),
-    inset 0 0 0 1px rgb(var(--blue-rgb) / 0.14);
+    0 0 22px rgb(var(--ice-rgb) / 0.08),
+    inset 0 0 0 1px rgb(var(--ice-rgb) / 0.12);
 }
 /* Glass sheen. */
 .km-screen::after {
@@ -149,7 +139,7 @@
 .km-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: var(--fs-song);
   line-height: 1.05;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -186,7 +176,7 @@
 }
 .km-machine .km-lanes .hit-callout {
   top: 8%;
-  font-size: 26px;
+  font-size: var(--fs-lyric-next);
 }
 .km-idle {
   display: grid;
@@ -287,9 +277,9 @@
   width: 6px;
   height: 14px;
   border-radius: 1px;
-  background: rgb(var(--blue-rgb) / 0.18);
+  background: rgb(var(--line-rgb) / 0.18);
 }
-.km-lock-bars i.b.on { background: var(--blue); }
+.km-lock-bars i.b.on { background: var(--ice); }
 .km-lock-bars i.r.on { background: var(--red); }
 .km-jack {
   display: flex;
@@ -356,7 +346,7 @@
 .km-combo {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--fs-logo);
   line-height: 1.05;
   color: var(--text);
 }
@@ -394,7 +384,7 @@
 .km-panel .km-cam .placeholder.cam-initial,
 .stage-chaos .tile .placeholder.cam-initial {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: var(--fs-lyric);
   color: var(--text);
   text-transform: uppercase;
 }

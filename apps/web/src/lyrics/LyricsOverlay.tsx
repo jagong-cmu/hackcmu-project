@@ -1,6 +1,7 @@
 import { cueAt, cueLabel, type DuetSeat } from "./duetParts.ts";
 import { lineAt, parseLrc, type LrcLine } from "./parseLrc.ts";
 import { formatCountdown } from "../stage/formatCountdown.ts";
+import { Digits } from "../ui/Digits.tsx";
 import { anchorLine, inLeadIn } from "./leadIn.ts";
 
 export type DuetView = {
@@ -64,7 +65,7 @@ function LeadIn({
   return (
     <div className="lyrics lyrics-leadin">
       <p className="lyrics-cue leadin">
-        Get ready · lyrics in {Math.max(1, Math.ceil(wait))}
+        Get ready · lyrics in <Digits value={Math.max(1, Math.ceil(wait))} />
       </p>
       <p className="lyrics-now lyrics-soon">
         {who ? <span className={`leadin-who ${who.kind}`}>{who.text} · </span> : null}
@@ -74,7 +75,7 @@ function LeadIn({
         {[4, 3, 2, 1].map((n) => (
           <span key={n} className={n <= beats ? "dot" : "dot spent"} />
         ))}
-        <span className="count-num">{formatCountdown(wait * 1000)}</span>
+        <span className="count-num"><Digits value={formatCountdown(wait * 1000)} /></span>
       </p>
     </div>
   );
@@ -149,7 +150,7 @@ export function LyricsOverlay({ lrc, currentTime, duet, singFromSec }: Props) {
             {[4, 3, 2, 1].map((n) => (
               <span key={n} className={n <= beats ? "dot" : "dot spent"} />
             ))}
-            <span className="count-num">{formatCountdown(wait * 1000)}</span>
+            <span className="count-num"><Digits value={formatCountdown(wait * 1000)} /></span>
           </p>
         </div>
       );

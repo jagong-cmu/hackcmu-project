@@ -340,7 +340,7 @@ export function ResultsModal({
         {unrated && revealOpponent ? <p className="elo friendly t-label">Unrated · friendly match</p> : null}
         {eloDelta != null && revealOpponent ? (
           <p className={`elo t-label ${eloDelta > 0 ? "up" : eloDelta < 0 ? "down" : ""}`}>
-            {eloDelta === 0 ? "ELO unchanged" : `${eloDelta > 0 ? "+" : "−"}${Math.abs(eloDelta)} ELO`}
+            {eloDelta === 0 ? "ELO unchanged" : <><Digits value={`${eloDelta > 0 ? "+" : "−"}${Math.abs(eloDelta)}`} /> ELO</>}
           </p>
         ) : null}
         <p className="results-blurb">{showGemini ? gemini : coach.line}</p>

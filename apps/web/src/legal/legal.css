@@ -18,7 +18,7 @@
   border-radius: 18px;
   background: var(--surface);
   color: rgb(var(--text-rgb) / 0.9);
-  font-size: 1rem;
+  font-size: var(--fs-body);
   line-height: 1.68;
   text-align: left;
 }
@@ -26,7 +26,7 @@
 .legal-doc h2 {
   margin: 34px 0 10px;
   font-family: var(--font-body);
-  font-size: 1.15rem;
+  font-size: var(--fs-desc);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text);
@@ -54,7 +54,7 @@
 
 .legal-updated {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
   letter-spacing: 0.02em;
 }
 
@@ -64,7 +64,7 @@
   border: 1px solid var(--line-soft);
   border-radius: 12px;
   background: rgb(var(--surface-rgb) / 0.6);
-  font-size: 0.92rem;
+  font-size: var(--fs-song);
 }
 .legal-toc ol { list-style: none; padding: 0; margin: 0; columns: 2 16rem; column-gap: 24px; }
 .legal-toc li { margin: 0 0 6px; break-inside: avoid; }
@@ -76,13 +76,13 @@
   padding-top: 16px;
   border-top: 1px solid var(--line-soft);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-song);
 }
 
 @media (max-width: 640px) {
   .legal-page.page { padding-left: 16px; padding-right: 16px; }
   .legal-page .shell-inner { margin-top: 110px; }
-  .legal-doc { padding: 20px 18px 24px; font-size: 0.97rem; }
+  .legal-doc { padding: 20px 18px 24px; font-size: var(--fs-body); }
 }
 
 /* Small print links used on Home, /signin and Settings. */
@@ -91,7 +91,7 @@
   justify-content: center;
   gap: 18px;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-label);
   letter-spacing: 0.02em;
 }
 .legal-links a {
@@ -103,7 +103,7 @@
 
 .auth-legal {
   margin: 4px 0 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   color: var(--muted);
   line-height: 1.5;
 }

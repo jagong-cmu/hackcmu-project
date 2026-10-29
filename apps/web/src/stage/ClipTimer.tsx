@@ -4,7 +4,7 @@
  * Reads the same `playAtUnixMs` the audio does, so the number on screen and the
  * music can never disagree.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { formatCountdown } from "./formatCountdown.ts";
 import { serverNow } from "../rooms/timeSync.ts";
 import type { ClockPlay } from "../rooms/RoomProvider.tsx";
@@ -42,7 +42,7 @@ export function ProgressBar({ label, elapsedSec, durationSec, note }: {
   elapsedSec: number;
   durationSec: number;
   /** Replaces the time on the right, e.g. a countdown. */
-  note?: string;
+  note?: ReactNode;
 }) {
   const frac = durationSec > 0 ? Math.min(1, elapsedSec / durationSec) : 0;
   return (
@@ -72,7 +72,7 @@ export default function ClipTimer({
   const clip = useClip(clockPlay, playAtUnixMs);
   if (!clip || status === "lobby") return <ProgressBar label={label} elapsedSec={0} durationSec={0} note="--:--" />;
   if (clip.msUntilStart > 0) {
-    return <ProgressBar label={label} elapsedSec={0} durationSec={clip.durationSec} note={`Starts in ${formatCountdown(clip.msUntilStart)}`} />;
+    return <ProgressBar label={label} elapsedSec={0} durationSec={clip.durationSec} note={<>Starts in <Digits value={formatCountdown(clip.msUntilStart)} /></>} />;
   }
   return <ProgressBar label={label} elapsedSec={clip.elapsedSec} durationSec={clip.durationSec} />;
 }

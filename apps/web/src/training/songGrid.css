@@ -38,7 +38,7 @@
   display: grid;
   place-items: center;
 }
-.song-art-letter { font-family: var(--font-display); color: var(--muted); font-size: 18px; line-height: 1; }
+.song-art-letter { font-family: var(--font-display); color: var(--muted); font-size: var(--fs-desc); line-height: 1; }
 /* <Img> renders nothing when the file is missing, so the letter tile shows through. */
 .song-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 

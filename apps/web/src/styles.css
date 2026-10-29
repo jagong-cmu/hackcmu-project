@@ -72,10 +72,10 @@
 .stage-top a {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
   white-space: nowrap;
 }
-.stage-top strong { white-space: nowrap; font-size: 0.95rem; }
+.stage-top strong { white-space: nowrap; font-size: var(--fs-song); }
 .stage-song {
   flex: 1;
   min-width: 0;
@@ -83,13 +83,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-song);
 }
 .stage-song em { font-style: normal; color: var(--text); }
 .stage-friendly {
   flex-shrink: 0;
   white-space: nowrap;
-  font-size: 0.72rem;
+  font-size: var(--fs-label);
   color: var(--muted);
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -129,7 +129,7 @@
   padding: 0.05rem 0.3rem;
 }
 .stage-fit .lyrics-now {
-  font-size: clamp(1.55rem, 3.6vw, 2.7rem);
+  font-size: var(--fs-title);
   line-height: 1.02;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -143,7 +143,7 @@
   min-height: 1.15em;
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  font-size: var(--fs-menu);
   letter-spacing: 0.06em;
   line-height: 1;
   color: var(--muted);
@@ -177,7 +177,7 @@
 .lyrics-next .next-line { min-width: 0; }
 .stage-fit .lyrics-next {
   margin: 8px 0 0;
-  font-size: clamp(1.15rem, 2.4vw, 1.85rem);
+  font-size: var(--fs-lyric-next);
   line-height: 1.15;
 }
 .stage-fit .pitch-guide {
@@ -204,7 +204,7 @@
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 0.9;
-  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  font-size: calc(var(--fs-score) * 1.7);
   text-shadow: 0 4px 18px rgb(var(--bg-rgb) / 0.65);
   animation: hit-pop 0.72s ease forwards;
 }
@@ -238,7 +238,7 @@
 .stage-chaos .tile .placeholder {
   place-items: end center;
   padding-bottom: 2.8rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   letter-spacing: 0.04em;
   opacity: 0.55;
 }
@@ -251,7 +251,7 @@
   gap: 0.55rem 1rem;
   flex-shrink: 0;
   margin: 0;
-  font-size: 0.92rem;
+  font-size: var(--fs-song);
   color: var(--muted);
 }
 .stage-fit .pitch-hold {
@@ -271,7 +271,7 @@
   flex-shrink: 0;
   align-items: center;
 }
-.stage-fit .room-code-digits { font-size: 1.55rem; }
+.stage-fit .room-code-digits { font-size: var(--fs-lyric-next); }
 
 .grid {
   display: grid;
@@ -315,7 +315,7 @@
   z-index: 2;
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
+  font-size: var(--fs-lyric);
   letter-spacing: 0.03em;
   line-height: 1;
   color: var(--muted);
@@ -330,7 +330,7 @@
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
   background: rgb(var(--bg-rgb) / 0.7);
-  font-size: 1rem;
+  font-size: var(--fs-body);
 }
 .tile .placeholder {
   position: absolute;
@@ -338,7 +338,7 @@
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
 }
 
 .callout {
@@ -374,13 +374,13 @@
   line-height: 0.9;
   color: var(--text);
 }
-.callout-count { font-size: clamp(5.5rem, 18vw, 9rem); font-variant-numeric: tabular-nums; }
+.callout-count { font-size: calc(var(--fs-score) * 3.3); font-variant-numeric: tabular-nums; }
 .callout-count.go { color: var(--ice); }
-.callout-title { font-size: clamp(3.2rem, 10vw, 6.5rem); }
+.callout-title { font-size: calc(var(--fs-score) * 2.4); }
 .callout-sub {
   margin: 0;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: var(--fs-body);
   max-width: 28rem;
   padding: 0 1.2rem;
 }
@@ -409,11 +409,11 @@
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-weight: 400;
   letter-spacing: 0.08em;
-  font-size: 1.15rem;
+  font-size: var(--fs-desc);
   line-height: 1;
 }
 .turn-guide span {
-  font-size: 0.8rem;
+  font-size: var(--fs-label);
   color: var(--muted);
 }
 .countdown-veil {
@@ -439,7 +439,7 @@
   color: var(--ice);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-size: 0.82rem;
+  font-size: var(--fs-song);
   text-shadow: 0 2px 18px rgb(var(--bg-rgb) / 0.55);
 }
 .countdown-headline {
@@ -460,7 +460,7 @@
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
   font-weight: 400;
-  font-size: clamp(4rem, 10vw, 7rem);
+  font-size: calc(var(--fs-score) * 2.5);
   letter-spacing: 0.04em;
   line-height: 0.9;
   color: var(--text);
@@ -473,7 +473,7 @@
 }
 
 @media (max-height: 700px) {
-  .stage-fit .lyrics-now { font-size: clamp(1.4rem, 3.6vw, 2.2rem); }
+  .stage-fit .lyrics-now { font-size: var(--fs-menu); }
   .stage-fit .pitch-guide { height: min(12vh, 100px); min-height: 72px; }
 }
 
@@ -481,20 +481,20 @@
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--fs-song);
   border: 1px solid var(--line-soft);
 }
 .badge.you { background: var(--ice); border-color: var(--ice); color: var(--bg); }
 .badge.together { background: var(--ice); border-color: var(--ice); color: var(--bg); }
 .badge.them { background: var(--surface-2); color: var(--muted); }
 
-.timer { font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; }
+.timer { font-variant-numeric: tabular-nums; font-size: var(--fs-lyric); font-weight: 700; }
 .timer .bar { height: 4px; background: var(--line-soft); border-radius: 999px; overflow: hidden; }
 .timer .bar span { display: block; height: 100%; background: var(--ice); }
 
 .stage.stage-fit button.cta {
   padding: 14px 28px;
-  font-size: 1.05rem;
+  font-size: var(--fs-body);
   border-radius: 999px;
   background: var(--red);
   color: var(--on-red);
@@ -511,11 +511,11 @@
   color: var(--text);
   border: 1px solid var(--line);
 }
-.stage.stage-fit .badge { font-size: 0.75rem; padding: 0.2rem 0.65rem; white-space: nowrap; }
+.stage.stage-fit .badge { font-size: var(--fs-label); padding: 0.2rem 0.65rem; white-space: nowrap; }
 
-.slot-empty { color: var(--muted); font-size: 0.8rem; }
-.warn { color: var(--ice); font-size: 0.85rem; }
-.err { color: var(--red-text); font-size: 0.85rem; }
+.slot-empty { color: var(--muted); font-size: var(--fs-label); }
+.warn { color: var(--ice); font-size: var(--fs-song); }
+.err { color: var(--text); font-weight: 600; font-size: var(--fs-song); }
 
 /* Retry affordance on the half-open capture notice (mic or camera missing). */
 .stage-alerts button.link {

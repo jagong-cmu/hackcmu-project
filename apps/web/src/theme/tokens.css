@@ -225,8 +225,11 @@ input, textarea, select { caret-color: var(--red-text); }
   box-shadow: none;
 }
 
+/* Pressed: a 1px nudge, like .ui-btn. Zero specificity, so a component's own transform wins. */
+:where(button, [role="button"], a.cta, a.mode-card):active:not(:disabled) { transform: translateY(1px); }
+
 /* Numerals in scores, clocks and tables line up. */
-.num, .overall, .score-meter-row, time { font-variant-numeric: tabular-nums; }
+.overall, time { font-variant-numeric: tabular-nums; }
 
 /* Reduced motion: no transforms or slides; state changes (colour, opacity) stay. */
 @media (prefers-reduced-motion: reduce) {

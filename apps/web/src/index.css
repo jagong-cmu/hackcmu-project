@@ -24,17 +24,10 @@ button, input, select { font: inherit; }
   padding: 28px 40px 64px;
 }
 
-.wordmark {
-  margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
 .back {
   color: var(--muted);
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--fs-song);
 }
 
 .back:hover { color: var(--text); }
@@ -56,7 +49,7 @@ button, input, select { font: inherit; }
 .quiet h1,
 .page-head h1,
 .shell-inner h1 {
-  font-size: clamp(2.8rem, 6vw, 4rem);
+  font-size: calc(var(--fs-score) * 1.5);
   margin: 48px 0 8px;
   color: var(--text);
   line-height: 0.95;
@@ -80,7 +73,7 @@ button, input, select { font: inherit; }
 .room-code-digits {
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 3rem;
+  font-size: var(--fs-title);
   letter-spacing: 0.12em;
   line-height: 1;
 }
@@ -91,10 +84,9 @@ button, input, select { font: inherit; }
   padding: 4px 0;
   cursor: pointer;
   color: var(--text);
-  font-family: var(--font-display);
-  text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 2rem;
-  letter-spacing: 0.04em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-body);
   text-decoration: none;
   width: fit-content;
   border-bottom: 3px solid transparent;
@@ -102,14 +94,11 @@ button, input, select { font: inherit; }
 }
 
 .btn:hover,
-.btn:focus-visible,
-.btn.gold:hover {
+.btn:focus-visible {
   border-bottom-color: var(--red);
-  outline: none;
   background: none;
   color: var(--text);
 }
-.btn.gold { background: none; color: var(--text); font-weight: 400; }
 .btn.ghost { border: 0; color: var(--text); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; border-bottom-color: transparent; }
 
@@ -122,11 +111,11 @@ input, select {
   border-radius: 0;
   min-width: 7rem;
 }
-input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
+input:focus, select:focus { border-bottom-color: var(--ice); }
 
 .ok { color: var(--ice); }
 .dim { color: var(--muted); }
-.err { color: var(--red-text); }
+.err { color: var(--text); font-weight: 600; } /* red is "you", never "danger" */
 
 .pitch-meter {
   display: block;
@@ -140,13 +129,13 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
 
 .lyrics { text-align: center; min-height: 7rem; margin: 8px 0 24px; }
 /* Lyrics are long: Hanken Grotesk, never Krona One (design-system.md). */
-.lyrics-now { font-family: var(--font-body); font-weight: 700; font-size: clamp(2.2rem, 5.5vw, 4.2rem); margin: 0; line-height: 1.05; }
+.lyrics-now { font-family: var(--font-body); font-weight: 700; font-size: calc(var(--fs-score) * 1.5); margin: 0; line-height: 1.05; }
 .lyrics-soon { color: var(--muted); }
-.lyrics-next { color: var(--muted); margin: 8px 0 0; font-size: clamp(1.05rem, 2vw, 1.5rem); }
+.lyrics-next { color: var(--muted); margin: 8px 0 0; font-size: var(--fs-lyric-next); }
 
 /* Instrumental gaps: count the singer back in. */
 .lyrics-rest {
-  font-size: clamp(2.2rem, 5.5vw, 4.2rem);
+  font-size: calc(var(--fs-score) * 1.5);
   margin: 0;
   color: var(--muted);
   opacity: 0.5;
@@ -167,7 +156,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
 .lyrics-count .dot.spent { background: var(--muted); }
 .lyrics-count .count-num {
   margin-left: 10px;
-  font-size: 1.4rem;
+  font-size: var(--fs-logo);
   font-weight: 600;
   color: var(--ice);
   min-width: 1.2em;
@@ -175,7 +164,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
 
 /* Speaker cue above the line (duet). */
 .lyrics-cue {
-  font-size: clamp(1.5rem, 3.2vw, 2.2rem);
+  font-size: var(--fs-menu);
   margin: 0;
   color: var(--muted);
 }
@@ -208,11 +197,11 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
   max-width: 520px;
   width: min(520px, 100%);
 }
-.results h2 { margin: 0 0 16px; font-size: 2.4rem; }
+.results h2 { margin: 0 0 16px; font-size: var(--fs-lyric); }
 
-.overall { font-size: 4.5rem; margin: 0; color: var(--text); line-height: 1; }
+.overall { font-size: calc(var(--fs-score) * 1.6); margin: 0; color: var(--text); line-height: 1; }
 .who { margin: 0; color: var(--muted); }
-.verdict { font-size: 1.05rem; margin-top: 16px; }
+.verdict { font-size: var(--fs-body); margin-top: 16px; }
 .elo, .shared { font-weight: 500; }
 .result-actions { display: flex; gap: 16px; margin-top: 20px; }
 
@@ -226,7 +215,7 @@ input:focus, select:focus { outline: none; border-bottom-color: var(--ice); }
   cursor: pointer;
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 1.4rem;
+  font-size: var(--fs-logo);
   letter-spacing: 0.04em;
 }
 .tabs button.on { color: var(--text); border-bottom-color: var(--ice); }

@@ -104,10 +104,10 @@ export function KaraokeMachine({
   return (
     <div className={`km-machine${lanes ? "" : " no-lanes"}`}>
       <div className="km-strip" aria-hidden="true">
-        <span className="km-led red" />
+        <span className="km-led on" />
         <span className="km-model t-tab">ARIA-1</span>
         <span className="km-leds">
-          <span className="km-led blue" />
+          <span className="km-led on" />
           <span className="km-led" />
           <span className="km-led" />
         </span>

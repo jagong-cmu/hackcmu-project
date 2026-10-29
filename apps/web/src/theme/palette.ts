@@ -35,15 +35,3 @@ export function palette(): Palette {
   };
   return cached;
 }
-
-/**
- * Your voice in the pitch lane: red (red = you). Higher notes read a little
- * lighter; `lit` is the in-tune state and gets the full-strength end.
- */
-export function pitchColor(midi: number, alpha = 1, lit = true): string {
-  // C2..C6 covers every melody in the catalogue plus the singers' range.
-  const t = Math.max(0, Math.min(1, (midi - 36) / 48));
-  const sat = lit ? 80 : 40;
-  const light = lit ? 50 + t * 14 : 40 + t * 10;
-  return `hsla(350, ${sat}%, ${light}%, ${alpha})`;
-}

@@ -39,7 +39,6 @@ import { mmss, ProgressBar } from "../stage/ClipTimer.tsx";
 import { Digits } from "../ui/Digits.tsx";
 import "./training.css";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
-import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
 import { capture } from "../analytics/posthog.ts";
 import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
@@ -404,11 +403,8 @@ export function Training() {
         return;
       }
       setCountMs(left);
-      setStatus(
-        left > OverlayHideMs
-          ? "Your turn to sing. Track starts after the countdown."
-          : `Starting in ${formatCountdown(left)}`,
-      );
+      // Constant on purpose: the status is aria-live and the overlay shows the number.
+      setStatus("Your turn to sing. Track starts after the countdown.");
     }, 80);
   }
 

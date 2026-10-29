@@ -19,7 +19,7 @@
 .dc-panel h2 {
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 1.7rem;
+  font-size: var(--fs-lyric-next);
   letter-spacing: 0.04em;
   font-weight: 400;
   margin: 0;
@@ -49,7 +49,7 @@
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--fs-song);
 }
 
 .dc-mic-state {
@@ -58,7 +58,7 @@
   min-height: 1.45em;
 }
 .dc-mic-state.is-good { color: var(--ice); font-weight: 600; }
-.dc-mic-state.is-bad { color: var(--red-text); }
+.dc-mic-state.is-bad { color: var(--text); font-weight: 600; }
 
 .dc-meter {
   display: grid;
@@ -83,18 +83,18 @@
 .dc-meter span.on:nth-child(n + 22) { background: var(--ice); }
 
 .dc-notice {
-  border: 1px solid rgb(var(--red-rgb) / 0.35);
-  background: rgb(var(--red-rgb) / 0.06);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
   border-radius: 12px;
   padding: 12px 14px;
-  font-size: 0.92rem;
+  font-size: var(--fs-song);
 }
 .dc-notice.is-soft {
   border-color: rgb(var(--ice-rgb) / 0.35);
   background: rgb(var(--ice-rgb) / 0.06);
 }
 .dc-notice p { margin: 0; color: var(--muted); }
-.dc-notice .dc-notice-head { color: var(--red-text); font-weight: 600; margin-bottom: 4px; }
+.dc-notice .dc-notice-head { color: var(--text); font-weight: 600; margin-bottom: 4px; }
 .dc-notice.is-soft .dc-notice-head { color: var(--ice); }
 
 .dc-pick {
@@ -102,7 +102,7 @@
   flex-direction: column;
   gap: 6px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
 }
 .dc-pick select {
   width: 100%;
@@ -118,7 +118,7 @@
   margin-top: auto;
   border-top: 1px solid var(--line-soft);
   padding-top: 14px;
-  font-size: 0.9rem;
+  font-size: var(--fs-song);
 }
 .dc-tip p { margin: 0; color: var(--muted); }
 .dc-tip .dc-tip-head { color: var(--ice); font-weight: 600; margin-bottom: 4px; }
@@ -129,33 +129,33 @@
   border: 0;
   color: var(--muted);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--fs-song);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
   padding: 8px;
 }
 .dc-skip:hover,
-.dc-skip:focus-visible { color: var(--text); outline: none; }
+.dc-skip:focus-visible { color: var(--text); }
 
 .device-check-link {
   margin: 14px auto 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--fs-song);
   text-align: center;
 }
 
 /* Voice range step (/check/voice). Same cards and meter styling as the mic check. */
 
 .vc-grid { grid-template-columns: 1fr 1.1fr; align-items: start; }
-.vc-saved { margin: 10px 0 0; color: var(--muted); font-size: 0.92rem; }
+.vc-saved { margin: 10px 0 0; color: var(--muted); font-size: var(--fs-song); }
 .vc-saved strong, .vc-result strong { color: var(--ice); }
 
 .vc-note {
   margin: 0;
   font-family: var(--font-display);
   text-transform: uppercase; /* the previous display face was caps-only; keep the look */
-  font-size: 4.2rem;
+  font-size: calc(var(--fs-score) * 1.5);
   line-height: 1;
   letter-spacing: 0.04em;
   color: var(--ice);
@@ -193,7 +193,7 @@
   display: flex;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--fs-label);
   margin-top: -8px;
 }
 
@@ -224,9 +224,9 @@
 .vc-step-text p { margin: 0; }
 .vc-step-title { font-weight: 600; display: flex; gap: 10px; align-items: baseline; }
 .vc-step-value { color: var(--ice); font-weight: 700; }
-.vc-step-prompt { color: var(--muted); font-size: 0.9rem; }
+.vc-step-prompt { color: var(--muted); font-size: var(--fs-song); }
 .vc-step.is-bad .vc-step-prompt { color: var(--ice); }
-.vc-step .vc-step-btn { flex: 0 0 auto; width: auto; max-width: none; min-width: 7rem; min-height: 40px; padding: 8px 18px; font-size: 0.95rem; }
+.vc-step .vc-step-btn { flex: 0 0 auto; width: auto; max-width: none; min-width: 7rem; min-height: 40px; padding: 8px 18px; font-size: var(--fs-song); }
 .vc-result { margin: 0; color: var(--muted); }
 
 .device-check-link a + a { margin-left: 1.2em; }

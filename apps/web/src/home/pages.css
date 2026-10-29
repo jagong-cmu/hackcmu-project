@@ -4,7 +4,7 @@
 .pg { width: 100%; text-align: left; display: grid; gap: var(--sp-6); align-content: start; }
 .pg-wide { gap: var(--sp-4); }
 .pg .dim, .pg p { margin: 0; color: var(--muted); font-size: var(--fs-body); }
-.pg .err { color: var(--red-text); }
+.pg .err { color: var(--text); font-weight: 600; }
 
 .pg-group { display: grid; gap: var(--sp-3); justify-items: start; padding-bottom: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
 .pg-group > h2 { margin: 0; color: var(--muted); }

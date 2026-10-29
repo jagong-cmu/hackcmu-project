@@ -10,7 +10,7 @@
 .auth-card .cta { max-width: none; }
 .auth-note {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
 }
 .auth-wait {
   margin: 30vh auto 0;
@@ -70,7 +70,7 @@
   align-items: center;
   border: 1px solid var(--line-soft);
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--fs-song);
 }
 .gis-busy { margin: 10px 0; }
 .gis-alt {
@@ -80,7 +80,7 @@
   padding: 2px 4px;
   color: var(--muted);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;

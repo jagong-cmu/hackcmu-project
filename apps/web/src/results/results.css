@@ -4,9 +4,7 @@
  */
 
 .results-scrim {
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 42%, rgb(var(--ice-rgb) / 0.28), transparent 62%),
-    color-mix(in srgb, var(--bg) 88%, transparent);
+  background: var(--scrim);
 }
 
 .results.results-show,
@@ -19,13 +17,10 @@
   padding: 28px 26px 22px;
   border: 1px solid color-mix(in srgb, var(--ice) 28%, var(--line));
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgb(var(--ice-rgb) / 0.16), transparent 58%),
-    rgb(var(--bg-rgb) / 0.92);
+  background: var(--surface);
   box-shadow:
     0 0 0 1px rgb(var(--ice-rgb) / 0.06) inset,
-    0 24px 80px rgb(var(--bg-rgb) / 0.55),
-    var(--glow-soft);
+    0 24px 80px rgb(var(--bg-rgb) / 0.55);
   text-align: center;
 }
 
@@ -56,7 +51,7 @@
 .results.results-show h2,
 .results.booth-wait h2 {
   margin: 0 0 6px;
-  font-size: clamp(1.6rem, 4vw, 2.2rem); /* Krona One is ~1.6x wider than the previous display face */
+  font-size: var(--fs-menu); /* Krona One is ~1.6x wider than the previous display face */
   line-height: 0.9;
   text-shadow: 0 0 28px rgb(var(--ice-rgb) / 0.35);
 }
@@ -64,10 +59,6 @@
 .results.band-good h2,
 .results.is-win h2 {
   text-shadow: 0 0 32px rgb(var(--ice-rgb) / 0.45), 0 0 18px rgb(var(--ice-rgb) / 0.3);
-}
-.results.band-bad h2,
-.results.is-loss h2 {
-  text-shadow: 0 0 24px rgb(var(--red-rgb) / 0.28);
 }
 
 /* ---- listening booth (wait) ------------------------------------------ */
@@ -161,7 +152,7 @@
   min-height: 1.5em;
   margin: 0 0 18px;
   color: var(--text);
-  font-size: 1.05rem;
+  font-size: var(--fs-body);
   animation: copy-swap 0.35s ease both;
 }
 .booth-wait .scoring-copy span {
@@ -188,7 +179,7 @@
   z-index: 1;
   margin: 10px auto 0;
   max-width: 26rem;
-  font-size: 1.12rem;
+  font-size: var(--fs-desc);
   line-height: 1.35;
   color: var(--text);
   opacity: 0;
@@ -202,43 +193,6 @@
   to { opacity: 1; transform: none; }
 }
 
-.results .score-break {
-  padding: 12px 12px 10px;
-  border-radius: 14px;
-  background: rgb(var(--surface-rgb) / 0.55);
-  border: 1px solid var(--line-soft);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.results .score-break.winner {
-  border-color: color-mix(in srgb, var(--ice) 55%, var(--line));
-  box-shadow: 0 0 24px rgb(var(--ice-rgb) / 0.18);
-}
-.results .score-break .who {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.win-tag {
-  font-family: var(--font-display);
-  letter-spacing: 0.08em;
-  font-size: 0.92rem;
-  color: var(--ice);
-  text-transform: uppercase;
-  border: 1.5px solid color-mix(in srgb, var(--ice) 70%, transparent);
-  border-radius: 4px;
-  padding: 1px 7px 0;
-  transform: rotate(-8deg);
-}
-
-.results-show .score-meter-track span {
-  transform-origin: left center;
-  animation: results-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.results-show .score-meter:nth-of-type(1) .score-meter-track span { animation-delay: 0.42s; }
-.results-show .score-meter:nth-of-type(2) .score-meter-track span { animation-delay: 0.56s; }
-.results-show .score-meter:nth-of-type(3) .score-meter-track span { animation-delay: 0.7s; }
-
 @keyframes results-fill {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
@@ -247,10 +201,10 @@
 .results .shared,
 .results .elo {
   margin: 12px 0 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-body);
 }
 .results .elo.up { color: var(--ice); }
-.results .elo.down { color: var(--red-text); }
+.results .elo.down { color: var(--muted); }
 
 .results .verdict {
   margin: 14px auto 0;
@@ -258,7 +212,7 @@
   padding: 10px 14px;
   border-left: 2px solid var(--line-strong);
   color: var(--ice);
-  font-size: 0.98rem;
+  font-size: var(--fs-body);
   line-height: 1.4;
   text-align: left;
   background: color-mix(in srgb, var(--surface-2) 35%, transparent);
@@ -268,7 +222,7 @@
 .results .rematch-status {
   margin: 0.75rem 0 0;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: var(--fs-song);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -299,14 +253,13 @@
   }
   .booth-ring,
   .booth-sweep,
-  .booth-eq i,
-  .results-show .score-meter-track span {
+  .booth-eq i {
     animation: none;
   }
   .results-blurb,
   .results-show .result-actions,
   .results-show .results-moment { opacity: 1; }
-  .results-show .score-meter-track span { transform: none; }
+
   .booth-eq i { transform: none; }
 }
 
@@ -318,7 +271,7 @@
   }
 
   .results.results-show h2,
-  .results.booth-wait h2 { font-size: 1.5rem; }
+  .results.booth-wait h2 { font-size: var(--fs-lyric-next); }
 }
 
 .results-moment {
@@ -360,21 +313,18 @@
   display: block;
   padding: 6px 8px 8px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-label);
   letter-spacing: 0.02em;
 }
 .results-moment:hover,
 .results-moment:focus-visible {
-  outline: none;
   border-color: var(--red);
   box-shadow: var(--glow-soft);
 }
 
 .share-scrim {
   z-index: 80;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 42%, rgb(var(--ice-rgb) / 0.22), transparent 62%),
-    color-mix(in srgb, var(--bg) 90%, transparent);
+  background: var(--scrim);
 }
 
 .share-sheet {
@@ -384,9 +334,7 @@
   padding: 22px 20px 18px;
   border: 1px solid color-mix(in srgb, var(--ice) 28%, var(--line));
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgb(var(--ice-rgb) / 0.16), transparent 58%),
-    rgb(var(--bg-rgb) / 0.96);
+  background: var(--surface);
   box-shadow:
     0 0 0 1px rgb(var(--ice-rgb) / 0.06) inset,
     0 24px 80px rgb(var(--bg-rgb) / 0.55);
@@ -395,7 +343,7 @@
 
 .share-sheet h2 {
   margin: 0 0 14px;
-  font-size: 1.55rem;
+  font-size: var(--fs-lyric-next);
   line-height: 1.1;
 }
 
@@ -474,7 +422,7 @@
 .km-res-break dd { margin: 2px 0 0; font-weight: 600; color: var(--text); }
 .km-results .elo { margin: var(--sp-3) 0 0; color: var(--muted); }
 .km-results .elo.up { color: var(--red-text); }
-.km-results .elo.down { color: var(--blue-text); }
+
 .km-results .results-blurb { margin: var(--sp-4) auto 0; color: var(--muted); }
 .km-results .result-actions {
   display: flex;
