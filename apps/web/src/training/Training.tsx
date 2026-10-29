@@ -31,14 +31,35 @@ import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { pitchAnalyser, rmsOf } from "../scoring/pitchGuide.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { PageShell } from "../theme/PageShell.tsx";
+import { Button } from "../ui/Button.tsx";
+import { KeyHintBar, type Hint } from "../ui/KeyHints.tsx";
+import { SongGrid } from "./SongGrid.tsx";
+import "./training.css";
 import CountdownOverlay from "../stage/CountdownOverlay.tsx";
 import { formatCountdown, OverlayHideMs } from "../stage/formatCountdown.ts";
 import { capture } from "../analytics/posthog.ts";
 import { useVoiceProfile } from "../auth/AuthProvider.tsx";
 
+const LastSongKey = "training:lastSong";
+
+function lastSong(): string {
+  try {
+    return localStorage.getItem(LastSongKey) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+const IdleHints: Hint[] = [
+  { keys: ["←", "→", "↑", "↓"], label: "Move" },
+  { keys: ["Enter"], label: "Start" },
+  { keys: ["P"], label: "Preview" },
+  { keys: ["Esc"], label: "Back" },
+];
+
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
-  const [songId, setSongId] = useState("viva-la-vida");
+  const [songId, setSongId] = useState(lastSong);
   const [meta, setMeta] = useState<SongMeta | null>(null);
   const [melody, setMelody] = useState<MelodyFile | null>(null);
   const [lrc, setLrc] = useState("");
@@ -97,8 +118,8 @@ export function Training() {
   useEffect(() => {
     void loadCatalog().then((list) => {
       setSongs(list);
-      const first = list.find((s) => s.ready);
-      if (first) setSongId(first.id);
+      // Keep the remembered song if it is still playable, else the first ready one.
+      setSongId((cur) => (list.some((s) => s.id === cur && s.ready) ? cur : (list.find((s) => s.ready)?.id ?? cur)));
     });
     void preloadCrepe()
       .then((model) => {
@@ -183,7 +204,10 @@ export function Training() {
 
   async function start() {
     stopPreview();
-    if (!meta || !melody) return;
+    if (!meta || !melody) {
+      setStatus("That song is still loading.");
+      return;
+    }
     setCard(null);
     setLiveCard(null);
     framesRef.current = [];
@@ -440,6 +464,35 @@ export function Training() {
     setStatus("Done.");
   }
 
+  const singing = running || countMs != null;
+
+  function pickSong(id: string) {
+    if (id === songId) return;
+    stopPreview();
+    setPlayhead(0);
+    setCard(null);
+    setSongId(id);
+    try {
+      localStorage.setItem(LastSongKey, id);
+    } catch {
+      /* private mode: just don't remember */
+    }
+  }
+
+  // P previews, Esc goes home. Enter is the focused song's own button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || singing || card || scoring) return;
+      if (e.key === "Escape") navigate("/");
+      else if (e.key.toLowerCase() === "p" && meta && !(e.target instanceof HTMLInputElement)) {
+        if (previewing) stopPreview();
+        else void startPreview();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const readySongs = songs.filter((s) => s.ready);
   const nameOk = validName(getDisplayName());
 
@@ -448,29 +501,24 @@ export function Training() {
       title="Training"
       tag="Pick a song, then sing. The wave behind you is your mic."
       wide
-      className="training"
+      className={singing ? "training is-singing" : "training"}
       level={Math.min(1, liveRms / 0.07)}
     >
-      <label className="song-pick">
-        Song
-        <select
-          value={songId}
-          disabled={running || countMs != null}
-          onChange={(e) => {
-            stopPreview();
-            setPlayhead(0);
-            setCard(null);
-            setSongId(e.target.value);
-          }}
-        >
-          {songs.map((s) => (
-            <option key={s.id} value={s.id} disabled={!s.ready}>
-              {s.title} — {s.artist}
-              {s.ready ? "" : " (incomplete)"}
-            </option>
-          ))}
-        </select>
-      </label>
+      <section className={`song-collapse${singing ? " is-collapsed" : ""}`} ref={(el) => {
+          if (el) el.inert = singing; // React 18 has no inert prop
+        }}
+      >
+        <div className="song-collapse-inner">
+          <h2 className="song-section t-label">Songs</h2>
+          <SongGrid
+            songs={songs}
+            selectedId={songId}
+            onSelect={pickSong}
+            onStart={() => void start()}
+            onBack={() => navigate("/")}
+          />
+        </div>
+      </section>
 
       {!nameOk ? <p className="err">Set a display name in Settings first.</p> : null}
       {readySongs.length === 0 ? <p className="err">No complete songs yet.</p> : null}
@@ -502,36 +550,25 @@ export function Training() {
 
       <audio ref={audioRef} className="instrumental" preload="auto" />
 
-      <p className="status">{status}</p>
-      <div className="ctas">
-        <button
-          type="button"
-          className="cta"
-          disabled={running || countMs != null || !meta || !nameOk}
-          onClick={() => void start()}
-        >
+      <div className="train-actions">
+        <p className="status" aria-live="polite">{status}</p>
+        <Button variant="primary" disabled={singing || !meta || !nameOk} onClick={() => void start()}>
           Start
-        </button>
-        <button
-          type="button"
-          className="cta cta-ghost"
-          disabled={running || countMs != null || !meta}
+        </Button>
+        <Button
+          disabled={singing || !meta}
           onClick={() => {
             if (previewing) stopPreview();
             else void startPreview();
           }}
         >
           {previewing ? "Pause preview" : "Preview"}
-        </button>
-        <button
-          type="button"
-          className="cta cta-ghost"
-          disabled={!running && countMs == null}
-          onClick={() => endRef.current?.()}
-        >
+        </Button>
+        <Button disabled={!singing} onClick={() => endRef.current?.()}>
           {countMs != null ? "Cancel" : "Stop & score"}
-        </button>
+        </Button>
       </div>
+      {singing ? null : <KeyHintBar hints={IdleHints} />}
 
       {countMs != null ? <CountdownOverlay remainingMs={countMs} singing /> : null}
       {scoring && !card ? <ScoringWait /> : null}
