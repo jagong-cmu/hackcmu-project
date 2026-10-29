@@ -1,5 +1,5 @@
 import type { ScoreCard } from "@karaoke/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scoreBand } from "../scoring/ScoreBars.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Digits } from "../ui/Digits.tsx";
@@ -303,11 +303,18 @@ export function ResultsModal({
     }
   };
 
+  // Keyboard players land on the first action (Sing again / Rematch) instead of <body>.
+  const actionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    actionsRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <div className="modal-scrim results-scrim">
       <div
         className={`results results-show km-results band-${band} ${youWon ? "is-win" : ""} ${theyWon ? "is-loss" : ""} ${landed ? "is-landed" : ""}`}
         role="dialog"
+        aria-modal="true"
         aria-labelledby="results-title"
       >
         {songTitle ? <p className="km-res-song t-label">{songTitle}{songArtist ? ` · ${songArtist}` : ""}</p> : null}
@@ -376,7 +383,7 @@ export function ResultsModal({
             {rematch.notice}
           </p>
         ) : null}
-        <div className="result-actions">
+        <div className="result-actions" ref={actionsRef}>
           {onAgain ? (
             <Button variant="primary" onClick={onAgain}>
               Sing again

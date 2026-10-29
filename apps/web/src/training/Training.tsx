@@ -465,6 +465,14 @@ export function Training() {
   }
 
   const singing = running || countMs != null;
+  const focusSong = () => document.querySelector<HTMLElement>('.song-grid .sl-item[tabindex="0"]')?.focus();
+
+  // A cancelled take leaves no results card: hand focus back to the grid so the arrows work.
+  const wasSinging = useRef(false);
+  useEffect(() => {
+    if (wasSinging.current && !singing && !card && !scoring) focusSong();
+    wasSinging.current = singing;
+  }, [singing, card, scoring]);
 
   function pickSong(id: string) {
     if (id === songId) return;
@@ -479,10 +487,14 @@ export function Training() {
     }
   }
 
-  // P previews, Esc goes home. Enter is the focused song's own button.
+  // P previews, Esc goes home (or stops the take). Enter is the focused song's own button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || singing || card || scoring) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || card || scoring) return;
+      if (singing) {
+        if (e.key === "Escape") endRef.current?.();
+        return;
+      }
       if (e.key === "Escape") navigate("/");
       else if (e.key.toLowerCase() === "p" && meta && !(e.target instanceof HTMLInputElement)) {
         if (previewing) stopPreview();
@@ -601,7 +613,7 @@ export function Training() {
           {countMs != null ? "Cancel" : "Stop & score"}
         </Button>
       </div>
-      {singing ? null : <KeyHintBar hints={IdleHints} />}
+      <KeyHintBar hints={singing ? [{ keys: ["Esc"], label: countMs != null ? "Cancel" : "Stop & score" }] : IdleHints} />
 
       {countMs != null ? <CountdownOverlay remainingMs={countMs} singing /> : null}
       {scoring && !card ? <ScoringWait /> : null}
@@ -613,15 +625,14 @@ export function Training() {
           songArtist={meta?.artist}
           onHome={() => navigate("/")}
           onAgain={() => {
-            setCard(null);
-            setLiveCard(null);
             setPlayhead(0);
+            void start();
           }}
           onPickSong={() => {
             setCard(null);
             setLiveCard(null);
             setPlayhead(0);
-            document.querySelector<HTMLElement>('.song-grid .sl-item[tabindex="0"]')?.focus();
+            focusSong();
           }}
         />
       ) : null}
