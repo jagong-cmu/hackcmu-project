@@ -33,6 +33,7 @@ import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { KaraokeMachine, MachineStage, ModeTabs, ScorePanel } from "./KaraokeMachine.tsx";
 import { useStageHud } from "./stageHud.ts";
 import { KeyHintBar } from "../ui/KeyHints.tsx";
+import { Button } from "../ui/Button.tsx";
 
 const ModeNames: Record<Mode, string> = { ranked: "Ranked", duet: "Duet", chaos: "Chaos", training: "Training" };
 const PhaseNames: Partial<Record<RoomState["status"], string>> = {
@@ -323,11 +324,12 @@ export default function Stage() {
 
   return (
     <StageContext.Provider value={stageValue}>
-      <div className="stage stage-fit km-page">
+      {/* Their ranked turn: the lyric fill and progress are theirs, so blue. */}
+      <div className={`stage stage-fit km-page${room?.mode === "ranked" && themSinging ? " is-their-turn" : ""}`}>
         <VoiceWave stream={livekit.micStream} />
         <header className="stage-top">
           <Link to="/" onClick={() => roomLeave()}>
-            ← leave
+            ← Leave
           </Link>
           <strong>{loungeName ?? `Room ${code}`}</strong>
           {friendly ? (
@@ -358,7 +360,7 @@ export default function Stage() {
         ) : null}
 
         <div className="stage-alerts">
-          {!connected && <p className="warn">reconnecting…</p>}
+          {!connected && <p className="warn">Reconnecting…</p>}
           {error && (
             <p className="err">{error.message}</p>
           )}
@@ -385,12 +387,12 @@ export default function Stage() {
           )}
           {(blocked || livekit.audioBlocked || (isChaos && clockPlay && !playing)) && (
             <p className="warn">
-              <button type="button" className="primary" onClick={() => {
+              <Button variant="primary" onClick={() => {
                 unlock();
                 void livekit.startAudio();
               }}>
                 {livekit.audioBlocked ? "Tap to hear your opponent" : "Tap to hear the track"}
-              </button>
+              </Button>
             </p>
           )}
           {toast && <p className="warn safety-toast" role="status">{toast}</p>}

@@ -125,7 +125,10 @@ export default function TurnOverlay({
   if (room.mode === "ranked" && (room.status === "turnA" || room.status === "turnB")) {
     guide = mine
       ? { title: "Your turn", body: `Sing this ${clipPart(room)}. They wait and watch.` }
-      : { title: "Wait", body: `${themName} is singing. Stay quiet — you go next.` };
+      : {
+          title: "Wait",
+          body: `${themName} is singing. Stay quiet${room.status === "turnA" ? " — you go next" : ""}.`,
+        };
   } else if (room.mode === "ranked" && room.status === "countdown") {
     guide = mine
       ? { title: "Your turn", body: `Sing this ${clipPart(room)}.` }

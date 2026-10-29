@@ -14,7 +14,6 @@
 }
 :where(.stage) button:not(.ui-btn):hover:not(:disabled) { border-color: var(--ice); }
 :where(.stage) button:not(.ui-btn):disabled { opacity: 0.45; cursor: not-allowed; }
-.stage button.primary { background: var(--ice); border-color: var(--ice); font-weight: 600; }
 
 .stage input {
   font: inherit;
@@ -95,10 +94,13 @@
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
 }
+/* Never clip: a second alert can be the "Tap to hear the track" unlock. */
 .stage-alerts {
   flex-shrink: 0;
-  max-height: 2.2rem;
-  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
 }
 .stage-alerts:not(:has(p)) { display: none; }
 .stage-alerts p { margin: 0; }
@@ -492,25 +494,6 @@
 .timer .bar { height: 4px; background: var(--line-soft); border-radius: 999px; overflow: hidden; }
 .timer .bar span { display: block; height: 100%; background: var(--ice); }
 
-.stage.stage-fit button.cta {
-  padding: 14px 28px;
-  font-size: var(--fs-body);
-  border-radius: 999px;
-  background: var(--red);
-  color: var(--on-red);
-  border: 0;
-  font-weight: 600;
-}
-
-.stage.stage-fit button.cta.is-on {
-  background: var(--red);
-  color: var(--on-red);
-}
-.stage.stage-fit button.cta-ghost {
-  background: rgb(var(--surface-rgb) / 0.72);
-  color: var(--text);
-  border: 1px solid var(--line);
-}
 .stage.stage-fit .badge { font-size: var(--fs-label); padding: 0.2rem 0.65rem; white-space: nowrap; }
 
 .slot-empty { color: var(--muted); font-size: var(--fs-label); }

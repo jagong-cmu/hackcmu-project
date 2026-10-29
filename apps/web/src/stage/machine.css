@@ -16,7 +16,8 @@
 .km-tab {
   display: grid;
   place-items: center;
-  flex: 0 0 150px;
+  flex: 0 1 150px;
+  min-width: 0;
   height: 40px;
   transform: skewX(-14deg);
   background: var(--surface);
@@ -226,7 +227,8 @@
 }
 .km-machine .km-lyrics .lyrics-now.lyrics-soon { color: rgb(var(--text-rgb) / 0.55); }
 .km-machine .km-lyrics .lyric-word.sung { color: var(--red-text); }
-.km-machine .km-lyrics .duet-them .lyric-word.sung { color: var(--blue-text); }
+.km-machine .km-lyrics .duet-them .lyric-word.sung,
+.km-page.is-their-turn .km-machine .km-lyrics .lyric-word.sung { color: var(--blue-text); }
 .km-machine .km-lyrics .lyrics-next {
   margin: 0;
   font-family: var(--font-body);
@@ -432,6 +434,7 @@
   transform-origin: left center;
   transition: transform 80ms linear;
 }
+.km-page.is-their-turn .km-track > span { background: var(--blue); }
 
 /* ---- Chaos: camera grid with the machine (lyrics only) beside it --------- */
 
