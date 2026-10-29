@@ -16,6 +16,7 @@ import { resetStageHud, setStageHud } from "./stageHud.ts";
 import { loadSongPack } from "../scoring/catalog.ts";
 import { isMusicOnly, PITCH_FFT } from "../scoring/cancelPlayback.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
+import { PitchLock } from "../scoring/pitchLock.ts";
 import { pitchAnalyser, rmsOf } from "../scoring/pitchGuide.ts";
 import { postTurnScore, ScoreRefused } from "../scoring/postScore.ts";
 import { getClientId, getDisplayName } from "../home/identity.ts";
@@ -146,6 +147,8 @@ export function StageLyrics() {
       return;
     }
     let cancelled = false;
+    // A rematch picks a new song: never show the last song's lines meanwhile.
+    setLrc("");
     setLrcFailed(false);
     void loadSongPack(id)
       .then((pack) => {
@@ -220,6 +223,12 @@ export function StagePitch() {
   const [liveClarity, setLiveClarity] = useState(0);
   const [liveRms, setLiveRms] = useState(0);
   const [mineLive, setMineLive] = useState<ScoreBits | null>(null);
+  const [myLock, setMyLock] = useState<number | null>(null);
+  const [themLock, setThemLock] = useState<number | null>(null);
+  const myLockRef = useRef(new PitchLock());
+  const themLockRef = useRef(new PitchLock());
+  /** The guide melody (lead-in silenced) the lock is judged against. */
+  const guideRef = useRef<MelodyFile | null>(null);
   // Display-only: seeds the pitch line's octave for *your* voice. Not scoring.
   const voiceProfile = useVoiceProfile();
   const lrcRef = useRef("");
@@ -340,6 +349,10 @@ export function StagePitch() {
 
   useEffect(() => {
     const id = room?.songId;
+    // A rematch picks a new song: never draw (or score against) the last
+    // song's melody while the new pack loads.
+    setMelody(null);
+    lrcRef.current = "";
     if (!id) return;
     let cancelled = false;
     void loadSongPack(id)
@@ -431,7 +444,10 @@ export function StagePitch() {
           framesRef.current.push({ timeSec: t, hz: null, clarity: 0 });
         }
         refreshRef.current(t);
-        if (meterRef.current) publish(null, 0, 0);
+        if (meterRef.current) {
+          publish(null, 0, 0);
+          setMyLock(myLockRef.current.push(guideRef.current, t, null, 0));
+        }
       } else {
         const [yinHz, yinClarity] = detector.findPitch(buf, ctx.sampleRate);
         const hz = Number.isFinite(yinHz) && yinHz > 0 ? yinHz : null;
@@ -443,6 +459,8 @@ export function StagePitch() {
         refreshRef.current(t);
         if (meterRef.current) {
           publish(hz, clarity, rms);
+          // Same frame the score reads: gated by the score's own rules.
+          setMyLock(myLockRef.current.push(guideRef.current, t, forScore ? hz : null, clarity));
         }
       }
       raf = requestAnimationFrame(tick);
@@ -471,6 +489,8 @@ export function StagePitch() {
     lastScoreAtRef.current = 0;
     runningRef.current = null;
     setMineLive(null);
+    myLockRef.current.reset();
+    setMyLock(null);
   }, [room, myPlayerId]);
 
   useEffect(() => {
@@ -523,6 +543,15 @@ export function StagePitch() {
     () => (melody ? melodyFrom(melody, singFrom) : null),
     [melody, singFrom],
   );
+  guideRef.current = guideMelody;
+
+  // The other singer's lock, from their pitch:live stream at the shared playhead.
+  useEffect(() => {
+    if (!watchLive || mine) return;
+    const t = displayPlayhead(clockPlayRef.current, roomRef.current, audioRef.current);
+    const heard = watchLive.rms >= 0.008 ? watchLive.hz : null;
+    setThemLock(themLockRef.current.push(guideMelody, t, heard, watchLive.clarity));
+  }, [watchLive, mine, guideMelody, audioRef]);
   const calloutGrade = gradeLive(guideMelody, playhead, shownHz);
 
   // Display-only combo per side, counted by the lane while that side's voice is on it.
@@ -533,12 +562,16 @@ export function StagePitch() {
     [laneSide],
   );
   useEffect(() => {
-    setStageHud({ you: youCard, them: themCard, laneSide, combo });
+    setStageHud({ you: youCard, them: themCard, laneSide, combo, lock: { you: myLock, them: themLock } });
   });
   useEffect(() => {
     setCombo({ you: 0, them: 0 });
+    myLockRef.current.reset();
+    themLockRef.current.reset();
+    setMyLock(null);
+    setThemLock(null);
     return resetStageHud;
-  }, [room?.matchId]);
+  }, [room?.matchId, room?.songId]);
 
   return (
     <div className="pitch-stage">
@@ -566,13 +599,19 @@ export function StageResults() {
   const seatedOpponent = room?.players.find((p) => p.id !== myPlayerId)?.displayName;
   if (seatedOpponent) lastOpponentRef.current = seatedOpponent;
   if (!room || !myPlayerId) return null;
-  if (room.status === "results" && !matchOver) return <ScoringWait />;
-  if (!matchOver) return null;
+  // A result for an earlier match (a rematch has started since) is never this one's.
+  const current =
+    matchOver &&
+    (matchOver.matchId == null || room.matchId == null || matchOver.matchId === room.matchId)
+      ? matchOver
+      : null;
+  if (room.status === "results" && !current) return <ScoringWait />;
+  if (!current || room.status !== "results") return null;
 
-  const you = scores[myPlayerId] ?? matchOver.scores[myPlayerId];
+  const you = scores[myPlayerId] ?? current.scores[myPlayerId];
   const opponent = room.players.find((p) => p.id !== myPlayerId);
   const oppCard = opponent
-    ? (scores[opponent.id] ?? matchOver.scores[opponent.id] ?? null)
+    ? (scores[opponent.id] ?? current.scores[opponent.id] ?? null)
     : null;
   if (!you) return <ScoringWait />;
 
@@ -584,15 +623,15 @@ export function StageResults() {
   const friendly = room.mode === "ranked" && room.rated === false;
   // eloDelta is seat A's. The server names seat A (`seatAId`): room.players
   // can be reordered by a results-phase reconnect, so it is only a fallback.
-  const seatAId = matchOver.seatAId ?? room.players[0]?.id;
+  const seatAId = current.seatAId ?? room.players[0]?.id;
   const myDelta =
     room.mode === "ranked" && !friendly
       ? seatAId === myPlayerId
-        ? matchOver.eloDelta
-        : -matchOver.eloDelta
+        ? current.eloDelta
+        : -current.eloDelta
       : null;
   const rankedWinner =
-    matchOver.winnerId ?? (room.mode === "ranked" ? "draw" : null);
+    current.winnerId ?? (room.mode === "ranked" ? "draw" : null);
   const song = room.songId ? songById(room.songId) : undefined;
 
   return (
@@ -602,7 +641,7 @@ export function StageResults() {
       opponent={oppCard}
       opponentName={opponent?.displayName ?? lastOpponentRef.current ?? "Them"}
       shareName={room.players.find((p) => p.id === myPlayerId)?.displayName}
-      forfeit={Boolean(matchOver.forfeit)}
+      forfeit={Boolean(current.forfeit)}
       opponentLeft={!opponent && Boolean(lastOpponentRef.current)}
       revealOpponent
       winnerId={rankedWinner}

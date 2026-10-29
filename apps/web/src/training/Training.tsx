@@ -2,9 +2,7 @@ import { PitchDetector } from "pitchy";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  clipWindowFor,
   MatchCountdownMs,
-  pickClipAnchor,
   type ClipWindow,
   type MelodyFile,
   type ScoreCard,
@@ -29,6 +27,8 @@ import {
 } from "../scoring/cancelPlayback.ts";
 import { crepeFromBuffer, preloadCrepe } from "../scoring/crepePitch.ts";
 import { pitchAnalyser, rmsOf } from "../scoring/pitchGuide.ts";
+import { PitchLock } from "../scoring/pitchLock.ts";
+import { wholeSongClip } from "./wholeSongClip.ts";
 import { scoreContour, type PitchFrame } from "../scoring/scoreClip.ts";
 import { PageShell } from "../theme/PageShell.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -52,6 +52,8 @@ function lastSong(): string {
   }
 }
 
+type SongPack = { id: string; meta: SongMeta; melody: MelodyFile; lrc: string; audioUrl: string };
+
 const IdleHints: Hint[] = [
   { keys: ["←", "→", "↑", "↓"], label: "Move" },
   { keys: ["Enter"], label: "Start" },
@@ -62,10 +64,26 @@ const IdleHints: Hint[] = [
 export function Training() {
   const [songs, setSongs] = useState<ReadySong[]>([]);
   const [songId, setSongId] = useState(lastSong);
-  const [meta, setMeta] = useState<SongMeta | null>(null);
-  const [melody, setMelody] = useState<MelodyFile | null>(null);
-  const [lrc, setLrc] = useState("");
-  const [audioUrl, setAudioUrl] = useState("");
+  /** The selected song's files, tagged with its id so a late load can't pass for another song. */
+  const [pack, setPack] = useState<SongPack | null>(null);
+  /**
+   * The song a take is sung to, fixed at Start until the results close. The
+   * grid can still move under the pointer (a hover while Chrome asks for the
+   * mic, or a click before the pack loaded); the screen, the audio, and the
+   * score all stay on this one.
+   */
+  const [take, setTake] = useState<SongPack | null>(null);
+  const takeRef = useRef<SongPack | null>(null);
+  takeRef.current = take;
+  const shown = take ?? (pack?.id === songId ? pack : null);
+  const meta = shown?.meta ?? null;
+  const melody = shown?.melody ?? null;
+  const lrc = shown?.lrc ?? "";
+  const audioUrl = shown?.audioUrl ?? "";
+  /** Start was pressed before this song's pack loaded: start once it does. */
+  const pendingStartRef = useRef<string | null>(null);
+  const [lock, setLock] = useState<number | null>(null);
+  const lockRef = useRef(new PitchLock());
   const [status, setStatus] = useState("Pick a song, then Start.");
   const [running, setRunning] = useState(false);
   const [playhead, setPlayhead] = useState(0);
@@ -137,26 +155,18 @@ export function Training() {
     let cancelled = false;
     const chosen = songs.find((s) => s.id === songId);
     if (!chosen?.ready) {
-      setMeta(null);
-      setMelody(null);
-      setLrc("");
-      setAudioUrl("");
+      setPack(null);
       return;
     }
     void loadSongPack(songId)
-      .then((pack) => {
+      .then((loaded) => {
         if (cancelled) return;
-        setMeta(pack.meta);
-        setMelody(pack.melody);
-        setLrc(pack.lrc);
-        setAudioUrl(pack.audioUrl);
+        setPack({ id: songId, ...loaded });
       })
       .catch(() => {
         if (cancelled) return;
-        setMeta(null);
-        setMelody(null);
-        setLrc("");
-        setAudioUrl("");
+        setPack(null);
+        pendingStartRef.current = null;
         setStatus("Could not load that song.");
       });
     return () => {
@@ -207,13 +217,22 @@ export function Training() {
 
   async function start() {
     stopPreview();
-    if (!meta || !melody) {
-      setStatus("That song is still loading.");
+    // Again from the results reuses the take's song; otherwise the selection's.
+    const p = takeRef.current ?? (pack?.id === songId ? pack : null);
+    if (!p) {
+      pendingStartRef.current = songId;
+      setStatus("Loading that song…");
       return;
     }
+    pendingStartRef.current = null;
+    takeRef.current = p;
+    setTake(p);
+    const { meta, melody, audioUrl } = p;
     setCard(null);
     setLiveCard(null);
     framesRef.current = [];
+    lockRef.current.reset();
+    setLock(null);
     setStatus("Allow the mic. Camera is optional.");
 
     // Raw mic. Chrome's noise suppression is tuned for speech and guts the
@@ -242,6 +261,7 @@ export function Training() {
         setCamDenied(true);
       } catch {
         setStatus("Mic blocked. Chrome needs a mic for Training.");
+        releaseTake();
         return;
       }
     }
@@ -255,13 +275,18 @@ export function Training() {
     capture("training started", { song_id: meta.id });
 
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio) {
+      stream.getTracks().forEach((tr) => tr.stop());
+      setMicStream(null);
+      releaseTake();
+      return;
+    }
     audio.src = audioUrl;
     audio.volume = 0.8;
-    // Same rule as a match: open ClipLeadInMs before the first lyric or the
-    // chorus (50/50, picked here since Training is solo), then run to the end.
-    const clip = clipWindowFor(meta, "training", pickClipAnchor(meta));
+    // The whole song from 0:00; the intro is the lead-in (see wholeSongClip).
+    const clip = wholeSongClip(meta, melody);
     const singFrom = clip.anchorSec;
+    const guide = melodyFrom(melody, singFrom);
     clipRef.current = clip;
     setTrainingClip(clip);
     setPlayhead(clip.startSec);
@@ -308,6 +333,7 @@ export function Training() {
         setLiveHz(null);
         setLiveClarity(0);
         setLiveRms(0);
+        setLock(lockRef.current.push(guide, t, null, 0));
       } else {
         const [yinHz, yinClarity] = detector.findPitch(clean, ctx.sampleRate);
         const model = crepeRef.current;
@@ -328,6 +354,8 @@ export function Training() {
           hz: forScore ? hz : null,
           clarity,
         });
+        // The lock reads the frame the score reads (CREPE when it is sure).
+        setLock(lockRef.current.push(guide, t, forScore ? hz : null, clarity));
         // The live guide always reads pitchy, like the stage does. Hopping
         // between CREPE and pitchy on a confidence that falls with volume let
         // loudness pick which detector drew the line, and CREPE's confidence
@@ -349,7 +377,7 @@ export function Training() {
       }
       if (audio.ended) {
         src.disconnect();
-        void finish(stream);
+        void finish(stream, p);
         return;
       }
       rafRef.current = requestAnimationFrame(tick);
@@ -373,11 +401,12 @@ export function Training() {
     endRef.current = () => {
       if (!begun) {
         stop();
+        releaseTake();
         setStatus("Cancelled.");
         return;
       }
       src.disconnect();
-      void finish(stream);
+      void finish(stream, p);
     };
 
     const begin = () => {
@@ -408,7 +437,8 @@ export function Training() {
     }, 80);
   }
 
-  async function finish(stream: MediaStream) {
+  async function finish(stream: MediaStream, p: SongPack) {
+    const { meta, melody, lrc } = p;
     stopRef.current = null;
     endRef.current = null;
     cancelAnimationFrame(rafRef.current);
@@ -421,7 +451,6 @@ export function Training() {
     holdMatchReel(clipKeyRef.current);
     stream.getTracks().forEach((tr) => tr.stop());
     setMicStream(null);
-    if (!meta || !melody) return;
 
     const startedAt = Date.now();
 
@@ -474,8 +503,25 @@ export function Training() {
     wasSinging.current = singing;
   }, [singing, card, scoring]);
 
+  /** The take is over and its results closed: the grid picks the song again. */
+  function releaseTake() {
+    takeRef.current = null;
+    setTake(null);
+  }
+
+  // Start pressed before the pack arrived: go as soon as it does, if still selected.
+  useEffect(() => {
+    const want = pendingStartRef.current;
+    if (!want || want !== songId || pack?.id !== songId) return;
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pack, songId]);
+
   function pickSong(id: string) {
     if (id === songId) return;
+    // Mid-take (even while Chrome asks for the mic) the song is fixed.
+    if (takeRef.current) return;
+    pendingStartRef.current = null;
     stopPreview();
     setPlayhead(0);
     setCard(null);
@@ -520,7 +566,7 @@ export function Training() {
       level={Math.min(1, liveRms / 0.07)}
     >
       <section className={`song-collapse${singing ? " is-collapsed" : ""}`} ref={(el) => {
-          if (el) el.inert = singing; // React 18 has no inert prop
+          if (el) el.inert = singing || Boolean(take); // React 18 has no inert prop
         }}
       >
         <div className="song-collapse-inner">
@@ -582,7 +628,7 @@ export function Training() {
                 singFromSec={leadInActive ? trainingClip?.anchorSec : null}
               />
             }
-            lock={liveCard?.pitch ?? null}
+            lock={lock}
           />
           <span />
         </div>
@@ -629,10 +675,12 @@ export function Training() {
             void start();
           }}
           onPickSong={() => {
+            releaseTake();
             setCard(null);
             setLiveCard(null);
             setPlayhead(0);
-            focusSong();
+            // After the re-render that lifts the grid's inert.
+            window.setTimeout(focusSong);
           }}
         />
       ) : null}

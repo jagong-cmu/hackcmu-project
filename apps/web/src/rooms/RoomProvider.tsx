@@ -29,6 +29,7 @@ import { getClientId, getDisplayName, helloPayload, recoverSocketAuth, setDispla
 import { syncClock } from "./timeSync.ts";
 import { authHeaders } from "../auth/supabase.ts";
 import { mergeMatchOver, type MatchOver } from "./matchOverMerge.ts";
+import { advanceMark, isNewerMatch, isOlderMatch, isStaleClock, type MatchMark } from "./matchGuard.ts";
 
 export type ClockPlay = {
   songId: string | null;
@@ -129,6 +130,11 @@ function clocksEqual(a: ClockPlay | null, b: ClockPlay | null): boolean {
 
 function mergeRoom(prev: RoomState | null, incoming: RoomState): RoomState {
   if (!prev || prev.code !== incoming.code) return incoming;
+  // A rematch: the new match's countdown/turns are "behind" results in
+  // STATUS_ORDER, but they replace it.
+  if (incoming.matchId != null && prev.matchId != null && incoming.matchId > prev.matchId) {
+    return incoming;
+  }
   if (prev.status === "results" && incoming.status === "lobby") return incoming;
   if (incoming.status === "results") return incoming;
   const ahead = STATUS_ORDER.indexOf(incoming.status) >= STATUS_ORDER.indexOf(prev.status);
@@ -161,6 +167,24 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const wantQueueRef = useRef<Mode | null>(null);
   const roomRef = useRef<RoomState | null>(null);
   roomRef.current = room;
+  /** The newest match seen in this room: late updates from an older one are dropped. */
+  const markRef = useRef<MatchMark | null>(null);
+
+  /** "stale" for an earlier match's update, "new" when a rematch has begun. */
+  const classifyMatch = (state: RoomState): "stale" | "same" | "new" => {
+    const mark = markRef.current;
+    if (isOlderMatch(mark, state.code, state.matchId)) return "stale";
+    const fresh = isNewerMatch(mark, state.code, state.matchId);
+    markRef.current = advanceMark(mark, state.code, state.matchId);
+    return fresh ? "new" : "same";
+  };
+  /** A rematch began: the last match's result, cards, and live pitch are history. */
+  const clearMatch = () => {
+    setMatchOver(null);
+    setScores({});
+    setLivePitch(null);
+    setLivePitches({});
+  };
 
   const flushQueueRef = useRef<() => void>(() => {});
 
@@ -202,6 +226,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       flushQueue();
     };
     const onRoomState = (state: RoomState) => {
+      const kind = classifyMatch(state);
+      if (kind === "stale") return;
+      if (kind === "new") clearMatch();
+      roomRef.current = state;
       setRoom(state);
       setError(null);
       if (state.status === "lobby") {
@@ -233,6 +261,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setError(null);
     };
     const onClockPlay = (payload: ClockPlay) => {
+      if (isStaleClock(roomRef.current, markRef.current, payload)) return;
       setClockPlay((prev) => (clocksEqual(prev, payload) ? prev : payload));
     };
     const onScoreReady = ({ playerId, score }: { playerId: string; score?: ScoreCard }) => {
@@ -243,7 +272,10 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       );
     };
     const onMatchOver = (payload: MatchOver) => {
-      setMatchOver({ ...payload, matchId: payload.matchId ?? roomRef.current?.matchId ?? null });
+      // The previous match's result, replayed after a rematch began: not ours.
+      const current = markRef.current?.matchId ?? roomRef.current?.matchId ?? null;
+      if (payload.matchId != null && current != null && payload.matchId !== current) return;
+      setMatchOver({ ...payload, matchId: payload.matchId ?? current });
       setScores(payload.scores);
       setClockPlay(null);
       setLivePitch(null);
@@ -337,6 +369,16 @@ export function RoomProvider({ children }: { children: ReactNode }) {
           scores?: Record<string, ScoreCard>;
           matchOver?: MatchOver | null;
         };
+        // One save behind (or another instance's copy of the last match): drop it
+        // whole, or it rewinds a rematch to the old results and the old clock.
+        if (data.room) {
+          const kind = classifyMatch(data.room);
+          if (kind === "stale") return;
+          if (kind === "new") clearMatch();
+        }
+        if (data.clock && isStaleClock(data.room ?? roomRef.current, markRef.current, data.clock)) {
+          data.clock = null;
+        }
         if (data.clock) {
           setClockPlay((prev) => (clocksEqual(prev, data.clock!) ? prev : data.clock!));
         } else if (
@@ -427,6 +469,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const roomLeave = useCallback(() => {
+    markRef.current = null;
     wantQueueRef.current = null;
     setQueuedMode(null);
     setRoom(null);

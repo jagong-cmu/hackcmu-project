@@ -12,9 +12,17 @@ export type StageHud = {
   /** Whose voice is on the lane right now, so the lock meter and combo follow it. */
   laneSide: "you" | "them";
   combo: { you: number; them: number };
+  /** Live PITCH LOCK per side (pitchLock.ts), 0–100, or null before any singing. */
+  lock: { you: number | null; them: number | null };
 };
 
-const empty: StageHud = { you: null, them: null, laneSide: "you", combo: { you: 0, them: 0 } };
+const empty: StageHud = {
+  you: null,
+  them: null,
+  laneSide: "you",
+  combo: { you: 0, them: 0 },
+  lock: { you: null, them: null },
+};
 let hud = empty;
 let key = JSON.stringify(hud);
 const listeners = new Set<() => void>();

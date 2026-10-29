@@ -796,7 +796,8 @@ function announce(
     if (prev?.matchId === matchId && (prev.final || !final)) return;
     announced.set(room, { matchId, final });
   }
-  io.to(room.code).emit(ServerEvents.matchOver, payload);
+  // Tagged with its match so a client already in the rematch can drop a late one.
+  io.to(room.code).emit(ServerEvents.matchOver, matchId != null ? { ...payload, matchId } : payload);
 }
 
 /**
@@ -1035,6 +1036,8 @@ export async function finishMatch(
     // Snap first so the losers also pick up the new ELO on the seats.
     await saveRoomSnap(room).catch(logOnce("saveRoomSnap"));
     await publishSettlement(room, matchId, payload).catch(logOnce("publishSettlement"));
+    // Both awaits run while the room shows results, where a rematch can start.
+    if (room.matchId !== matchId) return;
   }
   announce(io, room, matchId, payload, true);
   broadcastState(io, room);

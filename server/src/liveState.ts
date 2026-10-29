@@ -414,6 +414,12 @@ export function applySnap(room: Room, snap: RoomSnap): void {
     room.status !== "lobby" &&
     (room.songStartedAtMs ?? 0) > (snap.songStartedAtMs ?? 0);
   if (staleResults) return;
+  // A snap of an earlier match (a save that landed late, or another isolate
+  // that has not seen the rematch) must never rewind this one: its status,
+  // clip, and clock all belong to the old song.
+  const olderMatch =
+    snap.matchId != null && room.matchId != null && snap.matchId < room.matchId;
+  if (olderMatch) return;
   if (snapAhead || rematch || room.status === "lobby" || snap.status === room.status) {
     room.status = snap.status;
     room.songId = snap.songId;

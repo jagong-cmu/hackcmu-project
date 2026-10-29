@@ -14,6 +14,7 @@ import {
   rematchSeatLeft,
 } from "./clock.ts";
 import { mergeRematchSnap, requestRematch } from "./rematch.ts";
+import { applySnap, snapFromRoom } from "./liveState.ts";
 import { rematchView } from "../../apps/web/src/stage/rematchView.ts";
 
 function fakeIo() {
@@ -278,6 +279,32 @@ test("results screen copy follows the server offer and synced clock", () => {
     assert.deepEqual(rematchView(lapsed, "a", at + 60_000), { kind: "idle", notice: null });
     removePlayer(room, "b");
     assert.equal(rematchView(toPublic(room), "a", at, "b").kind, "unavailable");
+  } finally {
+    clearTimers(room);
+  }
+});
+
+test("a late snapshot of the previous match never rewinds an accepted rematch", () => {
+  const room = resultsRoom();
+  room.matchId = Date.now() - 40_000;
+  try {
+    // The old match's results, saved before the rematch (one save behind).
+    const stale = JSON.parse(JSON.stringify(snapFromRoom(room)));
+    // A stale mid-match copy too: "turnB" is ahead of "countdown" by status order.
+    const staleTurn = { ...stale, status: "turnB", playAtUnixMs: room.matchId + 25_000 };
+    handleRematchRequest(io, room, "a");
+    handleRematchRequest(io, room, "b");
+    assert.equal(room.status, "countdown");
+    const matchId = room.matchId;
+    const songId = room.songId;
+    const playAt = room.playAtUnixMs;
+    for (const snap of [stale, staleTurn]) {
+      applySnap(room, snap);
+      assert.equal(room.status, "countdown");
+      assert.equal(room.matchId, matchId);
+      assert.equal(room.songId, songId);
+      assert.equal(room.playAtUnixMs, playAt);
+    }
   } finally {
     clearTimers(room);
   }

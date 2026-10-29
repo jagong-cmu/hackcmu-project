@@ -32,6 +32,7 @@ import TurnOverlay from "./TurnOverlay.tsx";
 import { VoiceWave } from "../theme/VoiceWave.tsx";
 import { KaraokeMachine, MachineStage, ModeTabs, ScorePanel } from "./KaraokeMachine.tsx";
 import { useStageHud } from "./stageHud.ts";
+import { useMicPitchLock } from "../scoring/useMicPitchLock.ts";
 import { KeyHintBar } from "../ui/KeyHints.tsx";
 import { Button } from "../ui/Button.tsx";
 
@@ -60,7 +61,8 @@ function MachineRow({
   machine: (lock: number | null) => ReactNode;
 }) {
   const hud = useStageHud();
-  const lock = (hud.laneSide === "you" ? hud.you : hud.them)?.pitch ?? null;
+  // The meter follows whoever is on the lane, live (not the running clip score).
+  const lock = hud.lock[hud.laneSide];
   if (mode !== "duet") {
     return (
       <div className="km-row">
@@ -156,6 +158,12 @@ export default function Stage() {
   }, [code, unlock, livekit.startAudio]);
 
   const isChaos = room?.mode === "chaos";
+  // Chaos has no pitch lane, but the PITCH LOCK meter still reads your mic.
+  const chaosLock = useMicPitchLock({
+    micStream: isChaos ? livekit.micStream : null,
+    songId: isChaos ? room?.songId : null,
+    clockPlay: isChaos ? clockPlay : null,
+  });
   const inLobby = !room || room.status === "lobby";
   const showResults = room?.status === "results";
   const loungeName = chaosLoungeName(code);
@@ -451,7 +459,7 @@ export default function Stage() {
               label={machineLabel}
               time={<ClipClock clockPlay={clockPlay} playAtUnixMs={room?.playAtUnixMs} />}
               lyrics={<Slot component={slots.LyricsOverlay} label="LyricsOverlay" />}
-              lock={null}
+              lock={chaosLock}
             />
             {timer}
           </div>
