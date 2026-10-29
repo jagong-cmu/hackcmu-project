@@ -47,7 +47,7 @@ function useAttachedMedia<T extends HTMLMediaElement>(
   return ref;
 }
 
-function Tile({
+export function Tile({
   participant,
   singing,
   isLocal,

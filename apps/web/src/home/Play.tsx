@@ -5,6 +5,7 @@ import { getDisplayName, validName } from "./identity.ts";
 import { useRoom } from "../rooms/RoomProvider.tsx";
 import { PageShell } from "../theme/PageShell.tsx";
 import { Button } from "../ui/Button.tsx";
+import { RankedSearching } from "./RankedWaiting.tsx";
 import "./pages.css";
 
 type PlayMode = Extract<Mode, "ranked" | "duet" | "chaos">;
@@ -67,6 +68,7 @@ export function Play() {
     connected,
     error,
     roomLeave,
+    me,
   } = useRoom();
 
   const playMode = playModeOf(mode);
@@ -118,6 +120,22 @@ export function Play() {
       {error ? <p className="err">{error.message}</p> : null}
     </>
   );
+
+  if (matchmaking && playMode === "ranked") {
+    return (
+      <RankedSearching
+        me={me}
+        name={getDisplayName()}
+        connected={connected}
+        notice={named && !error ? null : notices}
+        onLeave={leave}
+        onHome={() => {
+          queueLeave();
+          roomLeave();
+        }}
+      />
+    );
+  }
 
   if (matchmaking) {
     const copy = QUEUE_COPY[playMode];

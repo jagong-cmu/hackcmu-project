@@ -19,7 +19,8 @@ import { useSafety } from "../rooms/useSafety.ts";
 import { useLiveKit } from "../media/useLiveKit.ts";
 import { useBlockedMedia } from "../media/useBlockedMedia.ts";
 import SafetyMenu, { SafetySheet, type LeaveEffect, type RemoveRule } from "./SafetyMenu.tsx";
-import VideoGrid, { CameraPane } from "../media/VideoGrid.tsx";
+import VideoGrid, { CameraPane, Tile } from "../media/VideoGrid.tsx";
+import { RankedMatched } from "../home/RankedWaiting.tsx";
 import { StageContext, type DuetVoiceCue, type StageContextValue } from "./StageContext.tsx";
 import { Slot, useStageSlots } from "./slots.tsx";
 import { useSharedClock } from "./useSharedClock.ts";
@@ -174,6 +175,18 @@ export default function Stage() {
     const id = window.setTimeout(() => setLeaveTick((n) => n + 1), left + 20);
     return () => window.clearTimeout(id);
   }, [forfeitPending, room?.matchId, room?.status]);
+  // Queue matches open on the ranked match-found screen until GO, once per room.
+  const [playedIn, setPlayedIn] = useState<string | null>(null);
+  useEffect(() => {
+    if (room && room.status !== "lobby" && room.status !== "countdown") setPlayedIn(room.code);
+  }, [room?.code, room?.status]);
+  const matchFound =
+    room?.mode === "ranked" &&
+    room.isPrivate === false &&
+    playedIn !== room.code &&
+    !matchOver &&
+    room.players.length >= 2 &&
+    (room.status === "lobby" || room.status === "countdown");
   const leaveEffect: LeaveEffect = leaveEffectOf(room, Boolean(matchOver), serverNow());
 
   const visible = livekit.participants.filter((p) => !safety.blocked.has(p.identity));
@@ -519,6 +532,16 @@ export default function Stage() {
         )}
 
         <TurnOverlay room={room} myPlayerId={me?.id ?? null} clockPlay={clockPlay} />
+        {matchFound && room && me ? (
+          <RankedMatched
+            room={room}
+            myId={me.id}
+            playAtUnixMs={clockPlay?.playAtUnixMs ?? room.playAtUnixMs}
+            youCamera={you ? <Tile participant={you} singing={false} isLocal /> : null}
+            themCamera={them ? <Tile participant={them} singing={false} isLocal={false} /> : null}
+            onHome={() => roomLeave()}
+          />
+        ) : null}
         <KeyHintBar hints={[{ keys: ["Esc"], label: "Leave" }]} />
         <audio ref={audioRef} className="instrumental" preload="auto" loop={false} />
 
